@@ -1,3 +1,90 @@
+# myli
+
+A self-hosted recipe manager for your household, run with Docker Compose.
+
+> **Status: in design.** The spec and architecture decisions are written; implementation starts with Phase 0. Nothing below is runnable yet.
+
+## Features
+
+- **Structured recipes:** ingredient groups, parsed quantities and units, ordered steps with markdown and photos, prep, cook and total times, difficulty, and nutrition entered by hand.
+- **Scaling:** any serving size, shown as readable fractions, in metric or imperial.
+- **Search:** typo-tolerant full-text search, ingredient autocomplete, filtering on several ingredients, and filters for cuisine, meal type, diet, allergens, difficulty and total time. Sort by rating, recency or time.
+- **Collaboration:**
+  - drafts and published versions
+  - full revision history, with side-by-side comparison and restore
+  - protection against overwriting someone else's edits
+  - comments and ratings
+- **Personal organization:** favorites, collections and private notes.
+- **Shopping lists:** built from selected recipes, with quantities scaled, units normalized and duplicates merged.
+- **Cook mode:** a large-type view of the whole recipe that keeps your screen awake.
+- **Access control:** invite-only accounts with admin, editor and viewer roles. Recipes can be private, shared with everyone on the instance, or shared through a read-only public link. Admins get an audit log.
+- **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and backups.
+
+The full specification is in [`docs/spec.md`](docs/spec.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  browser[Browser] -->|HTTPS| caddy[Caddy]
+  caddy -->|static files| spa[Vue SPA]
+  caddy -->|/api| api
+
+  subgraph api [API container]
+    hono[Hono API]
+    worker[Job worker]
+  end
+
+  hono --> sqlite[(SQLite<br/>source of truth)]
+  hono --> blobs[(Blob store<br/>local volume or S3)]
+  hono -->|search queries| meili[(Meilisearch)]
+  sqlite -.->|outbox jobs| worker
+  worker -->|index updates| meili
+  worker -->|email| smtp[SMTP]
+```
+
+- **SQLite is the source of truth.** Every recipe change also queues a search update in the same transaction, and a background worker pushes it to Meilisearch. Search is eventually consistent and can always be rebuilt from SQLite.
+- **One contract for the API.** Zod schemas generate the OpenAPI document, which drives both request validation and the typed frontend client.
+- **Caddy provides HTTPS,** which browsers require before they'll keep the screen awake for cook mode on a phone.
+
+### Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vue 3, TypeScript, Vite, Pinia, TanStack Query, shadcn-vue, Tailwind, Milkdown |
+| API | Node, TypeScript, Hono, Zod, OpenAPI 3.1, Scalar |
+| Data | SQLite, Drizzle ORM |
+| Search | Meilisearch |
+| Auth | Better Auth |
+| Infrastructure | Docker Compose, Caddy, Garage (optional S3 storage), Mailpit (development) |
+| Testing | Vitest, Testing Library, fast-check, Testcontainers, Playwright, axe |
+
+### Design decisions
+
+Each significant decision is recorded as an [Architecture Decision Record](docs/adr/):
+
+1. [Hono with OpenAPI generated from Zod](docs/adr/0001-hono-with-openapi-from-zod.md)
+2. [SQLite as the source of truth](docs/adr/0002-sqlite-as-source-of-truth.md)
+3. [Meilisearch, synced through a transactional outbox](docs/adr/0003-meilisearch-with-transactional-outbox.md)
+4. [Blob storage behind an interface, no MinIO](docs/adr/0004-blob-storage-abstraction-without-minio.md)
+5. [Better Auth with instance-wide roles and custom invitations](docs/adr/0005-better-auth-instance-roles-and-invitations.md)
+6. [Structured steps, with markdown edited in Milkdown](docs/adr/0006-structured-steps-and-milkdown.md)
+7. [Revision snapshots and optimistic concurrency](docs/adr/0007-revision-snapshots-and-optimistic-concurrency.md)
+
+## Getting started
+
+Setup instructions will be added once Phase 0 is done. The goal is a single `docker compose up` that starts a seeded demo instance with one account per role.
+
+## Roadmap
+
+| Phase | Scope |
+|---|---|
+| 0. Foundation | Monorepo, Compose stack, API skeleton with OpenAPI docs, database and migrations, authentication, roles, invitations, job worker, audit log, CI |
+| 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view |
+| 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash |
+| 3. Shopping lists | Aggregation, unit normalization, merging duplicates, manual items |
+| 4. Polish | URL import, exports, backup and restore tooling |
+
 ## License
 
 This project is licensed under the PolyForm Noncommercial License 1.0.0.

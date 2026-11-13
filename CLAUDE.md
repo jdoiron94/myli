@@ -1,0 +1,101 @@
+# myli
+
+myli is a self-hosted recipe app that runs with Docker Compose. It is built for real household use.
+
+- Full feature spec: `docs/spec.md`
+- Architecture decisions: `docs/adr/`
+
+## Working agreement (non-negotiable)
+
+- **Git: local, non-destructive use is fine. Get explicit permission first for anything destructive or remote:**
+  - pushing to any remote
+  - deleting remote branches
+  - rewriting history (force push, rebase, amending pushed commits)
+  - discarding work (`reset --hard`, `checkout -- .`, `clean`, `branch -D`, `stash drop`)
+- **Work in small, atomic increments.** Each increment is one coherent change that can be reviewed on its own. Example: "Drizzle setup + first migration", not "the whole data layer".
+- **Stop and check in after every increment,** not at the end of a phase. Each check-in lists:
+  - which files changed
+  - why
+  - how to verify (commands to run, what to look for)
+  - anything deferred or uncertain
+- **Wait for approval before starting the next increment.** Once an increment is approved, commit it locally with a conventional commit message.
+- **Every increment ships its own tests and doc updates** and leaves lint, typecheck and tests green.
+- **Plan each phase as a list of increments** before writing its code.
+
+## Scope
+
+`docs/spec.md` defines what is in scope and the phase order. These were deliberately rejected. Don't build them or suggest them unless the user brings them up:
+
+- multi-tenancy or households (there is one instance with instance-wide roles)
+- canonical ingredient catalog, pantry, "what can I make?"
+- meal planner
+- forking or copying recipes
+- passkeys, 2FA, OIDC/social login
+- PWA or offline support
+- cook-mode timers, voice control, saved progress, one-step-at-a-time view (cook mode shows all steps on one page)
+- automatic nutrition lookup (nutrition is entered by hand)
+
+## Architecture at a glance
+
+- **Monorepo** with pnpm workspaces:
+  - `apps/web`: Vue 3 + TS + Vite
+  - `apps/api`: Node + TS + Hono
+  - `packages/shared`: Zod schemas, types, permission policy, scaling/unit/aggregation logic
+- **Storage:**
+  - SQLite (better-sqlite3 + Drizzle) is the **source of truth**
+  - Meilisearch is a **derived** search index, rebuildable from SQLite
+  - blobs go through a `BlobStore` interface: local volume by default, an S3 adapter optional
+- **Services:** Caddy serves the SPA, proxies `/api`, and terminates HTTPS. HTTPS is required for the Screen Wake Lock API on the LAN.
+- **Auth:** Better Auth (email + password) with the `admin` plugin for roles (`admin`, `editor`, `viewer`), plus a custom invite-only invitations module.
+
+## Conventions and guardrails
+
+### Types and contracts
+- TypeScript `strict` everywhere. No `any` without a comment explaining why.
+- Zod schemas in `packages/shared` are the single source for validation and types.
+- The API's OpenAPI 3.1 spec is generated from those schemas.
+- The frontend's API client is generated from the OpenAPI spec. Never hand-write API request or response types.
+- API errors use RFC 9457 `application/problem+json`.
+
+### Authorization
+- All authorization goes through the shared policy module. Never write inline role checks in handlers or components.
+- Every new endpoint gets entries in the permission-matrix tests (role × endpoint).
+- **Viewers are strictly read-only.**
+- **Private recipes must never leak** through direct ID access, search results, revision endpoints or public links. Each of those paths has a test.
+
+### Search
+- The browser never talks to Meilisearch. All search goes through the API, which adds the authorization filter.
+- Any write that affects a recipe's search document inserts an outbox `job` row **in the same SQLite transaction**. Never call Meilisearch inline from a request handler.
+- Only published recipe versions are indexed; drafts never are.
+- Index settings (searchable, filterable and sortable attributes, synonyms) live in code and are applied on startup.
+
+### Content and security
+- User-written markdown (descriptions, steps, comments) is sanitized with DOMPurify when rendered.
+- Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
+- Outbound fetches (URL import) go through the SSRF guard.
+- Configuration comes from env vars, validated with Zod at startup. Every new var is added to `.env.example`.
+
+### Dependencies and Docker
+- Every dependency must be free and self-hostable. Pin exact versions.
+- Don't use MinIO: its Community Edition is archived and no longer ships official images.
+- Don't add Redis. Background jobs use the SQLite `job` table.
+- Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
+
+### Tooling
+- Biome for formatting, ESLint for linting (Vue rules), vue-tsc for type checks. lefthook runs them on staged files.
+
+### Testing
+- Vitest for unit tests.
+- API integration tests use Hono's `app.request()` against in-memory SQLite.
+- Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
+- Meilisearch integration tests use Testcontainers.
+- User flows get Playwright E2E tests with axe accessibility checks.
+
+## Commands
+
+No commands exist yet. They're added during Phase 0 scaffolding.
+
+## Docs
+
+- `docs/spec.md` is the product spec. Update it in the same increment whenever behavior changes.
+- `docs/adr/` holds architecture decisions in MADR format. When a decision changes, add a new ADR that supersedes the old one. Don't rewrite history.
