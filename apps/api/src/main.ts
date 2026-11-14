@@ -2,6 +2,8 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
 import { EnvError, loadEnv } from './env.ts';
+import { allJobs } from './jobs/all.ts';
+import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
 
 /** How long in-flight requests get to finish after SIGTERM before the process exits anyway. */
@@ -39,11 +41,30 @@ function openMigratedDatabase() {
 }
 
 const db = openMigratedDatabase();
+
+const worker = createWorker({ db, logger, jobs: allJobs });
+const requeued = worker.recoverInterrupted();
+if (requeued > 0) {
+  logger.warn({ count: requeued }, 'requeued jobs interrupted by the last shutdown');
+}
+worker.start();
+logger.info('job worker started');
+
 const app = createApp({ logger });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');
 });
+
+/** Stops accepting connections and resolves once in-flight requests have finished. */
+function closeServer() {
+  return new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
 
 /** Closes the database (checkpointing the WAL) and exits. */
 function exit(code: number): never {
@@ -51,21 +72,26 @@ function exit(code: number): never {
   process.exit(code);
 }
 
-function shutdown(signal: NodeJS.Signals) {
+async function shutdown(signal: NodeJS.Signals) {
   logger.info({ signal }, 'shutting down');
   setTimeout(() => {
-    logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'requests still open, exiting anyway');
+    logger.error(
+      { timeoutMs: SHUTDOWN_TIMEOUT_MS },
+      'requests or a job still running, exiting anyway',
+    );
     exit(1);
   }, SHUTDOWN_TIMEOUT_MS).unref();
-  // Stops accepting connections and calls back once in-flight requests have finished.
-  server.close((error) => {
-    if (error) {
-      logger.error({ err: error }, 'failed to close the server');
-      exit(1);
-    }
-    exit(0);
-  });
+  try {
+    await Promise.all([closeServer(), worker.stop()]);
+  } catch (error) {
+    logger.error({ err: error }, 'failed to shut down cleanly');
+    exit(1);
+  }
+  exit(0);
 }
 
-process.once('SIGTERM', shutdown);
-process.once('SIGINT', shutdown);
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => {
+    void shutdown(signal);
+  });
+}

@@ -28,6 +28,9 @@ export function openDatabase(path: string) {
 
 export type Db = ReturnType<typeof openDatabase>;
 
+/** The handle inside `db.transaction((tx) => …)`. Transactions are synchronous with better-sqlite3. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
 /** Applies every migration that hasn't run yet. Already-applied migrations are skipped. */
 export function migrateDatabase(db: Db): void {
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
