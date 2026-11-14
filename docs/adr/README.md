@@ -11,6 +11,7 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0005](./0005-better-auth-instance-roles-and-invitations.md) | Better Auth with instance-wide roles and custom invitations, no multi-tenancy | Accepted |
 | [0006](./0006-structured-steps-and-milkdown.md) | Structured steps, with markdown edited in Milkdown | Accepted |
 | [0007](./0007-revision-snapshots-and-optimistic-concurrency.md) | Revision snapshots and optimistic concurrency | Accepted |
+| [0008](./0008-run-typescript-with-node-type-stripping.md) | Run the API's TypeScript directly on Node, without a build step | Accepted |
 
 ## Adding an ADR
 
