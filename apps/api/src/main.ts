@@ -6,6 +6,7 @@ import { EnvError, loadEnv } from './env.ts';
 import { allJobs } from './jobs/all.ts';
 import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
+import { seedFirstAdmin } from './setup/seed.ts';
 
 /** How long in-flight requests get to finish after SIGTERM before the process exits anyway. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -42,6 +43,16 @@ function openMigratedDatabase() {
 }
 
 const db = openMigratedDatabase();
+const auth = createAuth({ db, env, logger });
+
+// Before the server listens, so it can't race the setup endpoint.
+try {
+  await seedFirstAdmin({ db, auth, logger }, env);
+} catch (error) {
+  logger.fatal({ err: error }, 'could not create the first admin from the environment');
+  db.$client.close();
+  process.exit(1);
+}
 
 const worker = createWorker({ db, logger, jobs: allJobs });
 const requeued = worker.recoverInterrupted();
@@ -51,7 +62,6 @@ if (requeued > 0) {
 worker.start();
 logger.info('job worker started');
 
-const auth = createAuth({ db, env, logger });
 const app = createApp({ logger, auth, db });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {

@@ -63,7 +63,10 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **First-run setup**
 - While no users exist, the app shows a one-time setup screen that creates the first admin.
-- Alternatively, environment variables can seed the first admin on startup.
+- Alternatively, `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` seed the first admin on startup, before the API accepts requests:
+  - all three or none; a partial set, an invalid email or a password that breaks the rules stops the API from starting
+  - if users already exist, the variables are ignored with a warning, and no existing user is changed
+  - the password is never logged
 - Once any user exists, setup is permanently unavailable.
 - Two setups at the same moment create exactly one admin (ADR 0009). After setup, the new admin signs in with the same email and password.
 
