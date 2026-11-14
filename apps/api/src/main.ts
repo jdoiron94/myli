@@ -73,7 +73,7 @@ if (requeued > 0) {
 worker.start();
 logger.info('job worker started');
 
-const app = createApp({ logger, auth, db });
+const app = createApp({ logger, auth, db, env });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');

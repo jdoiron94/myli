@@ -72,12 +72,16 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **Invitations (sign-up is invite-only)**
 - Public sign-up is disabled. An admin invites people by email and assigns a role up front.
+- **One open invitation per email.** An invitation is open until it's accepted or revoked; an expired one still counts, so the admin resends or revokes it. Inviting an email that already belongs to a user is refused.
 - **Tokens:**
-  - 32 random bytes; only the SHA-256 hash is stored
-  - expire after 7 days by default (configurable)
+  - 32 random bytes; only the SHA-256 hash is stored, so a link can't be shown again later
+  - never stored in the `job` table either: a job that emails an invitation creates a fresh token when it sends
+  - expire after 7 days by default (`INVITATION_TTL_DAYS`, 1 to 90)
   - single-use and revocable
   - resending invalidates the previous token and issues a new one
-- **Accepting:** the invitee follows the link, the token is checked, and the user is created through Better Auth's server API with the invited role.
+- **Links** look like `PUBLIC_URL/accept-invitation#<token>`. The token is in the fragment, which browsers never send to a server, so it stays out of access logs and Referer headers. The accept page sends it in a request body.
+- **Accepting:** the invitee follows the link, the token is checked, and the user is created through Better Auth's server API with the invited email and role, already verified. Accepting doesn't sign them in: they sign in next with the same email and password.
+- Unknown, expired, revoked and used links all get the same answer, so they can't be told apart.
 - **Without SMTP:** if SMTP isn't configured, the admin gets a **copy invite link** action instead of an email.
 - Accepting creates exactly one user; replaying a used token fails.
 

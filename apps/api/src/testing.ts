@@ -8,17 +8,20 @@ import { createTestDatabase } from './db/testing.ts';
 import type { Env } from './env.ts';
 import { createLogger, type Logger } from './logger.ts';
 
-/** The auth settings tests run with. `https`, so cookies behave as they do in production. */
-export const TEST_AUTH_ENV = {
+type TestEnv = Pick<Env, 'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET' | 'INVITATION_TTL_DAYS'>;
+
+/** The settings tests run with. `https`, so cookies behave as they do in production. */
+export const TEST_ENV = {
   NODE_ENV: 'test',
   PUBLIC_URL: 'https://myli.test',
   BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret',
-} as const satisfies Pick<Env, 'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET'>;
+  INVITATION_TTL_DAYS: 7,
+} as const satisfies TestEnv;
 
 export interface TestAppOptions {
   db?: Db;
   logger?: Logger;
-  env?: Partial<Pick<Env, 'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET'>>;
+  env?: Partial<TestEnv>;
 }
 
 /**
@@ -28,10 +31,10 @@ export interface TestAppOptions {
 export function createTestApp(options: TestAppOptions = {}) {
   const db = options.db ?? createTestDatabase();
   const logger = options.logger ?? createLogger('silent');
-  const env = { ...TEST_AUTH_ENV, ...options.env };
+  const env = { ...TEST_ENV, ...options.env };
   const auth = createAuth({ db, logger, env });
-  const app = createApp({ logger, auth, db });
-  return { app, db, auth, logger, publicUrl: env.PUBLIC_URL };
+  const app = createApp({ logger, auth, db, env });
+  return { app, db, auth, logger, env, publicUrl: env.PUBLIC_URL };
 }
 
 export type TestApp = ReturnType<typeof createTestApp>;

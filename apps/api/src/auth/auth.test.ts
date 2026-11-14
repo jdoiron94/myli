@@ -2,7 +2,7 @@ import { AUTH_BASE_PATH, problemDetailsSchema, type Role } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
 import { user } from '../db/schema.ts';
 import { createLogger } from '../logger.ts';
-import { createTestApp, TEST_AUTH_ENV, type TestApp } from '../testing.ts';
+import { createTestApp, TEST_ENV, type TestApp } from '../testing.ts';
 import { createUserWithPassword } from './users.ts';
 
 const ADA = { name: 'Ada', email: 'ada@example.com', password: 'Correct horse battery 9' };
@@ -20,7 +20,7 @@ function authRequest(
   return app.request(`${AUTH_BASE_PATH}${path}`, {
     method,
     headers: {
-      origin: TEST_AUTH_ENV.PUBLIC_URL,
+      origin: TEST_ENV.PUBLIC_URL,
       ...(body !== undefined && { 'content-type': 'application/json' }),
       ...headers,
     },

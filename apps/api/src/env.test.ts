@@ -27,6 +27,7 @@ describe('loadEnv', () => {
       PORT: 3000,
       LOG_LEVEL: 'info',
       DATABASE_PATH: './data/myli.db',
+      INVITATION_TTL_DAYS: 7,
       SMTP_SECURITY: 'starttls',
       ...REQUIRED,
     });
@@ -42,6 +43,7 @@ describe('loadEnv', () => {
         DATABASE_PATH: '/data/myli.db',
         PUBLIC_URL: 'http://localhost:5173',
         BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
+        INVITATION_TTL_DAYS: '14',
       }),
     ).toEqual({
       NODE_ENV: 'development',
@@ -51,6 +53,7 @@ describe('loadEnv', () => {
       DATABASE_PATH: '/data/myli.db',
       PUBLIC_URL: 'http://localhost:5173',
       BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
+      INVITATION_TTL_DAYS: 14,
       SMTP_SECURITY: 'starttls',
     });
   });
@@ -64,6 +67,12 @@ describe('loadEnv', () => {
 
   it('drops variables it does not know about', () => {
     expect(loadEnv({ ...REQUIRED, PATH: '/usr/bin', HOME: '/root' })).not.toHaveProperty('PATH');
+  });
+
+  it.each(['0', '91', '1.5', 'week'])('rejects INVITATION_TTL_DAYS=%s', (days) => {
+    expect(loadEnvError({ ...REQUIRED, INVITATION_TTL_DAYS: days }).message).toMatch(
+      /^\s+INVITATION_TTL_DAYS: /m,
+    );
   });
 
   it.each(['0', '65536', '80.5', 'http'])('rejects PORT=%s', (port) => {
