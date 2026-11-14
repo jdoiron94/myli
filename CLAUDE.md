@@ -67,6 +67,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Viewers are strictly read-only.**
 - **Private recipes must never leak** through direct ID access, search results, revision endpoints or public links. Each of those paths has a test.
 
+### Database
+- The Drizzle schema in `apps/api/src/db/schema.ts` is authoritative. After changing it, run `pnpm db:generate` and commit the new migration in `apps/api/drizzle/` (`pnpm test` fails if a schema change has no migration).
+- Never edit a migration that has been committed; add a new one. The API applies pending migrations on startup, before it listens.
+- Enumerated text columns get a CHECK constraint, not just a TypeScript type.
+
 ### Search
 - The browser never talks to Meilisearch. All search goes through the API, which adds the authorization filter.
 - Any write that affects a recipe's search document inserts an outbox `job` row **in the same SQLite transaction**. Never call Meilisearch inline from a request handler.
@@ -95,7 +100,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Testing
 - Vitest for unit tests.
-- API integration tests use Hono's `app.request()` against in-memory SQLite.
+- API integration tests use Hono's `app.request()` against in-memory SQLite: `createTestDatabase()` from `apps/api/src/db/testing.ts` gives each test a fresh, migrated database.
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers.
 - User flows get Playwright E2E tests with axe accessibility checks.
@@ -112,6 +117,7 @@ Run these from the repo root:
 - `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes.
 - `pnpm format`: Biome formats and sorts imports in place. `pnpm format:check` only reports.
 - `pnpm openapi:generate`: rewrites `apps/api/openapi.json` from the routes.
+- `pnpm db:generate`: generates a SQL migration from changes to the Drizzle schema. Name it with `--name <what_changed>` (no `--` separator: pnpm passes arguments straight through, and drizzle-kit rejects a literal `--`).
 
 ## Docs
 
