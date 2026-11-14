@@ -65,6 +65,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - While no users exist, the app shows a one-time setup screen that creates the first admin.
 - Alternatively, environment variables can seed the first admin on startup.
 - Once any user exists, setup is permanently unavailable.
+- Two setups at the same moment create exactly one admin (ADR 0009). After setup, the new admin signs in with the same email and password.
 
 **Invitations (sign-up is invite-only)**
 - Public sign-up is disabled. An admin invites people by email and assigns a role up front.
@@ -79,6 +80,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **Account basics**
 - email + password login
+- **Passwords:** 15 to 128 characters, with at least one lowercase letter, one uppercase letter, one number and one special character. A special character is anything but a letter or a number, and a space counts. Letters and numbers from any script count. The same rules apply everywhere a password is set: setup, invitations, changing it and resetting it.
 - email verification
 - password reset
 - rate limiting: Better Auth's built-in limiter on auth routes, and a general limiter on the rest of the API

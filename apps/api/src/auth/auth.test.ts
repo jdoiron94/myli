@@ -5,7 +5,7 @@ import { createLogger } from '../logger.ts';
 import { createTestApp, TEST_AUTH_ENV, type TestApp } from '../testing.ts';
 import { createUserWithPassword } from './users.ts';
 
-const ADA = { name: 'Ada', email: 'ada@example.com', password: 'correct horse battery' };
+const ADA = { name: 'Ada', email: 'ada@example.com', password: 'Correct horse battery 9' };
 
 /** A request as the browser would send it from the configured origin. */
 function authRequest(
@@ -67,7 +67,8 @@ describe('createUserWithPassword', () => {
   it('creates a verified user with the given role, who can then sign in', async () => {
     const t = createTestApp();
     const created = await userWithRole(t, 'editor');
-    expect(created).toMatchObject({ email: ADA.email, role: 'editor', emailVerified: true });
+    expect(created).toEqual({ id: created.id, name: ADA.name, email: ADA.email, role: 'editor' });
+    expect(t.db.select().from(user).get()).toMatchObject({ id: created.id, emailVerified: true });
 
     const res = await signIn(t, ADA.email, ADA.password);
     expect(res.status).toBe(200);
@@ -82,6 +83,45 @@ describe('createUserWithPassword', () => {
   it('rejects a role that does not exist', async () => {
     const t = createTestApp();
     await expect(userWithRole(t, 'owner' as Role)).rejects.toThrow();
+    expect(t.db.select().from(user).all()).toEqual([]);
+  });
+});
+
+describe('password rules on Better Auth endpoints', () => {
+  it('refuse a weak new password when changing it, and accept a strong one', async () => {
+    const t = createTestApp();
+    await userWithRole(t, 'viewer');
+    const { cookie } = sessionCookie(await signIn(t, ADA.email, ADA.password));
+    const change = (newPassword: string) =>
+      authRequest(t, '/change-password', {
+        body: { currentPassword: ADA.password, newPassword },
+        headers: { cookie },
+      });
+
+    const weak = await change('password1');
+    expect(weak.status).toBe(400);
+    expect(await weak.json()).toMatchObject({
+      code: 'PASSWORD_TOO_WEAK',
+      message: expect.stringContaining('Must be at least 15 characters.') as unknown,
+    });
+
+    expect((await change('An even better passphrase 2')).status).toBe(200);
+    expect((await signIn(t, ADA.email, 'An even better passphrase 2')).status).toBe(200);
+  });
+
+  it('refuse a weak password on reset, before the token is even looked at', async () => {
+    const res = await authRequest(createTestApp(), '/reset-password', {
+      body: { newPassword: 'weak', token: 'not-a-real-token' },
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: 'PASSWORD_TOO_WEAK' });
+  });
+
+  it('refuse to create a user with a weak password, even from server code', async () => {
+    const t = createTestApp();
+    await expect(
+      createUserWithPassword(t.auth, { ...ADA, password: 'weak', role: 'viewer' }),
+    ).rejects.toThrow(/Must be at least 15 characters/);
     expect(t.db.select().from(user).all()).toEqual([]);
   });
 });

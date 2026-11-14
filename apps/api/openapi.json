@@ -11,9 +11,298 @@
     }
   ],
   "components": {
-    "schemas": {},
+    "schemas": {
+      "SetupStatus": {
+        "type": "object",
+        "properties": {
+          "needed": {
+            "type": "boolean",
+            "description": "True until the first admin exists."
+          }
+        },
+        "required": [
+          "needed"
+        ]
+      },
+      "ValidationProblem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "/problems/validation-error"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Short summary of the problem type."
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              422
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "description": "Explanation of this occurrence, written for the client. Never contains internals."
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Matches the `X-Request-Id` response header and the server log lines for this request."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "in": {
+                  "type": "string",
+                  "enum": [
+                    "body",
+                    "query",
+                    "path",
+                    "header",
+                    "cookie"
+                  ],
+                  "description": "Which part of the request the field is in."
+                },
+                "pointer": {
+                  "type": "string",
+                  "description": "RFC 6901 JSON Pointer to the field within that part, e.g. `#/tags/0`."
+                },
+                "detail": {
+                  "type": "string",
+                  "description": "What is wrong with the field."
+                }
+              },
+              "required": [
+                "in",
+                "pointer",
+                "detail"
+              ]
+            },
+            "minItems": 1,
+            "description": "One entry per invalid field."
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "errors"
+        ],
+        "description": "A request that failed schema validation."
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Identifies the problem type. `about:blank` means the status code says everything, and `title` is then the standard status text."
+          },
+          "title": {
+            "type": "string",
+            "description": "Short summary of the problem type."
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599,
+            "description": "The HTTP status code."
+          },
+          "detail": {
+            "type": "string",
+            "description": "Explanation of this occurrence, written for the client. Never contains internals."
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Matches the `X-Request-Id` response header and the server log lines for this request."
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "description": "RFC 9457 problem details."
+      },
+      "SetupResult": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "user"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "editor",
+          "viewer"
+        ]
+      },
+      "SetupRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "password": {
+            "$ref": "#/components/schemas/Password"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "Password": {
+        "type": "string",
+        "minLength": 15,
+        "maxLength": 128,
+        "description": "15 to 128 characters, with a lowercase letter, an uppercase letter, a number and a special character (anything but a letter or a number, a space included)."
+      }
+    },
     "parameters": {}
   },
-  "paths": {},
+  "paths": {
+    "/setup": {
+      "get": {
+        "tags": [
+          "Setup"
+        ],
+        "summary": "Whether first-run setup is needed",
+        "description": "Public. True until the first admin exists, so the web app knows to show setup.",
+        "responses": {
+          "200": {
+            "description": "Whether setup is needed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Setup"
+        ],
+        "summary": "Create the first admin",
+        "description": "Public, and only works while no user exists. The new admin then signs in with the same email and password.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The first admin was created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupResult"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Setup is already complete, or another setup is in progress.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "webhooks": {}
 }

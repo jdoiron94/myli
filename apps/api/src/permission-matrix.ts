@@ -4,7 +4,7 @@
  * of caller and checks the status against the policy, and fails if an endpoint in the OpenAPI
  * document is missing here.
  */
-import { can, ROLES, type Role, type RoleAction } from '@myli/shared';
+import { API_BASE_PATH, can, ROLES, type Role, type RoleAction } from '@myli/shared';
 import { signedInAs, type TestApp } from './testing.ts';
 
 export const CALLERS = ['anonymous', ...ROLES] as const;
@@ -29,8 +29,45 @@ export interface EndpointCase {
   send: (t: TestApp, cookie: string | undefined) => Response | Promise<Response>;
 }
 
+/** A request to `API_BASE_PATH` + `path`, as the given caller, with a JSON body if there is one. */
+function request(
+  t: TestApp,
+  method: string,
+  path: string,
+  cookie: string | undefined,
+  body?: unknown,
+) {
+  return t.app.request(`${API_BASE_PATH}${path}`, {
+    method,
+    headers: {
+      ...(cookie !== undefined && { cookie }),
+      ...(body !== undefined && { 'content-type': 'application/json' }),
+    },
+    ...(body !== undefined && { body: JSON.stringify(body) }),
+  });
+}
+
 /** Every endpoint of the versioned API. Add an entry with each new endpoint. */
-export const ENDPOINTS: readonly EndpointCase[] = [];
+export const ENDPOINTS: readonly EndpointCase[] = [
+  {
+    method: 'get',
+    path: '/setup',
+    access: 'public',
+    send: (t, cookie) => request(t, 'GET', '/setup', cookie),
+  },
+  {
+    // Signed-in callers mean users exist, so they get 409, which still counts as getting through.
+    method: 'post',
+    path: '/setup',
+    access: 'public',
+    send: (t, cookie) =>
+      request(t, 'POST', '/setup', cookie, {
+        name: 'First Admin',
+        email: 'first-admin@example.com',
+        password: 'A first-admin password 1',
+      }),
+  },
+];
 
 /** What the policy says should happen: the request goes through, or exactly this status. */
 export function expectedOutcome(access: Access, caller: Caller): 'allowed' | 401 | 403 {

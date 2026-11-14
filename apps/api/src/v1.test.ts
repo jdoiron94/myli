@@ -2,11 +2,12 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { validationProblemSchema } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
 import { errorResponses } from './problems.ts';
+import { createTestApp } from './testing.ts';
 import { createV1Router } from './v1.ts';
 
 /** The v1 router with one route that validates a JSON body and a query parameter. */
 function routerWithTestRoute() {
-  const v1 = createV1Router();
+  const v1 = createV1Router(createTestApp());
   v1.openapi(
     createRoute({
       method: 'post',

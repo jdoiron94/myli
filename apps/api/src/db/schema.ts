@@ -107,6 +107,20 @@ export const verification = sqliteTable(
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * Held while first-run setup creates the first admin, so two setups can't run at once (ADR 0009).
+ * At most one row, and only for the moment the admin is being created.
+ */
+export const setupClaim = sqliteTable(
+  'setup_claim',
+  {
+    id: integer('id').primaryKey(),
+    /** Also identifies the claim, so a setup only ever releases its own. */
+    claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [check('setup_claim_single_row', sql`${table.id} = 1`)],
+);
+
+/**
  * Background jobs and the search outbox (ADR 0003). Rows are inserted in the same transaction as
  * the change they follow from, and the in-process worker picks them up.
  */

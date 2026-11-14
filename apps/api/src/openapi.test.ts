@@ -29,6 +29,19 @@ describe('GET /api/v1/openapi.json', () => {
     }
   });
 
+  it('documents the password rules it can express, and describes the rest', async () => {
+    const doc = JSON.parse(await renderOpenApiDocument()) as {
+      components: { schemas: Record<string, unknown> };
+    };
+    // Character rules are refinements: as `.regex()` they'd render as one mangled pattern.
+    expect(doc.components.schemas.Password).toEqual({
+      type: 'string',
+      minLength: 15,
+      maxLength: 128,
+      description: expect.stringContaining('a special character') as unknown,
+    });
+  });
+
   it('leaves out operational endpoints such as /healthz', async () => {
     const doc = JSON.parse(await renderOpenApiDocument()) as { paths?: Record<string, unknown> };
     expect(Object.keys(doc.paths ?? {})).not.toContain('/healthz');
