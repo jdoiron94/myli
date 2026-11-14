@@ -32,7 +32,10 @@ export interface EndpointCase {
   send: (t: TestApp, cookie: string | undefined) => Response | Promise<Response>;
 }
 
-/** A request to `API_BASE_PATH` + `path`, as the given caller, with a JSON body if there is one. */
+/**
+ * A request to `API_BASE_PATH` + `path`, as the given caller, with a JSON body if there is one.
+ * Requests that change data say they're JSON even without a body, as the API requires.
+ */
 function request(
   t: TestApp,
   method: string,
@@ -44,14 +47,14 @@ function request(
     method,
     headers: {
       ...(cookie !== undefined && { cookie }),
-      ...(body !== undefined && { 'content-type': 'application/json' }),
+      ...(method !== 'GET' && { 'content-type': 'application/json' }),
     },
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 }
 
-/** The token of a new, open invitation, made by a new admin directly in the database. */
-async function openInvitationToken(t: TestApp): Promise<string> {
+/** A new, open invitation, made by a new admin directly in the database: its ID and token. */
+async function openInvitation(t: TestApp): Promise<{ id: string; token: string }> {
   const admin = await createUserWithPassword(t.auth, {
     name: 'Inviting Admin',
     email: `inviter-${randomUUID()}@example.com`,
@@ -63,7 +66,7 @@ async function openInvitationToken(t: TestApp): Promise<string> {
     { email: `invitee-${randomUUID()}@example.com`, role: 'viewer', invitedBy: admin.id },
   );
   if (!result.ok) throw new Error(`could not create an invitation: ${result.reason}`);
-  return new URL(result.link).hash.slice(1);
+  return { id: result.invitation.id, token: new URL(result.link).hash.slice(1) };
 }
 
 /** Every endpoint of the versioned API. Add an entry with each new endpoint. */
@@ -87,6 +90,12 @@ export const ENDPOINTS: readonly EndpointCase[] = [
       }),
   },
   {
+    method: 'get',
+    path: '/invitations',
+    access: 'user.invite',
+    send: (t, cookie) => request(t, 'GET', '/invitations', cookie),
+  },
+  {
     method: 'post',
     path: '/invitations',
     access: 'user.invite',
@@ -98,7 +107,9 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/invitations/lookup',
     access: 'public',
     send: async (t, cookie) =>
-      request(t, 'POST', '/invitations/lookup', cookie, { token: await openInvitationToken(t) }),
+      request(t, 'POST', '/invitations/lookup', cookie, {
+        token: (await openInvitation(t)).token,
+      }),
   },
   {
     // Signed-in users may accept too: it creates a separate account and leaves their session alone.
@@ -107,10 +118,24 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     access: 'public',
     send: async (t, cookie) =>
       request(t, 'POST', '/invitations/accept', cookie, {
-        token: await openInvitationToken(t),
+        token: (await openInvitation(t)).token,
         name: 'Invitee',
         password: 'An invitee password 1',
       }),
+  },
+  {
+    method: 'post',
+    path: '/invitations/{id}/resend',
+    access: 'user.invite',
+    send: async (t, cookie) =>
+      request(t, 'POST', `/invitations/${(await openInvitation(t)).id}/resend`, cookie),
+  },
+  {
+    method: 'post',
+    path: '/invitations/{id}/revoke',
+    access: 'user.invite',
+    send: async (t, cookie) =>
+      request(t, 'POST', `/invitations/${(await openInvitation(t)).id}/revoke`, cookie),
   },
 ];
 

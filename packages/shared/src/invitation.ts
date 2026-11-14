@@ -9,22 +9,38 @@ import { emailSchema, userNameSchema, userSchema } from './user.ts';
  */
 export const INVITATION_ACCEPT_PATH = '/accept-invitation';
 
+/** Open invitations, as admins see them. Accepted and revoked ones are no longer listed. */
+export const INVITATION_STATUSES = ['pending', 'expired'] as const;
+
+export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
+
 /** An invitation as admins see it. */
 export const invitationSchema = z
   .object({
     id: z.string(),
     email: z.email(),
     role: roleSchema.describe('The role the invitee gets on accepting.'),
+    status: z
+      .enum(INVITATION_STATUSES)
+      .describe('`pending`: the link works. `expired`: it no longer does; resend or revoke it.'),
     expiresAt: z.iso.datetime().describe('When the link stops working.'),
     createdAt: z.iso.datetime(),
   })
   .meta({ id: 'Invitation' });
 
+export const invitationListSchema = z
+  .object({ invitations: z.array(invitationSchema).describe('Open invitations, newest first.') })
+  .meta({ id: 'InvitationList' });
+
+/** The path parameter of one invitation. Unknown IDs get 404, so the format isn't checked. */
+export const invitationIdParamsSchema = z.object({ id: z.string().min(1).max(100) });
+
 export const createInvitationRequestSchema = z
   .object({ email: emailSchema, role: roleSchema })
   .meta({ id: 'CreateInvitationRequest' });
 
-export const createInvitationResultSchema = z
+/** A new or resent invitation, with its link when myli doesn't email it. */
+export const invitationWithLinkSchema = z
   .object({
     invitation: invitationSchema,
     link: z
@@ -35,7 +51,7 @@ export const createInvitationResultSchema = z
           'shown only once: myli stores only a hash of the token in it.',
       ),
   })
-  .meta({ id: 'CreateInvitationResult' });
+  .meta({ id: 'InvitationWithLink' });
 
 /** The secret part of an invitation link. Validated by looking it up, never by its format. */
 const invitationTokenSchema = z.string().min(1).max(200);

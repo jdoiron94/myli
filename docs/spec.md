@@ -73,6 +73,10 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Invitations (sign-up is invite-only)**
 - Public sign-up is disabled. An admin invites people by email and assigns a role up front.
 - **One open invitation per email.** An invitation is open until it's accepted or revoked; an expired one still counts, so the admin resends or revokes it. Inviting an email that already belongs to a user is refused.
+- **Managing invitations:** admins see every open invitation, marked pending or expired.
+  - Resending issues a new link that works for the full lifetime again and stops the old one. It works on expired invitations too.
+  - Revoking stops the link and keeps the record, and the email can be invited again.
+  - Neither works on an invitation that's accepted, revoked, or being accepted at that moment.
 - **Tokens:**
   - 32 random bytes; only the SHA-256 hash is stored, so a link can't be shown again later
   - never stored in the `job` table either: a job that emails an invitation creates a fresh token when it sends
@@ -391,6 +395,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 **Security**
 - Content Security Policy and the other standard security headers.
 - Session cookies are `HttpOnly`, `Secure` and `SameSite`; Better Auth checks the request origin.
+- Every API request that changes data must be sent as JSON, even without a body, so no other origin can make one with a user's cookie.
 - All input is validated with Zod at the API boundary.
 - All user markdown is sanitized when rendered.
 - Upload validation (§3.2) and the SSRF guard (§3.7).

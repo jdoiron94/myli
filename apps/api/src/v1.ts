@@ -5,6 +5,7 @@ import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
 import type { Env } from './env.ts';
 import { registerInvitationRoutes } from './invitations/routes.ts';
+import { jsonOnly } from './json-only.ts';
 import { validationHook } from './problems.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
 
@@ -25,6 +26,8 @@ export type AppSettings = Pick<Env, 'PUBLIC_URL' | 'INVITATION_TTL_DAYS'>;
 
 export function createV1Router(deps: V1Deps) {
   const v1 = new OpenAPIHono<AppEnv>({ defaultHook: validationHook });
+  // Before every route: requests that change data must be JSON, even without a body.
+  v1.use(jsonOnly());
 
   v1.doc31('/openapi.json', {
     openapi: '3.1.0',

@@ -199,20 +199,19 @@
         "maxLength": 128,
         "description": "15 to 128 characters, with a lowercase letter, an uppercase letter, a number and a special character (anything but a letter or a number, a space included)."
       },
-      "CreateInvitationResult": {
+      "InvitationList": {
         "type": "object",
         "properties": {
-          "invitation": {
-            "$ref": "#/components/schemas/Invitation"
-          },
-          "link": {
-            "type": "string",
-            "format": "uri",
-            "description": "The link to share with the invitee. Present when myli does not email it itself. It is shown only once: myli stores only a hash of the token in it."
+          "invitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invitation"
+            },
+            "description": "Open invitations, newest first."
           }
         },
         "required": [
-          "invitation"
+          "invitations"
         ]
       },
       "Invitation": {
@@ -234,6 +233,14 @@
             ],
             "description": "The role the invitee gets on accepting."
           },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "expired"
+            ],
+            "description": "`pending`: the link works. `expired`: it no longer does; resend or revoke it."
+          },
           "expiresAt": {
             "type": "string",
             "format": "date-time",
@@ -248,8 +255,25 @@
           "id",
           "email",
           "role",
+          "status",
           "expiresAt",
           "createdAt"
+        ]
+      },
+      "InvitationWithLink": {
+        "type": "object",
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/Invitation"
+          },
+          "link": {
+            "type": "string",
+            "format": "uri",
+            "description": "The link to share with the invitee. Present when myli does not email it itself. It is shown only once: myli stores only a hash of the token in it."
+          }
+        },
+        "required": [
+          "invitation"
         ]
       },
       "CreateInvitationRequest": {
@@ -443,6 +467,45 @@
       }
     },
     "/invitations": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "List open invitations",
+        "description": "Admins only. Every invitation that is neither accepted nor revoked, newest first, including expired ones, which an admin resends or revokes.",
+        "responses": {
+          "200": {
+            "description": "The open invitations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "Invitations"
@@ -465,13 +528,142 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateInvitationResult"
+                  "$ref": "#/components/schemas/InvitationWithLink"
                 }
               }
             }
           },
           "409": {
             "description": "A user, or an open invitation, already has this email.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invitations/{id}/resend": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Resend an invitation",
+        "description": "Admins only. Issues a new link that works for the full invitation lifetime again, and stops the old link working. Works on expired invitations too. Send `Content-Type: application/json` even though there is no body.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invitation has a new link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationWithLink"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No open invitation has this ID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A user with this email exists now.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invitations/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Revoke an invitation",
+        "description": "Admins only. The link stops working, and the email can be invited again. Send `Content-Type: application/json` even though there is no body.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The invitation was revoked."
+          },
+          "404": {
+            "description": "No open invitation has this ID.",
             "content": {
               "application/problem+json": {
                 "schema": {
