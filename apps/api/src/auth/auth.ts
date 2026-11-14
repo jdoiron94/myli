@@ -1,4 +1,11 @@
-import { AUTH_BASE_PATH, DEFAULT_ROLE, type Role } from '@myli/shared';
+import {
+  AUTH_BASE_PATH,
+  DEFAULT_ROLE,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordProblems,
+  type Role,
+} from '@myli/shared';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
@@ -25,6 +32,29 @@ const adminPluginRoles = {
   viewer: accessControl.newRole({ user: [], session: [] }),
 } satisfies Record<Role, unknown>;
 
+/** The Better Auth endpoints that set a password, and the body field that carries it. */
+const PASSWORD_FIELDS: Readonly<Record<string, string>> = {
+  '/sign-up/email': 'password',
+  '/admin/create-user': 'password',
+  '/change-password': 'newPassword',
+  '/reset-password': 'newPassword',
+  '/set-password': 'newPassword',
+  '/admin/set-user-password': 'newPassword',
+};
+
+/** The password rules from `@myli/shared`, for a Better Auth endpoint that sets a password. */
+function checkNewPassword(path: string, body: unknown): APIError | undefined {
+  const field = PASSWORD_FIELDS[path];
+  if (field === undefined || typeof body !== 'object' || body === null) return undefined;
+  const password: unknown = (body as Record<string, unknown>)[field];
+  // Missing or not a string: Better Auth's own validation answers that.
+  if (typeof password !== 'string') return undefined;
+  const problems = passwordProblems(password);
+  return problems.length > 0
+    ? new APIError('BAD_REQUEST', { code: 'PASSWORD_TOO_WEAK', message: problems.join(' ') })
+    : undefined;
+}
+
 export interface AuthDeps {
   db: Db;
   env: Pick<Env, 'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET'>;
@@ -50,6 +80,9 @@ export function createAuth({ db, env, logger }: AuthDeps) {
       enabled: true,
       // Accounts come only from first-run setup and accepted invitations (ADR 0005).
       disableSignUp: true,
+      // Also enforced, with the character rules, by the hook below.
+      minPasswordLength: PASSWORD_MIN_LENGTH,
+      maxPasswordLength: PASSWORD_MAX_LENGTH,
     },
     plugins: [
       admin({
@@ -60,14 +93,17 @@ export function createAuth({ db, env, logger }: AuthDeps) {
       }),
     ],
     hooks: {
-      // The admin plugin's HTTP endpoints would let an admin change roles or ban users without
-      // going through the policy module or the audit log. Block them for every caller. Server
-      // code can still use them through `auth.api.*`, which has no `ctx.request`.
-      before: createAuthMiddleware((ctx) =>
-        ctx.request && ctx.path.startsWith('/admin/')
-          ? Promise.reject(new APIError('NOT_FOUND'))
-          : Promise.resolve(),
-      ),
+      before: createAuthMiddleware((ctx) => {
+        // The admin plugin's HTTP endpoints would let an admin change roles or ban users without
+        // going through the policy module or the audit log. Block them for every caller. Server
+        // code can still use them through `auth.api.*`, which has no `ctx.request`.
+        if (ctx.request && ctx.path.startsWith('/admin/')) {
+          return Promise.reject(new APIError('NOT_FOUND'));
+        }
+        // Every path that sets a password, over HTTP or from server code, follows the same rules.
+        const weakPassword = checkNewPassword(ctx.path, ctx.body);
+        return weakPassword ? Promise.reject(weakPassword) : Promise.resolve();
+      }),
     },
     // Better Auth decides this from process.env.NODE_ENV, which can be unset in production.
     rateLimit: { enabled: env.NODE_ENV === 'production' },

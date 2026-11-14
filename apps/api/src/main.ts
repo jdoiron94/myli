@@ -52,7 +52,7 @@ worker.start();
 logger.info('job worker started');
 
 const auth = createAuth({ db, env, logger });
-const app = createApp({ logger, auth });
+const app = createApp({ logger, auth, db });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');

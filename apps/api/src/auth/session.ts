@@ -1,4 +1,4 @@
-import { type Role, roleSchema } from '@myli/shared';
+import { roleSchema, type User } from '@myli/shared';
 import { isAPIError } from 'better-auth/api';
 import type { MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -7,12 +7,7 @@ import { HttpProblem } from '../problems.ts';
 import type { Auth } from './auth.ts';
 
 /** The signed-in user, as handlers and the permission policy see them. */
-export interface CurrentUser {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-}
+export type CurrentUser = User;
 
 export interface CurrentSession {
   id: string;

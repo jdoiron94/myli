@@ -8,10 +8,11 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0002](./0002-sqlite-as-source-of-truth.md) | SQLite as the source of truth | Accepted |
 | [0003](./0003-meilisearch-with-transactional-outbox.md) | Meilisearch as a separate search service, synced through a transactional outbox | Accepted |
 | [0004](./0004-blob-storage-abstraction-without-minio.md) | Blob storage behind an interface, local volume by default, no MinIO | Accepted |
-| [0005](./0005-better-auth-instance-roles-and-invitations.md) | Better Auth with instance-wide roles and custom invitations, no multi-tenancy | Accepted |
+| [0005](./0005-better-auth-instance-roles-and-invitations.md) | Better Auth with instance-wide roles and custom invitations, no multi-tenancy | Accepted, amended by 0009 |
 | [0006](./0006-structured-steps-and-milkdown.md) | Structured steps, with markdown edited in Milkdown | Accepted |
 | [0007](./0007-revision-snapshots-and-optimistic-concurrency.md) | Revision snapshots and optimistic concurrency | Accepted |
 | [0008](./0008-run-typescript-with-node-type-stripping.md) | Run the API's TypeScript directly on Node, without a build step | Accepted |
+| [0009](./0009-first-run-setup-claims-a-lock-row.md) | First-run setup takes a single-row claim instead of one transaction | Accepted |
 
 ## Adding an ADR
 

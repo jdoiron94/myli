@@ -30,7 +30,7 @@ export function createTestApp(options: TestAppOptions = {}) {
   const logger = options.logger ?? createLogger('silent');
   const env = { ...TEST_AUTH_ENV, ...options.env };
   const auth = createAuth({ db, logger, env });
-  const app = createApp({ logger, auth });
+  const app = createApp({ logger, auth, db });
   return { app, db, auth, logger, publicUrl: env.PUBLIC_URL };
 }
 
@@ -50,7 +50,7 @@ export function cookieHeaderFrom(res: Response): string {
  */
 export async function signedInAs(t: TestApp, role: Role) {
   const email = `${role}-${randomUUID()}@example.com`;
-  const password = 'a test password, long enough';
+  const password = 'A test password, long enough 1';
   const user = await createUserWithPassword(t.auth, {
     name: `Test ${role}`,
     email,

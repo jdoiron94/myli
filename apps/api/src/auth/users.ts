@@ -1,4 +1,4 @@
-import type { Role } from '@myli/shared';
+import { type Role, roleSchema, type User } from '@myli/shared';
 import type { Auth } from './auth.ts';
 
 export interface NewUser {
@@ -14,13 +14,13 @@ export interface NewUser {
  * through it, because public sign-up is disabled.
  *
  * It goes through the admin plugin's server-side `createUser`, which hashes the password and needs
- * no session when called without request headers. It does **not** enforce the minimum password
- * length, so callers validate the password first. The user and their credential are two separate
- * writes (see `transaction: false` in auth.ts).
+ * no session when called without request headers. A password that breaks the rules in
+ * `@myli/shared` is rejected (see the hook in auth.ts). The user and their credential are two
+ * separate writes (see `transaction: false` in auth.ts).
  */
-export async function createUserWithPassword(auth: Auth, newUser: NewUser) {
+export async function createUserWithPassword(auth: Auth, newUser: NewUser): Promise<User> {
   const { user } = await auth.api.createUser({
     body: { ...newUser, data: { emailVerified: true } },
   });
-  return user;
+  return { id: user.id, name: user.name, email: user.email, role: roleSchema.parse(user.role) };
 }

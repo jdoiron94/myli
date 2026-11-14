@@ -8,6 +8,12 @@ export const API_BASE_PATH = '/api/v1';
 export const AUTH_BASE_PATH = '/api/auth';
 
 export {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordProblems,
+  passwordSchema,
+} from './password.ts';
+export {
   type Action,
   COMMENT_ACTIONS,
   type CommentAction,
@@ -29,4 +35,11 @@ export {
   validationProblemSchema,
 } from './problem.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
+export {
+  type SetupRequest,
+  setupRequestSchema,
+  setupResultSchema,
+  setupStatusSchema,
+} from './setup.ts';
+export { emailSchema, type User, userNameSchema, userSchema } from './user.ts';
 export { VISIBILITIES, type Visibility, visibilitySchema } from './visibility.ts';

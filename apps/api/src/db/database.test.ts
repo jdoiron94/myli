@@ -60,6 +60,7 @@ describe('migrateDatabase', () => {
       'account',
       'job',
       'session',
+      'setup_claim',
       'user',
       'verification',
     ]);
