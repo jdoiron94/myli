@@ -8,13 +8,21 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
+import { migrateDatabase, openDatabase } from './db/database.ts';
 
 const MAIN = fileURLToPath(new URL('./main.ts', import.meta.url));
 
 /** The variables without a default, so tests that expect a successful start can set them. */
 const REQUIRED_ENV = {
   PUBLIC_URL: 'http://127.0.0.1',
-  BETTER_AUTH_SECRET: 'main-test-secret-main-test-secret',
+  // Random-looking, or Better Auth logs a low-entropy warning at startup.
+  BETTER_AUTH_SECRET: 'Vq7mZ2x9Lk4pR8tW1nB6cY3hJ0fS5gD8aE2uQ7iO4rM=',
+};
+
+const ADMIN_ENV = {
+  ADMIN_NAME: 'Ada Lovelace',
+  ADMIN_EMAIL: 'Ada@Example.com',
+  ADMIN_PASSWORD: 'Correct horse battery 9',
 };
 
 const tempDirs: string[] = [];
@@ -125,6 +133,70 @@ describe('main.ts', () => {
       level: 60,
       err: { message: expect.stringContaining('already exists') as unknown },
     });
+  });
+
+  it('creates the first admin from the environment once, then ignores the variables', async () => {
+    const databasePath = tempDatabasePath();
+    const env = { ...REQUIRED_ENV, ...ADMIN_ENV, HOST: '127.0.0.1', DATABASE_PATH: databasePath };
+
+    const first = startApi({ ...env, PORT: String(await freePort()) });
+    await first.untilListening();
+    first.child.kill('SIGTERM');
+    expect(await first.exited).toBe(0);
+    expect(first.logs().map((line) => line.msg)).toEqual([
+      'database ready',
+      'first admin created from the environment',
+      'job worker started',
+      'listening',
+      'shutting down',
+    ]);
+
+    const second = startApi({ ...env, PORT: String(await freePort()) });
+    await second.untilListening();
+    second.child.kill('SIGTERM');
+    expect(await second.exited).toBe(0);
+    expect(second.logs()).toContainEqual(
+      expect.objectContaining({
+        level: 40,
+        msg: expect.stringContaining('users already exist') as unknown,
+      }),
+    );
+
+    for (const api of [first, second]) {
+      expect(JSON.stringify(api.logs())).not.toContain(ADMIN_ENV.ADMIN_PASSWORD);
+    }
+    const db = new Database(databasePath, { readonly: true });
+    const users = db.prepare('select email, role from user').all();
+    db.close();
+    expect(users).toEqual([{ email: 'ada@example.com', role: 'admin' }]);
+  });
+
+  it('exits with code 1 before listening when creating the first admin fails', async () => {
+    const databasePath = tempDatabasePath();
+    const db = openDatabase(databasePath);
+    migrateDatabase(db);
+    db.$client.exec(
+      `create trigger refuse_users before insert on "user"
+       begin select raise(abort, 'refused by the test'); end`,
+    );
+    db.$client.close();
+
+    const api = startApi({
+      ...REQUIRED_ENV,
+      ...ADMIN_ENV,
+      HOST: '127.0.0.1',
+      PORT: String(await freePort()),
+      DATABASE_PATH: databasePath,
+    });
+
+    expect(await api.exited).toBe(1);
+    const logs = api.logs();
+    expect(logs.map((line) => line.msg)).not.toContain('listening');
+    expect(logs.at(-1)).toMatchObject({
+      level: 60,
+      msg: 'could not create the first admin from the environment',
+    });
+    expect(JSON.stringify(logs)).not.toContain(ADMIN_ENV.ADMIN_PASSWORD);
   });
 
   it('exits with code 1 and a readable message when the config is invalid', async () => {

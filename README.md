@@ -78,6 +78,8 @@ Setup instructions will be added once Phase 0 is done. The goal is a single `doc
 
 All configuration is done with environment variables. [`.env.example`](.env.example) lists every one with its default.
 
+The first admin is created on the setup screen the first time you open myli. For an install where no one will open it, set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` instead: the admin is created at startup if no user exists yet. Remove `ADMIN_PASSWORD` once it has been.
+
 ## Development
 
 You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `packageManager` in `package.json`; any other pnpm version switches to it automatically).

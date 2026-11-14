@@ -110,6 +110,55 @@ describe('loadEnv', () => {
   });
 });
 
+describe('the first admin variables', () => {
+  const ADMIN = {
+    ADMIN_NAME: '  Ada Lovelace ',
+    ADMIN_EMAIL: 'Ada@Example.com',
+    ADMIN_PASSWORD: 'Correct horse battery 9',
+  };
+  const ALL_THREE_OR_NONE =
+    'is required when any of ADMIN_NAME, ADMIN_EMAIL or ADMIN_PASSWORD is set';
+
+  it('are optional', () => {
+    expect(loadEnv(REQUIRED)).not.toHaveProperty('ADMIN_NAME');
+  });
+
+  it('are read together, with the name trimmed and the email lowercased', () => {
+    expect(loadEnv({ ...REQUIRED, ...ADMIN })).toMatchObject({
+      ADMIN_NAME: 'Ada Lovelace',
+      ADMIN_EMAIL: 'ada@example.com',
+      ADMIN_PASSWORD: 'Correct horse battery 9',
+    });
+  });
+
+  it.each(['ADMIN_NAME', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'] as const)(
+    'must all be set if any is: only %s is',
+    (name) => {
+      const { message } = loadEnvError({ ...REQUIRED, [name]: ADMIN[name] });
+      const missing = Object.keys(ADMIN).filter((variable) => variable !== name);
+      for (const variable of missing) {
+        expect(message).toMatch(new RegExp(`^\\s+${variable}: ${ALL_THREE_OR_NONE}$`, 'm'));
+      }
+      expect(message).not.toMatch(new RegExp(`^\\s+${name}: `, 'm'));
+      expect(message).not.toContain(ADMIN[name].trim());
+    },
+  );
+
+  it('count as set when one is invalid, and are checked alongside every other variable', () => {
+    const { message } = loadEnvError({ ...REQUIRED, PORT: 'http', ADMIN_EMAIL: 'not-an-email' });
+    expect(message).toMatch(/^\s+PORT: /m);
+    expect(message).toMatch(/^\s+ADMIN_EMAIL: Enter a valid email address\.$/m);
+    expect(message).toMatch(new RegExp(`^\\s+ADMIN_NAME: ${ALL_THREE_OR_NONE}$`, 'm'));
+    expect(message).toMatch(new RegExp(`^\\s+ADMIN_PASSWORD: ${ALL_THREE_OR_NONE}$`, 'm'));
+  });
+
+  it('reject a password that breaks the rules, saying which, without echoing it', () => {
+    const { message } = loadEnvError({ ...REQUIRED, ...ADMIN, ADMIN_PASSWORD: 'hunter2-hunter2' });
+    expect(message).toMatch(/^\s+ADMIN_PASSWORD: Must contain an uppercase letter\.$/m);
+    expect(message).not.toContain('hunter2');
+  });
+});
+
 describe('.env.example', () => {
   const example = parseEnv(readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8'));
 
