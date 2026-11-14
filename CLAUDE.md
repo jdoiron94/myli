@@ -75,7 +75,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - User-written markdown (descriptions, steps, comments) is sanitized with DOMPurify when rendered.
 - Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
 - Outbound fetches (URL import) go through the SSRF guard.
-- Configuration comes from env vars, validated with Zod at startup. Every new var is added to `.env.example`.
+- Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example` with its default. A test fails if the two differ.
 
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
