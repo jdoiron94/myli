@@ -51,8 +51,16 @@ describe('main.ts', () => {
 
     api.child.kill('SIGTERM');
     expect(await api.exited).toBe(0);
-    expect(api.output().stdout).toContain('SIGTERM received');
-    expect(api.output().stderr).toBe('');
+
+    const { stdout, stderr } = api.output();
+    expect(stderr).toBe('');
+    const logs = stdout
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(logs.map((line) => line.msg)).toEqual(['listening', 'shutting down']);
+    expect(logs[0]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
+    expect(logs[1]).toMatchObject({ signal: 'SIGTERM' });
   });
 
   it('exits with code 1 and a readable message when the config is invalid', async () => {

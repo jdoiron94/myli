@@ -84,7 +84,7 @@ You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `p
 
 ```sh
 pnpm install     # also installs the git hooks (lefthook)
-pnpm dev         # API on http://localhost:3000, restarts on change; reads .env if present
+pnpm dev         # API on http://localhost:3000 with readable logs, restarts on change; reads .env if present
 pnpm test        # Vitest, across every workspace package
 pnpm typecheck   # tsc, for every workspace package
 pnpm lint        # ESLint

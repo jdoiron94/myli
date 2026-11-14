@@ -76,6 +76,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - User-written markdown (descriptions, steps, comments) is sanitized with DOMPurify when rendered.
 - Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
 - Outbound fetches (URL import) go through the SSRF guard.
+- The API logs through pino, never `console` (ESLint enforces this). Inside a request, use `c.var.logger`, which tags every line with the request ID. Never log query strings, headers, request bodies or secrets.
 - Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example` with its default. A test fails if the two differ.
 
 ### Dependencies and Docker
@@ -103,7 +104,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 Run these from the repo root:
 
 - `pnpm install`: also installs the git hooks.
-- `pnpm dev`: starts the API on port 3000 in watch mode, reading `.env` from the repo root if one exists.
+- `pnpm dev`: starts the API on port 3000 in watch mode, with logs pretty-printed, reading `.env` from the repo root if one exists.
 - `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
 - `pnpm test:watch`: Vitest in watch mode.
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package.

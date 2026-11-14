@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development node --watch --env-file-if-exists=../../.env src/main.ts",
+    "dev": "NODE_ENV=development node --watch --env-file-if-exists=../../.env src/main.ts | pino-pretty",
     "start": "node src/main.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -12,10 +12,12 @@
     "@hono/node-server": "2.1.8",
     "@myli/shared": "workspace:*",
     "hono": "4.13.18",
+    "pino": "10.4.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "pino-pretty": "13.2.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

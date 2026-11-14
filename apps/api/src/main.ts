@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { EnvError, loadEnv } from './env.ts';
+import { createLogger } from './logger.ts';
 
 /** How long in-flight requests get to finish after SIGTERM before the process exits anyway. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -10,7 +11,9 @@ function readEnv() {
     return loadEnv();
   } catch (error) {
     if (error instanceof EnvError) {
-      // A config problem is the operator's to fix, so print the message without a stack trace.
+      // The logger's level comes from the env, so it can't exist yet. Print plainly, without a
+      // stack trace: a config problem is the operator's to fix.
+      // eslint-disable-next-line no-console -- see above
       console.error(error.message);
       process.exit(1);
     }
@@ -19,22 +22,23 @@ function readEnv() {
 }
 
 const env = readEnv();
-const app = createApp();
+const logger = createLogger(env.LOG_LEVEL);
+const app = createApp({ logger });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
-  console.log(`myli API listening on ${info.address}:${info.port}`);
+  logger.info({ address: info.address, port: info.port }, 'listening');
 });
 
 function shutdown(signal: NodeJS.Signals) {
-  console.log(`${signal} received, shutting down`);
+  logger.info({ signal }, 'shutting down');
   setTimeout(() => {
-    console.error(`Requests still open after ${SHUTDOWN_TIMEOUT_MS} ms, exiting anyway`);
+    logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'requests still open, exiting anyway');
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS).unref();
-  // Stops accepting connections and resolves once in-flight requests have finished.
+  // Stops accepting connections and calls back once in-flight requests have finished.
   server.close((error) => {
     if (error) {
-      console.error(error);
+      logger.error({ err: error }, 'failed to close the server');
       process.exit(1);
     }
     process.exit(0);

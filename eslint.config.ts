@@ -16,6 +16,11 @@ export default defineConfigWithVueTs(
     },
   },
   {
+    // The API logs through pino (`c.var.logger` inside requests), so logs stay structured.
+    files: ['apps/api/**'],
+    rules: { 'no-console': 'error' },
+  },
+  {
     // Biome owns formatting, so turn off every rule that only checks layout.
     // The plugin only ships this preset in the legacy format, so take its rules.
     name: 'vue/no-layout-rules',
