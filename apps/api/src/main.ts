@@ -65,7 +65,11 @@ if (smtp) {
   logger.info('email is off because SMTP_HOST is not set');
 }
 
-const worker = createWorker({ services: { db, mailer }, logger, jobs: allJobs });
+const worker = createWorker({
+  services: { db, mailer, publicUrl: env.PUBLIC_URL },
+  logger,
+  jobs: allJobs,
+});
 const requeued = worker.recoverInterrupted();
 if (requeued > 0) {
   logger.warn({ count: requeued }, 'requeued jobs interrupted by the last shutdown');

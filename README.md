@@ -110,7 +110,7 @@ Then add this to your `.env`:
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_SECURITY=none
-SMTP_FROM=myli <myli@localhost>
+SMTP_FROM=myli <myli@example.com>
 ```
 
 | Path | Contents |

@@ -22,7 +22,7 @@ export interface V1Deps {
 }
 
 /** The settings route handlers need from the environment. */
-export type AppSettings = Pick<Env, 'PUBLIC_URL' | 'INVITATION_TTL_DAYS'>;
+export type AppSettings = Pick<Env, 'PUBLIC_URL' | 'INVITATION_TTL_DAYS' | 'SMTP_HOST'>;
 
 export function createV1Router(deps: V1Deps) {
   const v1 = new OpenAPIHono<AppEnv>({ defaultHook: validationHook });
@@ -45,6 +45,8 @@ export function createV1Router(deps: V1Deps) {
     auth: deps.auth,
     publicUrl: deps.env.PUBLIC_URL,
     ttlDays: deps.env.INVITATION_TTL_DAYS,
+    // The same condition main.ts uses to create the mailer.
+    emailEnabled: deps.env.SMTP_HOST !== undefined,
   });
 
   return v1;

@@ -53,7 +53,7 @@ function setup(options: Partial<WorkerOptions> = {}) {
   });
 
   const worker = createWorker({
-    services: { db, mailer: null },
+    services: { db, mailer: null, publicUrl: 'https://myli.test' },
     logger,
     jobs: [recordJob, failJob],
     now: clock.now,
@@ -197,7 +197,7 @@ describe('start and stop', () => {
 
     const db = createTestDatabase();
     const worker = createWorker({
-      services: { db, mailer: null },
+      services: { db, mailer: null, publicUrl: 'https://myli.test' },
       logger: createLogger('silent'),
       jobs: [slowJob],
       pollIntervalMs: 5,
@@ -226,7 +226,7 @@ describe('start and stop', () => {
 
   it('stops promptly while idle, without waiting out the poll interval', async () => {
     const worker = createWorker({
-      services: { db: createTestDatabase(), mailer: null },
+      services: { db: createTestDatabase(), mailer: null, publicUrl: 'https://myli.test' },
       logger: createLogger('silent'),
       jobs: [],
       pollIntervalMs: 60_000,
@@ -254,7 +254,7 @@ describe('services', () => {
     });
     let now = START;
     const worker = createWorker({
-      services: { db, mailer },
+      services: { db, mailer, publicUrl: 'https://myli.test' },
       logger: createLogger('silent'),
       jobs: [welcomeJob],
       now: () => now,

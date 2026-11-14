@@ -8,6 +8,8 @@ export interface JobServices {
   db: Db;
   /** `null` when email is off (SMTP_HOST isn't set). */
   mailer: Mailer | null;
+  /** Where the web app is served (`PUBLIC_URL`), for links in emails. */
+  publicUrl: string;
 }
 
 export interface JobContext {

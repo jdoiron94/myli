@@ -89,15 +89,16 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Background jobs
 - Side effects that can fail or are slow (sending email, updating Meilisearch) run as jobs, never inline in a request.
-- Define a job type with `defineJob({ type, payload, handle })` in `apps/api/src/jobs/`, and add it to `allJobs` in `jobs/all.ts`. The worker dead-letters job types it doesn't know.
-- Handlers get the database and the mailer from `context.services` (`JobServices` in `jobs/define.ts`). `main.ts` builds it; tests pass their own. Never import or create either one in a job module.
+- Define a job type with `defineJob({ type, payload, handle })` from `jobs/define.ts`, in the feature module it belongs to (e.g. `invitationEmailJob` in `invitations/invitations.ts`), and add it to `allJobs` in `jobs/all.ts`. The worker dead-letters job types it doesn't know.
+- Handlers get the database, the mailer and `publicUrl` (for links in emails) from `context.services` (`JobServices` in `jobs/define.ts`). `main.ts` builds it; tests pass their own. Never import or create a database or mailer in a job module.
 - Queue a job with `enqueueJob(tx, definition, payload)` **inside the transaction of the write it belongs to**, so the job and the change commit or roll back together.
 - Handlers must be idempotent. A job can run more than once: after a crash, or when it fails after its side effect happened.
 - A job whose handler throws is retried with exponential backoff, then dead-lettered (`status = 'dead'`, error in `last_error`). Throw to retry. A payload that no longer matches its schema is dead-lettered without running.
 - Keep payloads small and stable: IDs, not whole records. Handlers read current state from SQLite. If a payload schema changes, jobs already queued still have to parse.
 
 ### Email
-- Email is sent only from job handlers, through `context.services.mailer`. It's `null` when `SMTP_HOST` isn't set, and every feature that sends email must still work without it (invitations fall back to a copy-link action).
+- Email is sent only from job handlers, through `context.services.mailer`. It's `null` when `SMTP_HOST` isn't set, and every feature that sends email must still work without it (invitations fall back to a copy-link action). Route handlers decide whether to queue email from `SMTP_HOST`, the same condition `main.ts` uses to create the mailer.
+- Never put a secret, such as an invitation token, in a job payload. Make it in the handler, store what the database needs (a hash) before sending, then send.
 - Every message has a plain-text body; HTML is optional, and anything user-written in it is escaped.
 - Log the `messageId` that `send()` returns, through the job's logger. Never log recipients, subjects or bodies.
 - Sends are at-least-once: if the process dies after the server accepted a message but before the job was marked done, it's sent again.

@@ -62,10 +62,11 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
     role: 'admin',
   });
   const result = createInvitation(
-    { db: t.db, auth: t.auth, publicUrl: t.publicUrl, ttlDays: 7 },
+    { db: t.db, auth: t.auth, publicUrl: t.publicUrl, ttlDays: 7, emailEnabled: false },
     { email: `invitee-${randomUUID()}@example.com`, role: 'viewer', invitedBy: admin.id },
   );
   if (!result.ok) throw new Error(`could not create an invitation: ${result.reason}`);
+  if (result.link === undefined) throw new Error('expected a link: email is off here');
   return { id: result.invitation.id, token: new URL(result.link).hash.slice(1) };
 }
 
