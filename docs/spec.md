@@ -30,7 +30,8 @@ There are three roles: **admin**, **editor** and **viewer**.
 | View shared recipes, search, cook mode, print/download | ✓ | ✓ | ✓ |
 | Create recipes (private or shared) | ✓ | ✓ | – |
 | Edit or publish shared recipes (any author) | ✓ | ✓ | – |
-| View or edit private recipes | own | own | – |
+| View private recipes | own | own | own¹ |
+| Edit private recipes | own | own | – |
 | Delete or restore from trash | any | own | – |
 | Restore a revision | ✓ | ✓ (recipes they can edit) | – |
 | Create or revoke public links | any | own | – |
@@ -42,10 +43,13 @@ There are three roles: **admin**, **editor** and **viewer**.
 | Invite users, change roles, deactivate users | ✓ | – | – |
 | View audit log; full-instance export | ✓ | – | – |
 
+¹ Viewers can't create recipes. This covers the private recipes of an editor who was demoted to viewer: they can still read them, but no longer change them.
+
 **Enforcement**
 
 - The matrix is implemented once, as a policy module in `packages/shared`. The UI uses it to hide controls; the API uses it to enforce. Neither has inline role checks.
 - **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, revisions and public links.
+- No one can act on a recipe they can't see. An admin's "any" in the table means any recipe they can see: shared recipes and their own private ones.
 - A request for a resource the caller may not see returns `404`, so its existence isn't revealed. A request the caller may see but not act on returns `403`.
 
 **Testing**
@@ -81,6 +85,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **User lifecycle**
 - Admins change roles and deactivate users. Users are never hard-deleted, so revision and comment authorship stays intact.
+- An editor demoted to viewer keeps read-only access to their own private recipes (§2).
 - Deactivating a user ends their sessions immediately.
 - Before deactivation finishes, the admin chooses for the user's private recipes: transfer them to another user, or make them shared.
 

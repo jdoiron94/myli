@@ -71,7 +71,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Never turn on Better Auth's cookie cache.** Every request reads the session from SQLite, so sign-out, expiry and bans take effect on the next request. The cache would let a revoked cookie keep working until the cache expires.
 
 ### Authorization
-- All authorization goes through the shared policy module. Never write inline role checks in handlers or components.
+- All authorization goes through the shared policy module: `can(user, action, resource?)` in `packages/shared/src/policy.ts`. Never write inline role checks in handlers or components.
+- A new action gets a row in the `✓`/`–` tables in `policy.test.ts`, restating the spec's §2 table. A test fails if an action has no row.
 - Every new endpoint gets entries in the permission-matrix tests (role × endpoint).
 - **Viewers are strictly read-only.**
 - **Private recipes must never leak** through direct ID access, search results, revision endpoints or public links. Each of those paths has a test.
