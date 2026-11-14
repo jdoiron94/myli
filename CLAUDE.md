@@ -90,10 +90,18 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Background jobs
 - Side effects that can fail or are slow (sending email, updating Meilisearch) run as jobs, never inline in a request.
 - Define a job type with `defineJob({ type, payload, handle })` in `apps/api/src/jobs/`, and add it to `allJobs` in `jobs/all.ts`. The worker dead-letters job types it doesn't know.
+- Handlers get the database and the mailer from `context.services` (`JobServices` in `jobs/define.ts`). `main.ts` builds it; tests pass their own. Never import or create either one in a job module.
 - Queue a job with `enqueueJob(tx, definition, payload)` **inside the transaction of the write it belongs to**, so the job and the change commit or roll back together.
 - Handlers must be idempotent. A job can run more than once: after a crash, or when it fails after its side effect happened.
 - A job whose handler throws is retried with exponential backoff, then dead-lettered (`status = 'dead'`, error in `last_error`). Throw to retry. A payload that no longer matches its schema is dead-lettered without running.
 - Keep payloads small and stable: IDs, not whole records. Handlers read current state from SQLite. If a payload schema changes, jobs already queued still have to parse.
+
+### Email
+- Email is sent only from job handlers, through `context.services.mailer`. It's `null` when `SMTP_HOST` isn't set, and every feature that sends email must still work without it (invitations fall back to a copy-link action).
+- Every message has a plain-text body; HTML is optional, and anything user-written in it is escaped.
+- Log the `messageId` that `send()` returns, through the job's logger. Never log recipients, subjects or bodies.
+- Sends are at-least-once: if the process dies after the server accepted a message but before the job was marked done, it's sent again.
+- SMTP server certificates are always verified. Don't add an option to turn that off.
 
 ### Search
 - The browser never talks to Meilisearch. All search goes through the API, which adds the authorization filter.
@@ -125,6 +133,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Vitest for unit tests.
 - API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
+- Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers.
 - User flows get Playwright E2E tests with axe accessibility checks.

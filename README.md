@@ -98,6 +98,21 @@ pnpm db:generate        # create a migration after changing the database schema
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.
 
+To see the emails myli sends while developing, run [Mailpit](https://mailpit.axllent.org/) and open its inbox at http://localhost:8025:
+
+```sh
+docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.32.0
+```
+
+Then add this to your `.env`:
+
+```sh
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_SECURITY=none
+SMTP_FROM=myli <myli@localhost>
+```
+
 | Path | Contents |
 |---|---|
 | `apps/api` | Hono API |

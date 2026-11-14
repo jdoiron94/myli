@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { job } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
 import { createLogger } from '../logger.ts';
+import { createMemoryMailer } from '../mail/testing.ts';
 import { defineJob } from './define.ts';
 import { enqueueJob } from './queue.ts';
 import {
@@ -52,7 +53,7 @@ function setup(options: Partial<WorkerOptions> = {}) {
   });
 
   const worker = createWorker({
-    db,
+    services: { db, mailer: null },
     logger,
     jobs: [recordJob, failJob],
     now: clock.now,
@@ -196,7 +197,7 @@ describe('start and stop', () => {
 
     const db = createTestDatabase();
     const worker = createWorker({
-      db,
+      services: { db, mailer: null },
       logger: createLogger('silent'),
       jobs: [slowJob],
       pollIntervalMs: 5,
@@ -225,7 +226,7 @@ describe('start and stop', () => {
 
   it('stops promptly while idle, without waiting out the poll interval', async () => {
     const worker = createWorker({
-      db: createTestDatabase(),
+      services: { db: createTestDatabase(), mailer: null },
       logger: createLogger('silent'),
       jobs: [],
       pollIntervalMs: 60_000,
@@ -236,5 +237,40 @@ describe('start and stop', () => {
     const startedAt = performance.now();
     await worker.stop();
     expect(performance.now() - startedAt).toBeLessThan(1000);
+  });
+});
+
+describe('services', () => {
+  it('reach every handler, so a job can send email, and a failed send is retried', async () => {
+    const db = createTestDatabase();
+    const { mailer, sent, failNext } = createMemoryMailer();
+    const welcomeJob = defineJob({
+      type: 'test.welcome-email',
+      payload: z.object({ to: z.string() }),
+      async handle({ to }, { services }) {
+        if (!services.mailer) throw new Error('email is off');
+        await services.mailer.send({ to, subject: 'Welcome', text: 'Hello!' });
+      },
+    });
+    let now = START;
+    const worker = createWorker({
+      services: { db, mailer },
+      logger: createLogger('silent'),
+      jobs: [welcomeJob],
+      now: () => now,
+    });
+    const id = enqueueJob(db, welcomeJob, { to: 'ada@example.com' });
+
+    failNext();
+    await worker.runOnce();
+    expect(sent).toEqual([]);
+    expect(db.select().from(job).all()).toMatchObject([
+      { id, status: 'pending', lastError: 'SMTP server unavailable' },
+    ]);
+
+    now = new Date(START.getTime() + defaultBackoffMs(1));
+    await worker.runOnce();
+    expect(sent).toEqual([{ to: 'ada@example.com', subject: 'Welcome', text: 'Hello!' }]);
+    expect(db.select().from(job).all()).toMatchObject([{ id, status: 'succeeded' }]);
   });
 });

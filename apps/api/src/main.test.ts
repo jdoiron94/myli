@@ -55,17 +55,21 @@ function startApi(env: Record<string, string>) {
   child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
   const exited = once(child, 'exit').then(([code]) => code as number | null);
 
-  const untilListening = () =>
+  /** Resolves once a log line contains `text`. */
+  const untilLogged = (text: string) =>
     new Promise<void>((resolve, reject) => {
       const check = () => {
-        if (stdout.includes('listening')) resolve();
+        if (stdout.includes(text)) resolve();
       };
       check();
       child.stdout.on('data', check);
       void exited.then((code) => {
-        reject(new Error(`API exited with code ${String(code)} before listening:\n${stdout}`));
+        reject(
+          new Error(`API exited with code ${String(code)} before logging ${text}:\n${stdout}`),
+        );
       });
     });
+  const untilListening = () => untilLogged('"msg":"listening"');
 
   const logs = () =>
     stdout
@@ -73,7 +77,7 @@ function startApi(env: Record<string, string>) {
       .split('\n')
       .map((line) => JSON.parse(line) as Record<string, unknown>);
 
-  return { child, exited, untilListening, logs, stderr: () => stderr };
+  return { child, exited, untilLogged, untilListening, logs, stderr: () => stderr };
 }
 
 describe('main.ts', () => {
@@ -99,12 +103,13 @@ describe('main.ts', () => {
     const logs = api.logs();
     expect(logs.map((line) => line.msg)).toEqual([
       'database ready',
+      'email is off because SMTP_HOST is not set',
       'job worker started',
       'listening',
       'shutting down',
     ]);
-    expect(logs[2]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
-    expect(logs[3]).toMatchObject({ signal: 'SIGTERM' });
+    expect(logs[3]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
+    expect(logs[4]).toMatchObject({ signal: 'SIGTERM' });
 
     const db = new Database(databasePath, { readonly: true });
     const jobTable = db.prepare("select name from sqlite_master where name = 'job'").get();
@@ -146,6 +151,7 @@ describe('main.ts', () => {
     expect(first.logs().map((line) => line.msg)).toEqual([
       'database ready',
       'first admin created from the environment',
+      'email is off because SMTP_HOST is not set',
       'job worker started',
       'listening',
       'shutting down',
@@ -197,6 +203,32 @@ describe('main.ts', () => {
       msg: 'could not create the first admin from the environment',
     });
     expect(JSON.stringify(logs)).not.toContain(ADMIN_ENV.ADMIN_PASSWORD);
+  });
+
+  it('starts even when the SMTP server is unreachable, and warns about it', async () => {
+    const api = startApi({
+      ...REQUIRED_ENV,
+      HOST: '127.0.0.1',
+      PORT: String(await freePort()),
+      DATABASE_PATH: tempDatabasePath(),
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: String(await freePort()), // nothing listens there
+      SMTP_FROM: 'myli <myli@example.com>',
+      SMTP_USER: 'myli',
+      SMTP_PASSWORD: 'smtp-hunter2-secret',
+    });
+    await api.untilListening();
+    await api.untilLogged('could not connect or log in to the SMTP server');
+    api.child.kill('SIGTERM');
+    expect(await api.exited).toBe(0);
+
+    expect(api.logs()).toContainEqual(
+      expect.objectContaining({ level: 40, host: '127.0.0.1', security: 'starttls' }),
+    );
+    expect(api.logs().map((line) => line.msg)).not.toContain(
+      'email is off because SMTP_HOST is not set',
+    );
+    expect(JSON.stringify(api.logs())).not.toContain('hunter2');
   });
 
   it('exits with code 1 and a readable message when the config is invalid', async () => {

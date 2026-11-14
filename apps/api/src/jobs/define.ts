@@ -1,7 +1,17 @@
 import type { z } from 'zod';
+import type { Db } from '../db/database.ts';
 import type { Logger } from '../logger.ts';
+import type { Mailer } from '../mail/mailer.ts';
+
+/** What handlers use besides their payload. `main.ts` builds it; tests pass fakes. */
+export interface JobServices {
+  db: Db;
+  /** `null` when email is off (SMTP_HOST isn't set). */
+  mailer: Mailer | null;
+}
 
 export interface JobContext {
+  services: JobServices;
   /** Tagged with the job's ID, type and attempt number. */
   logger: Logger;
   jobId: number;

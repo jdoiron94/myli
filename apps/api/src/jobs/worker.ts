@@ -1,8 +1,7 @@
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
-import type { Db } from '../db/database.ts';
 import { job } from '../db/schema.ts';
 import type { Logger } from '../logger.ts';
-import type { JobDefinition } from './define.ts';
+import type { JobDefinition, JobServices } from './define.ts';
 
 export const DEFAULT_MAX_ATTEMPTS = 8;
 
@@ -15,7 +14,8 @@ export function defaultBackoffMs(failedAttempts: number): number {
 const MAX_ERROR_LENGTH = 2000;
 
 export interface WorkerOptions {
-  db: Db;
+  /** Passed to every handler. The worker also claims and updates jobs through `services.db`. */
+  services: JobServices;
   logger: Logger;
   /** Every job type the worker can run. A job whose type isn't listed is dead-lettered. */
   jobs: readonly JobDefinition[];
@@ -40,7 +40,7 @@ export interface Worker {
 }
 
 export function createWorker({
-  db,
+  services,
   logger,
   jobs,
   now = () => new Date(),
@@ -48,6 +48,7 @@ export function createWorker({
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
   backoffMs = defaultBackoffMs,
 }: WorkerOptions): Worker {
+  const { db } = services;
   const definitions = new Map(jobs.map((definition) => [definition.type, definition]));
 
   function claimNext() {
@@ -100,7 +101,12 @@ export function createWorker({
 
     const started = performance.now();
     try {
-      await definition.handle(payload.data, { logger: log, jobId: id, attempt: attempts });
+      await definition.handle(payload.data, {
+        services,
+        logger: log,
+        jobId: id,
+        attempt: attempts,
+      });
     } catch (error) {
       const lastError = (error instanceof Error ? error.message : String(error)).slice(
         0,
