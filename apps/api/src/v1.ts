@@ -3,6 +3,8 @@ import { API_BASE_PATH } from '@myli/shared';
 import type { Auth } from './auth/auth.ts';
 import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
+import type { Env } from './env.ts';
+import { registerInvitationRoutes } from './invitations/routes.ts';
 import { validationHook } from './problems.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
 
@@ -15,7 +17,11 @@ import { registerSetupRoutes } from './setup/routes.ts';
 export interface V1Deps {
   db: Db;
   auth: Auth;
+  env: AppSettings;
 }
+
+/** The settings route handlers need from the environment. */
+export type AppSettings = Pick<Env, 'PUBLIC_URL' | 'INVITATION_TTL_DAYS'>;
 
 export function createV1Router(deps: V1Deps) {
   const v1 = new OpenAPIHono<AppEnv>({ defaultHook: validationHook });
@@ -31,6 +37,12 @@ export function createV1Router(deps: V1Deps) {
   });
 
   registerSetupRoutes(v1, deps);
+  registerInvitationRoutes(v1, {
+    db: deps.db,
+    auth: deps.auth,
+    publicUrl: deps.env.PUBLIC_URL,
+    ttlDays: deps.env.INVITATION_TTL_DAYS,
+  });
 
   return v1;
 }

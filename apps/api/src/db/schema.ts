@@ -1,6 +1,6 @@
 import { DEFAULT_ROLE, ROLES } from '@myli/shared';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const JOB_STATUSES = ['pending', 'running', 'succeeded', 'dead'] as const;
 
@@ -118,6 +118,39 @@ export const setupClaim = sqliteTable(
     claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [check('setup_claim_single_row', sql`${table.id} = 1`)],
+);
+
+/**
+ * Invitations (spec §3.1, ADR 0005). Rows are never deleted: accepting or revoking one sets a
+ * timestamp, so the history stays.
+ */
+export const invitation = sqliteTable(
+  'invitation',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    email: text('email').notNull(),
+    role: text('role', { enum: ROLES }).notNull(),
+    /** SHA-256 of the token in the link, as hex. The token itself is never stored. */
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    invitedBy: text('invited_by')
+      .notNull()
+      .references(() => user.id),
+    /** Set the moment an acceptance claims it, and cleared again if creating the user fails. */
+    acceptedAt: integer('accepted_at', { mode: 'timestamp_ms' }),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    check('invitation_role_check', sql`${table.role} in ${sqlList(ROLES)}`),
+    // At most one open (not accepted, not revoked) invitation per email, expired ones included.
+    uniqueIndex('invitation_open_email_idx')
+      .on(table.email)
+      .where(sql`${table.acceptedAt} is null and ${table.revokedAt} is null`),
+  ],
 );
 
 /**

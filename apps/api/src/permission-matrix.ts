@@ -4,7 +4,10 @@
  * of caller and checks the status against the policy, and fails if an endpoint in the OpenAPI
  * document is missing here.
  */
+import { randomUUID } from 'node:crypto';
 import { API_BASE_PATH, can, ROLES, type Role, type RoleAction } from '@myli/shared';
+import { createUserWithPassword } from './auth/users.ts';
+import { createInvitation } from './invitations/invitations.ts';
 import { signedInAs, type TestApp } from './testing.ts';
 
 export const CALLERS = ['anonymous', ...ROLES] as const;
@@ -47,6 +50,22 @@ function request(
   });
 }
 
+/** The token of a new, open invitation, made by a new admin directly in the database. */
+async function openInvitationToken(t: TestApp): Promise<string> {
+  const admin = await createUserWithPassword(t.auth, {
+    name: 'Inviting Admin',
+    email: `inviter-${randomUUID()}@example.com`,
+    password: 'An inviting admin password 1',
+    role: 'admin',
+  });
+  const result = createInvitation(
+    { db: t.db, auth: t.auth, publicUrl: t.publicUrl, ttlDays: 7 },
+    { email: `invitee-${randomUUID()}@example.com`, role: 'viewer', invitedBy: admin.id },
+  );
+  if (!result.ok) throw new Error(`could not create an invitation: ${result.reason}`);
+  return new URL(result.link).hash.slice(1);
+}
+
 /** Every endpoint of the versioned API. Add an entry with each new endpoint. */
 export const ENDPOINTS: readonly EndpointCase[] = [
   {
@@ -65,6 +84,32 @@ export const ENDPOINTS: readonly EndpointCase[] = [
         name: 'First Admin',
         email: 'first-admin@example.com',
         password: 'A first-admin password 1',
+      }),
+  },
+  {
+    method: 'post',
+    path: '/invitations',
+    access: 'user.invite',
+    send: (t, cookie) =>
+      request(t, 'POST', '/invitations', cookie, { email: 'invitee@example.com', role: 'viewer' }),
+  },
+  {
+    method: 'post',
+    path: '/invitations/lookup',
+    access: 'public',
+    send: async (t, cookie) =>
+      request(t, 'POST', '/invitations/lookup', cookie, { token: await openInvitationToken(t) }),
+  },
+  {
+    // Signed-in users may accept too: it creates a separate account and leaves their session alone.
+    method: 'post',
+    path: '/invitations/accept',
+    access: 'public',
+    send: async (t, cookie) =>
+      request(t, 'POST', '/invitations/accept', cookie, {
+        token: await openInvitationToken(t),
+        name: 'Invitee',
+        password: 'An invitee password 1',
       }),
   },
 ];

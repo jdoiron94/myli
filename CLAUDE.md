@@ -110,6 +110,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Index settings (searchable, filterable and sortable attributes, synonyms) live in code and are applied on startup.
 
 ### Content and security
+- **Cross-site requests:** routes that change data take `application/json` bodies only, and anything else gets 415. Together with `SameSite=Lax` session cookies and no CORS headers, that's what stops another site from making requests with a user's cookie, because an HTML form can't send JSON. Never accept form-encoded or `text/plain` bodies, or add CORS headers, on cookie-authenticated routes.
 - User-written markdown (descriptions, steps, comments) is sanitized with DOMPurify when rendered.
 - Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
 - Outbound fetches (URL import) go through the SSRF guard.
@@ -131,7 +132,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Testing
 - Vitest for unit tests.
-- API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
+- API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, env, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
