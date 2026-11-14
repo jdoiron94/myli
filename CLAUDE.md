@@ -73,7 +73,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Authorization
 - All authorization goes through the shared policy module: `can(user, action, resource?)` in `packages/shared/src/policy.ts`. Never write inline role checks in handlers or components.
 - A new action gets a row in the `✓`/`–` tables in `policy.test.ts`, restating the spec's §2 table. A test fails if an action has no row.
-- Every new endpoint gets entries in the permission-matrix tests (role × endpoint).
+- Guards, in `apps/api/src/auth/`:
+  - `requireSession`: any signed-in user (401 otherwise).
+  - `requirePermission(action)`: role-only actions such as `user.invite` (401, then 403). Add it to `createRoute({ middleware: [...] as const })`; it narrows `c.var.user` to non-null.
+  - `authorize(c, action, resource)`: recipe and comment actions, called in the handler once the resource is loaded. It answers 404 when the user may not see the recipe, identical to `notFound()`, which handlers also throw for IDs they can't find. Never write a different 404 for a hidden resource.
+- Every new endpoint gets an entry in `ENDPOINTS` in `apps/api/src/permission-matrix.ts`: its method, OpenAPI path, `access` (`public`, `signed-in` or an action) and a valid request. The matrix test sends that request as anonymous, viewer, editor and admin and checks the status against `can()`. It also fails if an OpenAPI operation has no entry.
 - **Viewers are strictly read-only.**
 - **Private recipes must never leak** through direct ID access, search results, revision endpoints or public links. Each of those paths has a test.
 

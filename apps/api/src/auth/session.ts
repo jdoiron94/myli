@@ -74,6 +74,11 @@ async function lookUpSession(auth: Auth, headers: Headers) {
   };
 }
 
+/** The 401 for requests that need a signed-in user. Every guard answers with this one. */
+export function signInRequired(): HttpProblem {
+  return new HttpProblem(401, 'Sign in to continue.');
+}
+
 /**
  * Answers 401 unless the request has a valid session. Handlers after it can rely on `c.var.user`
  * and `c.var.session` being set, and their types say so.
@@ -83,6 +88,6 @@ export const requireSession = createMiddleware<{
 }>(async (c, next) => {
   // The variables are typed as always set here; at runtime they're null until signed in.
   const user = c.var.user as CurrentUser | null;
-  if (!user) throw new HttpProblem(401, 'Sign in to continue.');
+  if (!user) throw signInRequired();
   await next();
 });
