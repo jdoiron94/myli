@@ -6,6 +6,8 @@ import { EnvError, loadEnv } from './env.ts';
 import { allJobs } from './jobs/all.ts';
 import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
+import type { Mailer } from './mail/mailer.ts';
+import { checkSmtpServer, createSmtpMailer, smtpConfigFrom } from './mail/smtp.ts';
 import { seedFirstAdmin } from './setup/seed.ts';
 
 /** How long in-flight requests get to finish after SIGTERM before the process exits anyway. */
@@ -54,7 +56,16 @@ try {
   process.exit(1);
 }
 
-const worker = createWorker({ db, logger, jobs: allJobs });
+let mailer: Mailer | null = null;
+const smtp = smtpConfigFrom(env);
+if (smtp) {
+  mailer = createSmtpMailer(smtp);
+  void checkSmtpServer(mailer, smtp, logger);
+} else {
+  logger.info('email is off because SMTP_HOST is not set');
+}
+
+const worker = createWorker({ services: { db, mailer }, logger, jobs: allJobs });
 const requeued = worker.recoverInterrupted();
 if (requeued > 0) {
   logger.warn({ count: requeued }, 'requeued jobs interrupted by the last shutdown');

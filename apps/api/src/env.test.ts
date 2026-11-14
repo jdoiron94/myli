@@ -27,6 +27,7 @@ describe('loadEnv', () => {
       PORT: 3000,
       LOG_LEVEL: 'info',
       DATABASE_PATH: './data/myli.db',
+      SMTP_SECURITY: 'starttls',
       ...REQUIRED,
     });
   });
@@ -50,6 +51,7 @@ describe('loadEnv', () => {
       DATABASE_PATH: '/data/myli.db',
       PUBLIC_URL: 'http://localhost:5173',
       BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
+      SMTP_SECURITY: 'starttls',
     });
   });
 
@@ -156,6 +158,89 @@ describe('the first admin variables', () => {
     const { message } = loadEnvError({ ...REQUIRED, ...ADMIN, ADMIN_PASSWORD: 'hunter2-hunter2' });
     expect(message).toMatch(/^\s+ADMIN_PASSWORD: Must contain an uppercase letter\.$/m);
     expect(message).not.toContain('hunter2');
+  });
+});
+
+describe('the SMTP variables', () => {
+  const SMTP = {
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_FROM: 'myli <myli@example.com>',
+  };
+
+  it('are optional: email is off unless SMTP_HOST is set', () => {
+    const env = loadEnv(REQUIRED);
+    expect(env).not.toHaveProperty('SMTP_HOST');
+    expect(env.SMTP_SECURITY).toBe('starttls');
+  });
+
+  it('are read together', () => {
+    expect(
+      loadEnv({
+        ...REQUIRED,
+        ...SMTP,
+        SMTP_PORT: '2525',
+        SMTP_SECURITY: 'tls',
+        SMTP_USER: 'myli',
+        SMTP_PASSWORD: 'smtp-secret',
+      }),
+    ).toMatchObject({
+      ...SMTP,
+      SMTP_PORT: 2525,
+      SMTP_SECURITY: 'tls',
+      SMTP_USER: 'myli',
+      SMTP_PASSWORD: 'smtp-secret',
+    });
+  });
+
+  it('need SMTP_FROM when SMTP_HOST is set', () => {
+    const { message } = loadEnvError({ ...REQUIRED, SMTP_HOST: SMTP.SMTP_HOST });
+    expect(message).toMatch(/^\s+SMTP_FROM: is required when SMTP_HOST is set$/m);
+  });
+
+  it.each([
+    ['SMTP_USER', 'SMTP_PASSWORD'],
+    ['SMTP_PASSWORD', 'SMTP_USER'],
+  ])('need the login in full: %s without %s is refused', (set, missing) => {
+    const { message } = loadEnvError({ ...REQUIRED, ...SMTP, [set]: 'smtp-hunter2' });
+    expect(message).toMatch(new RegExp(`^\\s+${missing}: is required when ${set} is set$`, 'm'));
+    expect(message).not.toContain('hunter2');
+  });
+
+  it.each(['SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'])(
+    'refuse %s without SMTP_HOST, which catches a misspelled host variable',
+    (name) => {
+      const value = name === 'SMTP_PORT' ? '2525' : SMTP.SMTP_FROM;
+      const { message } = loadEnvError({ ...REQUIRED, [name]: value });
+      expect(message).toMatch(
+        new RegExp(`^\\s+${name}: requires SMTP_HOST, which is not set$`, 'm'),
+      );
+    },
+  );
+
+  it.each(['myli@example.com', 'myli <myli@example.com>', '"myli, at home" <myli@example.com>'])(
+    'accept SMTP_FROM=%s',
+    (from) => {
+      expect(loadEnv({ ...REQUIRED, ...SMTP, SMTP_FROM: from }).SMTP_FROM).toBe(from);
+    },
+  );
+
+  it.each(['myli', 'myli <not-an-email>', 'a@example.com, b@example.com', 'myli <a@example.com'])(
+    'reject SMTP_FROM=%s',
+    (from) => {
+      expect(loadEnvError({ ...REQUIRED, ...SMTP, SMTP_FROM: from }).message).toMatch(
+        /^\s+SMTP_FROM: must be an email address, optionally with a name/m,
+      );
+    },
+  );
+
+  it.each([
+    ['SMTP_SECURITY', 'ssl'],
+    ['SMTP_HOST', 'smtp example com'],
+    ['SMTP_PORT', '0'],
+  ])('reject %s=%s', (name, value) => {
+    expect(loadEnvError({ ...REQUIRED, ...SMTP, [name]: value }).message).toMatch(
+      new RegExp(`^\\s+${name}: `, 'm'),
+    );
   });
 });
 
