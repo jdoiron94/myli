@@ -52,6 +52,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Types and contracts
 - TypeScript `strict` everywhere. No `any` without a comment explaining why.
+- Relative imports include the `.ts` extension, and only erasable TypeScript syntax is allowed (no enums, namespaces or parameter properties). This keeps the code runnable with Node's built-in type stripping.
+- `packages/shared` runs in both Node and the browser, so it gets neither Node nor DOM types.
 - Zod schemas in `packages/shared` are the single source for validation and types.
 - The API's OpenAPI 3.1 spec is generated from those schemas.
 - The frontend's API client is generated from the OpenAPI spec. Never hand-write API request or response types.
@@ -77,6 +79,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
+- A dependency used by more than one workspace package gets its version in the `catalog` in `pnpm-workspace.yaml`, and each package references it as `catalog:`.
 - Don't use MinIO: its Community Edition is archived and no longer ships official images.
 - Don't add Redis. Background jobs use the SQLite `job` table.
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
@@ -93,7 +96,12 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ## Commands
 
-No commands exist yet. They're added during Phase 0 scaffolding.
+Run these from the repo root:
+
+- `pnpm install`
+- `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
+- `pnpm test:watch`: Vitest in watch mode.
+- `pnpm typecheck`: `tsc --noEmit` for the root config files and every package.
 
 ## Docs
 
