@@ -9,6 +9,7 @@
     "node": ">=26.13.1 <27"
   },
   "scripts": {
+    "dev": "pnpm --recursive --parallel dev",
     "format": "biome check --write",
     "format:check": "biome check",
     "lint": "eslint . --max-warnings=0",

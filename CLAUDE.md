@@ -41,6 +41,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - `apps/web`: Vue 3 + TS + Vite
   - `apps/api`: Node + TS + Hono
   - `packages/shared`: Zod schemas, types, permission policy, scaling/unit/aggregation logic
+- **Runtime:** Node runs the API's and `shared`'s TypeScript source directly, using its built-in type stripping. There's no build step or `dist/` (ADR 0008).
 - **Storage:**
   - SQLite (better-sqlite3 + Drizzle) is the **source of truth**
   - Meilisearch is a **derived** search index, rebuildable from SQLite
@@ -52,7 +53,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Types and contracts
 - TypeScript `strict` everywhere. No `any` without a comment explaining why.
-- Relative imports include the `.ts` extension, and only erasable TypeScript syntax is allowed (no enums, namespaces or parameter properties). This keeps the code runnable with Node's built-in type stripping.
+- Relative imports include the `.ts` extension, and only erasable TypeScript syntax is allowed (no enums, namespaces, parameter properties or decorators). Node can't run anything else (ADR 0008).
 - `packages/shared` runs in both Node and the browser, so it gets neither Node nor DOM types.
 - Zod schemas in `packages/shared` are the single source for validation and types.
 - The API's OpenAPI 3.1 spec is generated from those schemas.
@@ -102,6 +103,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 Run these from the repo root:
 
 - `pnpm install`: also installs the git hooks.
+- `pnpm dev`: starts the API on port 3000 in watch mode, reading `.env` from the repo root if one exists.
 - `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
 - `pnpm test:watch`: Vitest in watch mode.
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package.

@@ -70,6 +70,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 5. [Better Auth with instance-wide roles and custom invitations](docs/adr/0005-better-auth-instance-roles-and-invitations.md)
 6. [Structured steps, with markdown edited in Milkdown](docs/adr/0006-structured-steps-and-milkdown.md)
 7. [Revision snapshots and optimistic concurrency](docs/adr/0007-revision-snapshots-and-optimistic-concurrency.md)
+8. [Run the API's TypeScript directly on Node, without a build step](docs/adr/0008-run-typescript-with-node-type-stripping.md)
 
 ## Getting started
 
@@ -83,6 +84,7 @@ You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `p
 
 ```sh
 pnpm install     # also installs the git hooks (lefthook)
+pnpm dev         # API on http://localhost:3000, restarts on change; reads .env if present
 pnpm test        # Vitest, across every workspace package
 pnpm typecheck   # tsc, for every workspace package
 pnpm lint        # ESLint
