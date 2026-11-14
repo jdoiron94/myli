@@ -2,7 +2,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: in design.** The spec and architecture decisions are written; implementation starts with Phase 0. Nothing below is runnable yet.
+> **Status: Phase 0 (foundation) in progress.** The app isn't usable yet.
 
 ## Features
 
@@ -74,6 +74,22 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 ## Getting started
 
 Setup instructions will be added once Phase 0 is done. The goal is a single `docker compose up` that starts a seeded demo instance with one account per role.
+
+## Development
+
+You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `packageManager` in `package.json`; any other pnpm version switches to it automatically).
+
+```sh
+pnpm install
+pnpm test        # Vitest, across every workspace package
+pnpm typecheck   # tsc, for every workspace package
+```
+
+| Path | Contents |
+|---|---|
+| `apps/api` | Hono API |
+| `apps/web` | Vue SPA |
+| `packages/shared` | Zod schemas, types and logic used by both |
 
 ## Roadmap
 
