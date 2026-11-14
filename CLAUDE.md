@@ -58,7 +58,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Zod schemas in `packages/shared` are the single source for validation and types.
 - The API's OpenAPI 3.1 spec is generated from those schemas.
 - The frontend's API client is generated from the OpenAPI spec. Never hand-write API request or response types.
-- API errors use RFC 9457 `application/problem+json`.
+- API errors use RFC 9457 `application/problem+json`, matching `problemDetailsSchema` in `packages/shared`. Handlers fail by throwing `HttpProblem(status, detail)`, and `detail` goes to the client verbatim. Any other error becomes a generic 500 with only the request ID, and the details go to the log. Never put internals in a response.
 
 ### Authorization
 - All authorization goes through the shared policy module. Never write inline role checks in handlers or components.
