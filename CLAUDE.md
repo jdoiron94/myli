@@ -67,6 +67,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - The admin plugin stores each user's single role (a CHECK constraint enforces it). Its HTTP endpoints (`/api/auth/admin/*`) are blocked for everyone, so role changes and bans can't skip the policy module or the audit log. Server code calls them through `auth.api.*`.
 - The admin role gets no plugin permission that could reach another user's private recipes or remove a user: no impersonation, no setting passwords or emails, no hard deletes. Don't add them.
 - Better Auth reads `process.env` itself in places. Pass anything it would infer from there (rate limiting, the origin check) explicitly from our validated env.
+- On `/api/v1` routes, `c.var.user` (`id`, `name`, `email`, `role`) and `c.var.session` are the signed-in user and session, or `null`. Routes that need a user add the `requireSession` middleware (401 otherwise), which also narrows the type.
+- **Never turn on Better Auth's cookie cache.** Every request reads the session from SQLite, so sign-out, expiry and bans take effect on the next request. The cache would let a revoked cookie keep working until the cache expires.
 
 ### Authorization
 - All authorization goes through the shared policy module. Never write inline role checks in handlers or components.
@@ -115,7 +117,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Testing
 - Vitest for unit tests.
-- API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
+- API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers.
