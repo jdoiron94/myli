@@ -82,9 +82,14 @@ describe('main.ts', () => {
     expect(api.stderr()).toBe('');
 
     const logs = api.logs();
-    expect(logs.map((line) => line.msg)).toEqual(['database ready', 'listening', 'shutting down']);
-    expect(logs[1]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
-    expect(logs[2]).toMatchObject({ signal: 'SIGTERM' });
+    expect(logs.map((line) => line.msg)).toEqual([
+      'database ready',
+      'job worker started',
+      'listening',
+      'shutting down',
+    ]);
+    expect(logs[2]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
+    expect(logs[3]).toMatchObject({ signal: 'SIGTERM' });
 
     const db = new Database(databasePath, { readonly: true });
     const jobTable = db.prepare("select name from sqlite_master where name = 'job'").get();

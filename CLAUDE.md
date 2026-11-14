@@ -72,9 +72,17 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Never edit a migration that has been committed; add a new one. The API applies pending migrations on startup, before it listens.
 - Enumerated text columns get a CHECK constraint, not just a TypeScript type.
 
+### Background jobs
+- Side effects that can fail or are slow (sending email, updating Meilisearch) run as jobs, never inline in a request.
+- Define a job type with `defineJob({ type, payload, handle })` in `apps/api/src/jobs/`, and add it to `allJobs` in `jobs/all.ts`. The worker dead-letters job types it doesn't know.
+- Queue a job with `enqueueJob(tx, definition, payload)` **inside the transaction of the write it belongs to**, so the job and the change commit or roll back together.
+- Handlers must be idempotent. A job can run more than once: after a crash, or when it fails after its side effect happened.
+- A job whose handler throws is retried with exponential backoff, then dead-lettered (`status = 'dead'`, error in `last_error`). Throw to retry. A payload that no longer matches its schema is dead-lettered without running.
+- Keep payloads small and stable: IDs, not whole records. Handlers read current state from SQLite. If a payload schema changes, jobs already queued still have to parse.
+
 ### Search
 - The browser never talks to Meilisearch. All search goes through the API, which adds the authorization filter.
-- Any write that affects a recipe's search document inserts an outbox `job` row **in the same SQLite transaction**. Never call Meilisearch inline from a request handler.
+- Any write that affects a recipe's search document queues a job with `enqueueJob` **in the same SQLite transaction**. Never call Meilisearch inline from a request handler.
 - Only published recipe versions are indexed; drafts never are.
 - Index settings (searchable, filterable and sortable attributes, synonyms) live in code and are applied on startup.
 
@@ -101,6 +109,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Testing
 - Vitest for unit tests.
 - API integration tests use Hono's `app.request()` against in-memory SQLite: `createTestDatabase()` from `apps/api/src/db/testing.ts` gives each test a fresh, migrated database.
+- Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers.
 - User flows get Playwright E2E tests with axe accessibility checks.
