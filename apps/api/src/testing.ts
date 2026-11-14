@@ -8,9 +8,15 @@ import { createTestDatabase } from './db/testing.ts';
 import type { Env } from './env.ts';
 import { createLogger, type Logger } from './logger.ts';
 
-type TestEnv = Pick<Env, 'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET' | 'INVITATION_TTL_DAYS'>;
+type TestEnv = Pick<
+  Env,
+  'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET' | 'INVITATION_TTL_DAYS' | 'SMTP_HOST'
+>;
 
-/** The settings tests run with. `https`, so cookies behave as they do in production. */
+/**
+ * The settings tests run with. `https`, so cookies behave as they do in production. Email is off;
+ * set `SMTP_HOST` to turn it on.
+ */
 export const TEST_ENV = {
   NODE_ENV: 'test',
   PUBLIC_URL: 'https://myli.test',

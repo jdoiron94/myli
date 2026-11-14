@@ -182,6 +182,11 @@ function toInvitation(row: InvitationRow, at: Date) {
   };
 }
 
+/** The link is there only when myli doesn't email it. */
+function withLink(invitation: ReturnType<typeof toInvitation>, link: string | undefined) {
+  return { invitation, ...(link !== undefined && { link }) };
+}
+
 export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: InvitationDeps) {
   const now = deps.now ?? (() => new Date());
 
@@ -198,7 +203,7 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
     if (!result.ok) throw new HttpProblem(409, CONFLICTS[result.reason]);
     // Never the email or the link: one is personal, the other is a secret.
     c.var.logger.info({ invitationId: result.invitation.id }, 'invitation created');
-    return c.json({ invitation: toInvitation(result.invitation, now()), link: result.link }, 201);
+    return c.json(withLink(toInvitation(result.invitation, now()), result.link), 201);
   });
 
   v1.openapi(postResend, (c) => {
@@ -209,7 +214,7 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
         : new HttpProblem(409, CONFLICTS['user-exists']);
     }
     c.var.logger.info({ invitationId: result.invitation.id }, 'invitation resent');
-    return c.json({ invitation: toInvitation(result.invitation, now()), link: result.link }, 200);
+    return c.json(withLink(toInvitation(result.invitation, now()), result.link), 200);
   });
 
   v1.openapi(postRevoke, (c) => {

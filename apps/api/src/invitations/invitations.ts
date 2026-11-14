@@ -1,9 +1,13 @@
 import type { AcceptInvitationRequest, InvitationStatus, Role, User } from '@myli/shared';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { z } from 'zod';
 import type { Auth } from '../auth/auth.ts';
 import { createUserWithPassword } from '../auth/users.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { invitation, user } from '../db/schema.ts';
+import { defineJob } from '../jobs/define.ts';
+import { enqueueJob } from '../jobs/queue.ts';
+import { invitationEmail } from './email.ts';
 import { hashInvitationToken, invitationLink, newInvitationToken } from './tokens.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,23 +17,82 @@ export interface InvitationDeps {
   auth: Auth;
   publicUrl: string;
   ttlDays: number;
+  /** True when SMTP is configured: links are then emailed, never returned to the admin. */
+  emailEnabled: boolean;
   now?: () => Date;
 }
+
+/**
+ * Emails an invitation its link. The payload is only the ID: the token is never stored, not even
+ * here (spec §3.1). So the handler makes a fresh token, stores its hash, and only then sends the
+ * link. An email therefore never carries a link the database doesn't know. When a send fails, the
+ * retry does the same with another token; nobody has the one before it.
+ */
+export const invitationEmailJob = defineJob({
+  type: 'invitation.email',
+  payload: z.object({ invitationId: z.string() }),
+  async handle({ invitationId }, { services: { db, mailer, publicUrl }, logger }) {
+    if (!mailer) {
+      // Only when SMTP was turned off after the job was queued.
+      logger.warn(
+        { invitationId },
+        'email is off, so the invitation email was not sent; resend the invitation to get a link',
+      );
+      return;
+    }
+    const { token, tokenHash } = newInvitationToken();
+    const issued = db.transaction(
+      (tx) => {
+        const [row] = tx
+          .update(invitation)
+          .set({ tokenHash })
+          .where(and(eq(invitation.id, invitationId), isUsable(new Date())))
+          .returning()
+          .all();
+        if (!row) return undefined;
+        const inviter = tx
+          .select({ name: user.name })
+          .from(user)
+          .where(eq(user.id, row.invitedBy))
+          .get();
+        return { row, inviterName: inviter?.name ?? 'An admin' };
+      },
+      { behavior: 'immediate' },
+    );
+    if (!issued) {
+      logger.info({ invitationId }, 'invitation was accepted, revoked or expired; no email sent');
+      return;
+    }
+    const { row, inviterName } = issued;
+    const { messageId } = await mailer.send(
+      invitationEmail({
+        to: row.email,
+        inviterName,
+        role: row.role,
+        link: invitationLink(publicUrl, token),
+        expiresAt: row.expiresAt,
+      }),
+    );
+    logger.info({ invitationId, messageId }, 'invitation email sent');
+  },
+});
 
 export type InvitationRow = typeof invitation.$inferSelect;
 
 export type CreateInvitationResult =
-  | { ok: true; invitation: InvitationRow; link: string }
+  | { ok: true; invitation: InvitationRow; link: string | undefined }
   | { ok: false; reason: 'user-exists' | 'already-invited' };
 
 /**
- * Creates an invitation and returns the link for it. The token is in the link only: the table
- * keeps its hash, so the link can't be shown again later.
+ * Creates an invitation. With email on, it queues the email in the same transaction and returns
+ * no link. Otherwise it returns the link, for the admin to share. Either way the table keeps only
+ * a hash, so the link can't be shown again later.
  */
 export function createInvitation(
-  { db, publicUrl, ttlDays, now = () => new Date() }: InvitationDeps,
+  { db, publicUrl, ttlDays, emailEnabled, now = () => new Date() }: InvitationDeps,
   request: { email: string; role: Role; invitedBy: string },
 ): CreateInvitationResult {
+  // With email on, nobody ever sees this token: the email job replaces it before it sends.
   const { token, tokenHash } = newInvitationToken();
   const createdAt = now();
   const result = db.transaction(
@@ -41,7 +104,7 @@ export function createInvitation(
         .where(and(eq(invitation.email, request.email), isOpen()))
         .get();
       if (open) return { ok: false, reason: 'already-invited' };
-      return tx
+      const row = tx
         .insert(invitation)
         .values({
           ...request,
@@ -51,13 +114,19 @@ export function createInvitation(
         })
         .returning()
         .get();
+      if (emailEnabled) enqueueJob(tx, invitationEmailJob, { invitationId: row.id });
+      return row;
     },
     // Take the write lock first, so two requests can't both pass the checks before either inserts.
     // The unique index on open invitations backs this up.
     { behavior: 'immediate' },
   );
   if ('ok' in result) return result;
-  return { ok: true, invitation: result, link: invitationLink(publicUrl, token) };
+  return {
+    ok: true,
+    invitation: result,
+    link: emailEnabled ? undefined : invitationLink(publicUrl, token),
+  };
 }
 
 function expiryFrom(start: Date, ttlDays: number) {
@@ -97,15 +166,16 @@ export function listOpenInvitations({ db }: Pick<InvitationDeps, 'db'>): Invitat
 }
 
 export type ResendInvitationResult =
-  | { ok: true; invitation: InvitationRow; link: string }
+  | { ok: true; invitation: InvitationRow; link: string | undefined }
   | { ok: false; reason: 'not-open' | 'user-exists' };
 
 /**
- * Gives an open invitation a new token and a full TTL from now, and returns the new link. The old
- * link stops working, because its hash is no longer stored.
+ * Gives an open invitation a new token and a full TTL from now. The old link stops working at
+ * once, because its hash is no longer stored. Then, like `createInvitation`, it queues the email
+ * or returns the new link.
  */
 export function resendInvitation(
-  { db, publicUrl, ttlDays, now = () => new Date() }: InvitationDeps,
+  { db, publicUrl, ttlDays, emailEnabled, now = () => new Date() }: InvitationDeps,
   id: string,
 ): ResendInvitationResult {
   const { token, tokenHash } = newInvitationToken();
@@ -119,19 +189,25 @@ export function resendInvitation(
         .get();
       if (!row) return { ok: false, reason: 'not-open' };
       if (emailTaken(tx, row.email)) return { ok: false, reason: 'user-exists' };
-      return tx
+      const updated = tx
         .update(invitation)
         .set({ tokenHash, expiresAt: expiryFrom(sentAt, ttlDays) })
         .where(eq(invitation.id, id))
         .returning()
         .get();
+      if (emailEnabled) enqueueJob(tx, invitationEmailJob, { invitationId: id });
+      return updated;
     },
     // Take the write lock first, so an acceptance can't claim the invitation between the checks
     // and the update, which therefore always finds the row.
     { behavior: 'immediate' },
   );
   if ('ok' in result) return result;
-  return { ok: true, invitation: result, link: invitationLink(publicUrl, token) };
+  return {
+    ok: true,
+    invitation: result,
+    link: emailEnabled ? undefined : invitationLink(publicUrl, token),
+  };
 }
 
 /** Revokes an open invitation, so its link stops working. False if none is open with this ID. */
