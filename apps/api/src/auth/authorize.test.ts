@@ -45,7 +45,12 @@ function appWithResources() {
   const send = (method: 'GET' | 'DELETE', path: string, cookie?: string, requestId?: string) =>
     t.app.request(`/api/v1/test${path}`, {
       method,
-      headers: { ...(cookie && { cookie }), ...(requestId && { 'x-request-id': requestId }) },
+      headers: {
+        ...(cookie && { cookie }),
+        ...(requestId && { 'x-request-id': requestId }),
+        // Every /api/v1 request that changes data must say it's JSON (json-only.ts).
+        ...(method === 'DELETE' && { 'content-type': 'application/json' }),
+      },
     });
   return { ...t, recipes, comments, send };
 }

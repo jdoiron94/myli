@@ -110,7 +110,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Index settings (searchable, filterable and sortable attributes, synonyms) live in code and are applied on startup.
 
 ### Content and security
-- **Cross-site requests:** routes that change data take `application/json` bodies only, and anything else gets 415. Together with `SameSite=Lax` session cookies and no CORS headers, that's what stops another site from making requests with a user's cookie, because an HTML form can't send JSON. Never accept form-encoded or `text/plain` bodies, or add CORS headers, on cookie-authenticated routes.
+- **Cross-site requests:** every `/api/v1` request other than GET, HEAD and OPTIONS must say `Content-Type: application/json`, even with no body. `jsonOnly()` (`apps/api/src/json-only.ts`) answers 415 otherwise, before any route runs. With no CORS headers, that's what stops another origin from making requests with a user's cookie: a form or a no-CORS fetch can only send form-encoded, multipart, `text/plain` or no content type. `SameSite=Lax` alone isn't enough, because other origins on the same site, like another app on a different port of the same host, still get the cookie. Never exempt a route from `jsonOnly()`, accept form-encoded or `text/plain` bodies, or add CORS headers on cookie-authenticated routes. Test requests to bodyless endpoints send the header too.
 - User-written markdown (descriptions, steps, comments) is sanitized with DOMPurify when rendered.
 - Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
 - Outbound fetches (URL import) go through the SSRF guard.
