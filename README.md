@@ -89,6 +89,7 @@ pnpm test        # Vitest, across every workspace package
 pnpm typecheck   # tsc, for every workspace package
 pnpm lint        # ESLint
 pnpm format      # Biome
+pnpm openapi:generate   # refresh apps/api/openapi.json after changing the API
 ```
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.

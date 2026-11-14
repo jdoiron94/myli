@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "NODE_ENV=development node --watch --env-file-if-exists=../../.env src/main.ts | pino-pretty",
     "start": "node src/main.ts",
+    "openapi:generate": "node scripts/generate-openapi.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hono/node-server": "2.1.8",
+    "@hono/zod-openapi": "1.6.3",
     "@myli/shared": "workspace:*",
     "hono": "4.13.18",
     "pino": "10.4.0",

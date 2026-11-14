@@ -56,7 +56,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Relative imports include the `.ts` extension, and only erasable TypeScript syntax is allowed (no enums, namespaces, parameter properties or decorators). Node can't run anything else (ADR 0008).
 - `packages/shared` runs in both Node and the browser, so it gets neither Node nor DOM types.
 - Zod schemas in `packages/shared` are the single source for validation and types.
-- The API's OpenAPI 3.1 spec is generated from those schemas.
+- The API's OpenAPI 3.1 spec is generated from those schemas. Every versioned route is declared with `createRoute` on the router in `apps/api/src/v1.ts`, and spreads `errorResponses` into its `responses` (a test fails otherwise). Give shared schemas a component name with `.meta({ id })`, not `.openapi()`, because `packages/shared` doesn't depend on the OpenAPI library.
+- The committed copy, `apps/api/openapi.json`, must match the generated one: run `pnpm openapi:generate` after changing a route or schema, or `pnpm test` fails.
 - The frontend's API client is generated from the OpenAPI spec. Never hand-write API request or response types.
 - API errors use RFC 9457 `application/problem+json`, matching `problemDetailsSchema` in `packages/shared`. Handlers fail by throwing `HttpProblem(status, detail)`, and `detail` goes to the client verbatim. Any other error becomes a generic 500 with only the request ID, and the details go to the log. Never put internals in a response.
 
@@ -110,6 +111,7 @@ Run these from the repo root:
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package.
 - `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes.
 - `pnpm format`: Biome formats and sorts imports in place. `pnpm format:check` only reports.
+- `pnpm openapi:generate`: rewrites `apps/api/openapi.json` from the routes.
 
 ## Docs
 

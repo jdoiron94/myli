@@ -1,9 +1,11 @@
+import { API_BASE_PATH } from '@myli/shared';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type { AppEnv } from './context.ts';
 import type { Logger } from './logger.ts';
 import { onError, onNotFound } from './problems.ts';
 import { requestLogging } from './request-logging.ts';
+import { createV1Router } from './v1.ts';
 
 export interface AppDeps {
   logger: Logger;
@@ -27,6 +29,8 @@ export function createApp({ logger }: AppDeps) {
 
   app.use(requestId());
   app.use(requestLogging(logger));
+
+  app.route(API_BASE_PATH, createV1Router());
 
   return app;
 }
