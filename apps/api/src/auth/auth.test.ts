@@ -2,10 +2,8 @@ import { AUTH_BASE_PATH, problemDetailsSchema, type Role } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
 import { user } from '../db/schema.ts';
 import { createLogger } from '../logger.ts';
-import { createTestApp, TEST_AUTH_ENV } from '../testing.ts';
+import { createTestApp, TEST_AUTH_ENV, type TestApp } from '../testing.ts';
 import { createUserWithPassword } from './users.ts';
-
-type TestApp = ReturnType<typeof createTestApp>;
 
 const ADA = { name: 'Ada', email: 'ada@example.com', password: 'correct horse battery' };
 

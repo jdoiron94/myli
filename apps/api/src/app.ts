@@ -2,6 +2,7 @@ import { API_BASE_PATH, AUTH_BASE_PATH } from '@myli/shared';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type { Auth } from './auth/auth.ts';
+import { sessionMiddleware } from './auth/session.ts';
 import type { AppEnv } from './context.ts';
 import type { Logger } from './logger.ts';
 import { onError, onNotFound } from './problems.ts';
@@ -34,6 +35,7 @@ export function createApp({ logger, auth }: AppDeps) {
 
   // Better Auth answers its own routes, in its own format rather than problem details (ADR 0005).
   app.on(['GET', 'POST'], `${AUTH_BASE_PATH}/*`, (c) => auth.handler(c.req.raw));
+  app.use(`${API_BASE_PATH}/*`, sessionMiddleware(auth));
   app.route(API_BASE_PATH, createV1Router());
 
   return app;
