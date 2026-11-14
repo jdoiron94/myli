@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type { AppEnv } from './context.ts';
 import type { Logger } from './logger.ts';
+import { onError, onNotFound } from './problems.ts';
 import { requestLogging } from './request-logging.ts';
 
 export interface AppDeps {
@@ -13,6 +14,9 @@ export interface AppDeps {
  */
 export function createApp({ logger }: AppDeps) {
   const app = new Hono<AppEnv>();
+  // Every error response is RFC 9457 application/problem+json.
+  app.onError(onError);
+  app.notFound(onNotFound);
 
   // Liveness only: answers as long as the process can serve HTTP. `/readyz` will check dependencies.
   // Registered before the middleware below, so the container healthcheck doesn't flood the logs.
