@@ -8,6 +8,19 @@ export const API_BASE_PATH = '/api/v1';
 export const AUTH_BASE_PATH = '/api/auth';
 
 export {
+  type Action,
+  COMMENT_ACTIONS,
+  type CommentAction,
+  can,
+  type PolicyComment,
+  type PolicyRecipe,
+  type PolicyUser,
+  RECIPE_ACTIONS,
+  type RecipeAction,
+  ROLE_ACTIONS,
+  type RoleAction,
+} from './policy.ts';
+export {
   PROBLEM_CONTENT_TYPE,
   type ProblemDetails,
   problemDetailsSchema,
@@ -16,3 +29,4 @@ export {
   validationProblemSchema,
 } from './problem.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
+export { VISIBILITIES, type Visibility, visibilitySchema } from './visibility.ts';
