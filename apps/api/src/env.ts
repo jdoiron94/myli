@@ -9,6 +9,7 @@ export const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  DATABASE_PATH: z.string().default('./data/myli.db'),
 });
 
 export type Env = z.infer<typeof envSchema>;

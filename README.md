@@ -90,6 +90,7 @@ pnpm typecheck   # tsc, for every workspace package
 pnpm lint        # ESLint
 pnpm format      # Biome
 pnpm openapi:generate   # refresh apps/api/openapi.json after changing the API
+pnpm db:generate        # create a migration after changing the database schema
 ```
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.

@@ -20,13 +20,26 @@ describe('loadEnv', () => {
       HOST: '0.0.0.0',
       PORT: 3000,
       LOG_LEVEL: 'info',
+      DATABASE_PATH: './data/myli.db',
     });
   });
 
   it('reads and converts values that are set', () => {
     expect(
-      loadEnv({ NODE_ENV: 'development', HOST: '127.0.0.1', PORT: '8080', LOG_LEVEL: 'debug' }),
-    ).toEqual({ NODE_ENV: 'development', HOST: '127.0.0.1', PORT: 8080, LOG_LEVEL: 'debug' });
+      loadEnv({
+        NODE_ENV: 'development',
+        HOST: '127.0.0.1',
+        PORT: '8080',
+        LOG_LEVEL: 'debug',
+        DATABASE_PATH: '/data/myli.db',
+      }),
+    ).toEqual({
+      NODE_ENV: 'development',
+      HOST: '127.0.0.1',
+      PORT: 8080,
+      LOG_LEVEL: 'debug',
+      DATABASE_PATH: '/data/myli.db',
+    });
   });
 
   it('treats empty strings as unset', () => {
