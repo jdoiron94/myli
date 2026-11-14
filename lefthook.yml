@@ -1,0 +1,14 @@
+# Git hooks. `pnpm install` installs them, except when CI is set.
+# Skip them for one commit with `git commit --no-verify`.
+pre-commit:
+  piped: true
+  jobs:
+    - name: format
+      run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+    - name: lint
+      glob: '*.{js,mjs,cjs,ts,mts,cts,vue}'
+      run: pnpm exec eslint --max-warnings=0 --no-warn-ignored {staged_files}
+    # Type errors can cross files, so this checks the whole workspace.
+    - name: typecheck
+      run: pnpm typecheck
