@@ -360,7 +360,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | Repo layout | pnpm workspaces: `apps/web`, `apps/api`, `packages/shared` |
 | Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, VueUse; shadcn-vue + Tailwind; VeeValidate + Zod |
 | Backend | Node LTS, TypeScript, Hono |
-| API | REST under `/api/v1`; OpenAPI 3.1 generated from Zod; RFC 9457 errors; Scalar docs at `/api/docs`; typed client generated for the frontend |
+| API | REST under `/api/v1`; OpenAPI 3.1 generated from Zod; RFC 9457 errors; Scalar docs at `/api/docs`; typed client generated for the frontend. Better Auth's routes live under `/api/auth`, in Better Auth's own format, and the frontend calls them through Better Auth's client |
 | Database | SQLite (better-sqlite3, WAL, `busy_timeout`) with Drizzle and drizzle-kit migrations, run when the container starts |
 | Search | Meilisearch Community Edition |
 | Blob storage | `BlobStore` interface: local volume by default, optional S3 adapter tested against Garage |
