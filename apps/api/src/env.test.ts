@@ -13,14 +13,21 @@ function loadEnvError(source: Record<string, string>): EnvError {
   throw new Error('expected loadEnv to throw');
 }
 
+/** Valid values for the variables that have no default. */
+const REQUIRED = {
+  PUBLIC_URL: 'https://myli.example',
+  BETTER_AUTH_SECRET: 'a-test-secret-that-is-at-least-32-chars',
+};
+
 describe('loadEnv', () => {
-  it('applies defaults when nothing is set', () => {
-    expect(loadEnv({})).toEqual({
+  it('applies defaults when only the required variables are set', () => {
+    expect(loadEnv(REQUIRED)).toEqual({
       NODE_ENV: 'production',
       HOST: '0.0.0.0',
       PORT: 3000,
       LOG_LEVEL: 'info',
       DATABASE_PATH: './data/myli.db',
+      ...REQUIRED,
     });
   });
 
@@ -32,6 +39,8 @@ describe('loadEnv', () => {
         PORT: '8080',
         LOG_LEVEL: 'debug',
         DATABASE_PATH: '/data/myli.db',
+        PUBLIC_URL: 'http://localhost:5173',
+        BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
       }),
     ).toEqual({
       NODE_ENV: 'development',
@@ -39,19 +48,51 @@ describe('loadEnv', () => {
       PORT: 8080,
       LOG_LEVEL: 'debug',
       DATABASE_PATH: '/data/myli.db',
+      PUBLIC_URL: 'http://localhost:5173',
+      BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
     });
   });
 
   it('treats empty strings as unset', () => {
-    expect(loadEnv({ PORT: '', LOG_LEVEL: '' })).toMatchObject({ PORT: 3000, LOG_LEVEL: 'info' });
+    expect(loadEnv({ ...REQUIRED, PORT: '', LOG_LEVEL: '' })).toMatchObject({
+      PORT: 3000,
+      LOG_LEVEL: 'info',
+    });
   });
 
   it('drops variables it does not know about', () => {
-    expect(loadEnv({ PATH: '/usr/bin', HOME: '/root' })).not.toHaveProperty('PATH');
+    expect(loadEnv({ ...REQUIRED, PATH: '/usr/bin', HOME: '/root' })).not.toHaveProperty('PATH');
   });
 
   it.each(['0', '65536', '80.5', 'http'])('rejects PORT=%s', (port) => {
-    expect(loadEnvError({ PORT: port }).message).toMatch(/^\s+PORT: /m);
+    expect(loadEnvError({ ...REQUIRED, PORT: port }).message).toMatch(/^\s+PORT: /m);
+  });
+
+  it('says which required variables are missing', () => {
+    const { message } = loadEnvError({ PUBLIC_URL: '', BETTER_AUTH_SECRET: '' });
+    expect(message).toMatch(/^\s+PUBLIC_URL: is required$/m);
+    expect(message).toMatch(/^\s+BETTER_AUTH_SECRET: is required$/m);
+  });
+
+  it('reduces PUBLIC_URL to its origin', () => {
+    expect(loadEnv({ ...REQUIRED, PUBLIC_URL: 'https://Myli.Example:8443/' }).PUBLIC_URL).toBe(
+      'https://myli.example:8443',
+    );
+  });
+
+  it.each([
+    'myli.example',
+    'ftp://myli.example',
+    'https://myli.example/recipes',
+    'https://myli.example/?x=1',
+  ])('rejects PUBLIC_URL=%s', (url) => {
+    expect(loadEnvError({ ...REQUIRED, PUBLIC_URL: url }).message).toMatch(/^\s+PUBLIC_URL: /m);
+  });
+
+  it('rejects a BETTER_AUTH_SECRET shorter than 32 characters, without echoing it', () => {
+    const { message } = loadEnvError({ ...REQUIRED, BETTER_AUTH_SECRET: 'too-short-hunter2' });
+    expect(message).toMatch(/^\s+BETTER_AUTH_SECRET: must be at least 32 characters/m);
+    expect(message).not.toContain('hunter2');
   });
 
   it('lists every invalid variable in one error', () => {
@@ -76,7 +117,11 @@ describe('.env.example', () => {
     expect(Object.keys(example).sort()).toEqual(Object.keys(envSchema.shape).sort());
   });
 
-  it('shows the default value of each variable', () => {
-    expect(loadEnv(example)).toEqual(loadEnv({}));
+  it('leaves the required variables empty', () => {
+    for (const name of Object.keys(REQUIRED)) expect(example[name]).toBe('');
+  });
+
+  it('shows the default value of every other variable', () => {
+    expect(loadEnv({ ...example, ...REQUIRED })).toEqual(loadEnv(REQUIRED));
   });
 });

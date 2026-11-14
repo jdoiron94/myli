@@ -1,9 +1,9 @@
 import { problemDetailsSchema } from '@myli/shared';
 import { HTTPException } from 'hono/http-exception';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from './app.ts';
 import { createLogger } from './logger.ts';
 import { HttpProblem } from './problems.ts';
+import { createTestApp } from './testing.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -16,7 +16,7 @@ function appWithFailingRoutes() {
       logs.push(JSON.parse(line) as Record<string, unknown>);
     },
   });
-  const app = createApp({ logger });
+  const { app } = createTestApp({ logger });
   app.get('/teapot', () => {
     throw new HttpProblem(418, 'This server only brews tea.');
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createApp } from './app.ts';
 import { createLogger } from './logger.ts';
+import { createTestApp } from './testing.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -12,7 +12,7 @@ function appWithCapturedLogs() {
       logs.push(JSON.parse(line) as Record<string, unknown>);
     },
   });
-  const app = createApp({ logger });
+  const { app } = createTestApp({ logger });
   app.get('/hello', (c) => {
     c.var.logger.info('hello from a handler');
     return c.text('hi');

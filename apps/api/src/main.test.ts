@@ -11,6 +11,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const MAIN = fileURLToPath(new URL('./main.ts', import.meta.url));
 
+/** The variables without a default, so tests that expect a successful start can set them. */
+const REQUIRED_ENV = {
+  PUBLIC_URL: 'http://127.0.0.1',
+  BETTER_AUTH_SECRET: 'main-test-secret-main-test-secret',
+};
+
 const tempDirs: string[] = [];
 afterEach(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -67,6 +73,7 @@ describe('main.ts', () => {
     const port = await freePort();
     const databasePath = tempDatabasePath();
     const api = startApi({
+      ...REQUIRED_ENV,
       NODE_ENV: 'test',
       HOST: '127.0.0.1',
       PORT: String(port),
@@ -105,6 +112,7 @@ describe('main.ts', () => {
     db.close();
 
     const api = startApi({
+      ...REQUIRED_ENV,
       HOST: '127.0.0.1',
       PORT: String(await freePort()),
       DATABASE_PATH: databasePath,
@@ -124,6 +132,7 @@ describe('main.ts', () => {
 
     expect(await api.exited).toBe(1);
     expect(api.stderr()).toMatch(/^Invalid environment configuration:\n\s+PORT: /);
+    expect(api.stderr()).toMatch(/^\s+BETTER_AUTH_SECRET: is required$/m);
     expect(api.stderr()).not.toMatch(/^\s+at /m); // no stack trace
   });
 });

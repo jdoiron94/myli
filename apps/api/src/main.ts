@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
+import { createAuth } from './auth/auth.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
 import { EnvError, loadEnv } from './env.ts';
 import { allJobs } from './jobs/all.ts';
@@ -50,7 +51,8 @@ if (requeued > 0) {
 worker.start();
 logger.info('job worker started');
 
-const app = createApp({ logger });
+const auth = createAuth({ db, env, logger });
+const app = createApp({ logger, auth });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');

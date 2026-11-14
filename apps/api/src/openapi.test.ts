@@ -1,12 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { createApp } from './app.ts';
-import { createLogger } from './logger.ts';
 import { OPENAPI_DOCUMENT_FILE, renderOpenApiDocument } from './openapi-document.ts';
+import { createTestApp } from './testing.ts';
 
 describe('GET /api/v1/openapi.json', () => {
   it('serves an OpenAPI 3.1 document for the versioned API', async () => {
-    const res = await createApp({ logger: createLogger('silent') }).request('/api/v1/openapi.json');
+    const res = await createTestApp().app.request('/api/v1/openapi.json');
     expect(res.status).toBe(200);
 
     const doc = (await res.json()) as Record<string, unknown>;

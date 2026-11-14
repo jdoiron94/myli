@@ -55,7 +55,14 @@ describe('migrateDatabase', () => {
   it('creates the schema', () => {
     const { db } = openTempDatabase();
     migrateDatabase(db);
-    expect(tableNames(db)).toEqual(['__drizzle_migrations', 'job']);
+    expect(tableNames(db)).toEqual([
+      '__drizzle_migrations',
+      'account',
+      'job',
+      'session',
+      'user',
+      'verification',
+    ]);
   });
 
   it('skips migrations that already ran, so a restart keeps the data', () => {

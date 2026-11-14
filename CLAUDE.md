@@ -60,6 +60,13 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - The committed copy, `apps/api/openapi.json`, must match the generated one: run `pnpm openapi:generate` after changing a route or schema, or `pnpm test` fails.
 - The frontend's API client is generated from the OpenAPI spec. Never hand-write API request or response types.
 - API errors use RFC 9457 `application/problem+json`, matching `problemDetailsSchema` in `packages/shared`. Handlers fail by throwing `HttpProblem(status, detail)`, and `detail` goes to the client verbatim. Any other error becomes a generic 500 with only the request ID, and the details go to the log. Never put internals in a response.
+- **The one exception is Better Auth's own routes** under `AUTH_BASE_PATH` (`/api/auth/*`). Better Auth answers them in its own format, and they're not in the OpenAPI document. The web app calls them through Better Auth's client, which ships its own types. Errors Better Auth didn't raise itself still become our generic 500 (`onAPIError.throw`). Never add app endpoints under `/api/auth`.
+
+### Authentication
+- Better Auth is configured in `apps/api/src/auth/auth.ts`. Public sign-up is disabled. Create users only with `createUserWithPassword()` from `auth/users.ts`. It skips the minimum password length check, so validate the password before calling it.
+- The admin plugin stores each user's single role (a CHECK constraint enforces it). Its HTTP endpoints (`/api/auth/admin/*`) are blocked for everyone, so role changes and bans can't skip the policy module or the audit log. Server code calls them through `auth.api.*`.
+- The admin role gets no plugin permission that could reach another user's private recipes or remove a user: no impersonation, no setting passwords or emails, no hard deletes. Don't add them.
+- Better Auth reads `process.env` itself in places. Pass anything it would infer from there (rate limiting, the origin check) explicitly from our validated env.
 
 ### Authorization
 - All authorization goes through the shared policy module. Never write inline role checks in handlers or components.
@@ -91,7 +98,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
 - Outbound fetches (URL import) go through the SSRF guard.
 - The API logs through pino, never `console` (ESLint enforces this). Inside a request, use `c.var.logger`, which tags every line with the request ID. Never log query strings, headers, request bodies or secrets.
-- Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example` with its default. A test fails if the two differ.
+- Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example`, with its default or, if it's required, an empty value. A test fails if the two differ.
 
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
@@ -108,7 +115,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Testing
 - Vitest for unit tests.
-- API integration tests use Hono's `app.request()` against in-memory SQLite: `createTestDatabase()` from `apps/api/src/db/testing.ts` gives each test a fresh, migrated database.
+- API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers.
