@@ -80,10 +80,14 @@ Setup instructions will be added once Phase 0 is done. The goal is a single `doc
 You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `packageManager` in `package.json`; any other pnpm version switches to it automatically).
 
 ```sh
-pnpm install
+pnpm install     # also installs the git hooks (lefthook)
 pnpm test        # Vitest, across every workspace package
 pnpm typecheck   # tsc, for every workspace package
+pnpm lint        # ESLint
+pnpm format      # Biome
 ```
+
+The pre-commit hook formats staged files, lints them, and typechecks the workspace.
 
 | Path | Contents |
 |---|---|

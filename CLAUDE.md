@@ -85,7 +85,10 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
 
 ### Tooling
-- Biome for formatting, ESLint for linting (Vue rules), vue-tsc for type checks. lefthook runs them on staged files.
+- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS, YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown is left alone.
+- **ESLint lints:** `@eslint/js` recommended, typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, and eslint-plugin-vue `recommended` with its layout rules off. Warnings fail the build.
+- **Type checks:** `tsc` now; vue-tsc once `apps/web` has Vue components.
+- **lefthook pre-commit,** in order: Biome fixes staged files and re-stages them, ESLint checks staged files, then the whole workspace is typechecked.
 
 ### Testing
 - Vitest for unit tests.
@@ -98,10 +101,12 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 Run these from the repo root:
 
-- `pnpm install`
+- `pnpm install`: also installs the git hooks.
 - `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
 - `pnpm test:watch`: Vitest in watch mode.
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package.
+- `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes.
+- `pnpm format`: Biome formats and sorts imports in place. `pnpm format:check` only reports.
 
 ## Docs
 
