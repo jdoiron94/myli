@@ -2,7 +2,15 @@ import { VALIDATION_PROBLEM_TYPE } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { accessibilityViolations, apiServer, problemResponse, renderApp } from '@/testing.ts';
+import {
+  accessibilityViolations,
+  apiServer,
+  describedBy,
+  describedElements,
+  listItems,
+  problemResponse,
+  renderApp,
+} from '@/testing.ts';
 
 const STRONG_PASSWORD = 'Correct horse battery 9';
 
@@ -12,30 +20,6 @@ const emailField = () => screen.getByRole('textbox', { name: 'Email' });
 const passwordField = () => screen.getByLabelText('Password');
 const showPassword = () => screen.getByRole('button', { name: 'Show password' });
 const createButton = () => screen.getByRole('button', { name: 'Create admin account' });
-
-/** The elements an input points to with `aria-describedby`. */
-function describedElements(input: HTMLElement) {
-  return (input.getAttribute('aria-describedby') ?? '')
-    .split(' ')
-    .filter(Boolean)
-    .map((id) => {
-      const element = document.getElementById(id);
-      if (!element) throw new Error(`aria-describedby points to a missing #${id}`);
-      return element;
-    });
-}
-
-/** The text of the messages an input points to with `aria-describedby`, one per element. */
-const describedBy = (input: HTMLElement) =>
-  describedElements(input).map((element) => element.textContent.replace(/\s+/g, ' ').trim());
-
-/** The text of each item of the list in `element`. */
-function listItems(element: HTMLElement | undefined) {
-  if (!element) throw new Error('no element to look for a list in');
-  return within(element)
-    .getAllByRole('listitem')
-    .map((item) => item.textContent.trim());
-}
 
 /**
  * The setup page, with no user yet, and the API answering `POST /setup` with `answer`. Returns the

@@ -6,7 +6,7 @@ import {
   type User,
 } from '@myli/shared';
 import userEvent from '@testing-library/user-event';
-import { render, screen } from '@testing-library/vue';
+import { render, screen, within } from '@testing-library/vue';
 import axe from 'axe-core';
 import { HttpHandler, HttpResponse, http } from 'msw';
 import { vi } from 'vitest';
@@ -171,4 +171,28 @@ export async function accessibilityViolations({ skip = [] }: { skip?: string[] }
     ),
   });
   return violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }));
+}
+
+/** The elements an input points to with `aria-describedby`. */
+export function describedElements(input: HTMLElement) {
+  return (input.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .filter(Boolean)
+    .map((id) => {
+      const element = document.getElementById(id);
+      if (!element) throw new Error(`aria-describedby points to a missing #${id}`);
+      return element;
+    });
+}
+
+/** The text of the messages an input points to with `aria-describedby`, one per element. */
+export const describedBy = (input: HTMLElement) =>
+  describedElements(input).map((element) => element.textContent.replace(/\s+/g, ' ').trim());
+
+/** The text of each item of the list in `element`. */
+export function listItems(element: HTMLElement | undefined) {
+  if (!element) throw new Error('no element to look for a list in');
+  return within(element)
+    .getAllByRole('listitem')
+    .map((item) => item.textContent.trim());
 }

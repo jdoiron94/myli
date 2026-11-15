@@ -84,7 +84,9 @@ There are three roles: **admin**, **editor** and **viewer**.
   - single-use and revocable
   - resending invalidates the previous token and issues a new one
 - **Links** look like `PUBLIC_URL/accept-invitation#<token>`. The token is in the fragment, which browsers never send to a server, so it stays out of access logs and Referer headers. The accept page sends it in a request body.
-- **Accepting:** the invitee follows the link, the token is checked, and the user is created through Better Auth's server API with the invited email and role, already verified. Accepting doesn't sign them in: they sign in next with the same email and password.
+- **Accepting:** the invitee follows the link. The accept page takes the token out of the address as soon as it has read it, checks it, and shows the invited email, role and expiry. The invitee chooses a name and a password, and the user is created through Better Auth's server API with the invited email and role, already verified. Accepting doesn't sign them in: they sign in next with the same email and password.
+  - The email can't be changed on the accept page: the account gets the address the invitation was sent to.
+  - Someone already signed in is asked to sign out and open the link again, rather than creating a second account while signed in.
 - Unknown, expired, revoked and used links all get the same answer, so they can't be told apart.
 - **With SMTP:** creating or resending an invitation emails the link, and the admin never sees it.
   - The email job stores the hash of a fresh token first and only then sends, so an emailed link always works when it arrives.
