@@ -107,7 +107,13 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **User lifecycle**
 - Admins change roles and deactivate users. Users are never hard-deleted, so revision and comment authorship stays intact.
+- **The Users page** lists everyone with an account, oldest first, with their email, role, whether they're active, and when they joined.
+  - Changing a role opens a dialog with the current role chosen. Saving the role they already have changes nothing.
+  - Deactivating asks the admin to confirm first, and says what it does. Reactivating doesn't ask.
+  - The admin's own row is marked and has no controls (see lockout protection below).
 - A role change applies from the user's next request.
+  - The web app fetches the session once, so a page already open learns of a lower role when the API refuses a request. It then fetches the session again and checks the current page: a page the new role doesn't allow shows the no-access page instead, and links to such pages go.
+  - A user given a higher role sees the links it adds after reloading the page.
 - An editor demoted to viewer keeps read-only access to their own private recipes (§2).
 - Deactivating a user ends all of their sessions immediately and refuses their sign-ins until an admin reactivates them.
 - **Deactivation leaves the user's recipes exactly as they are.** Private recipes stay private, visible to no one, and are the user's again if they're reactivated. Shared recipes stay shared. An admin can never use deactivation to reach someone's private recipes. A member who wants others to keep their recipes makes them shared before they leave.

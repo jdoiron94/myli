@@ -1,35 +1,24 @@
 <script setup lang="ts">
 import { createInvitationRequestSchema, type Role } from '@myli/shared';
 import { useField, useForm } from 'vee-validate';
-import { ref, useId, useTemplateRef } from 'vue';
+import { ref, useTemplateRef } from 'vue';
 import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import FormTextField from '@/components/FormTextField.vue';
+import RoleChoice from '@/components/RoleChoice.vue';
 import { Button } from '@/components/ui/button';
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { FieldGroup } from '@/components/ui/field';
 import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.ts';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS } from '@/lib/roles.ts';
+import { ROLES_BY_ACCESS } from '@/lib/roles.ts';
 import { type InvitationWithLink, useCreateInvitation } from './invitations.ts';
 
 const FIELDS = ['email', 'role'] as const;
-/** Least access first, which is also the default. */
-const ROLE_CHOICES: readonly Role[] = ['viewer', 'editor', 'admin'];
 
 const emit = defineEmits<{ invited: [result: InvitationWithLink] }>();
 
 const { handleSubmit, isSubmitting, setErrors, setFieldError, resetForm } = useForm({
   validationSchema: formSchema(createInvitationRequestSchema),
-  initialValues: { email: '', role: ROLE_CHOICES[0] },
+  initialValues: { email: '', role: ROLES_BY_ACCESS[0] as Role },
 });
 const { value: role, errorMessage: roleError } = useField<Role>('role');
 
@@ -71,12 +60,6 @@ function submit(event: Event) {
   event.preventDefault();
   if (!isSubmitting.value) void inviteOnSubmit(event);
 }
-
-const roleId = useId();
-const roleErrorId = `${roleId}-error`;
-
-/** The radio button for `choice` and its description, for `for` and `aria-describedby`. */
-const choiceId = (choice: Role) => `${roleId}-${choice}`;
 </script>
 
 <template>
@@ -99,40 +82,10 @@ const choiceId = (choice: Role) => `${roleId}-${choice}`;
         type="email"
         autocomplete="off"
       />
-      <FieldSet>
-        <FieldLegend variant="label">
-          Role
-        </FieldLegend>
-        <RadioGroup
-          v-model="role"
-          :aria-describedby="roleError ? roleErrorId : undefined"
-        >
-          <Field
-            v-for="choice in ROLE_CHOICES"
-            :key="choice"
-            orientation="horizontal"
-          >
-            <RadioGroupItem
-              :id="choiceId(choice)"
-              :value="choice"
-              :aria-describedby="`${choiceId(choice)}-description`"
-              :aria-invalid="roleError ? true : undefined"
-            />
-            <FieldContent>
-              <FieldLabel :for="choiceId(choice)">
-                {{ ROLE_LABELS[choice] }}
-              </FieldLabel>
-              <FieldDescription :id="`${choiceId(choice)}-description`">
-                {{ ROLE_DESCRIPTIONS[choice] }}
-              </FieldDescription>
-            </FieldContent>
-          </Field>
-        </RadioGroup>
-        <FieldError
-          :id="roleErrorId"
-          :errors="roleError ? [roleError] : []"
-        />
-      </FieldSet>
+      <RoleChoice
+        v-model="role"
+        :error="roleError"
+      />
       <Button
         type="submit"
         class="self-start aria-disabled:opacity-50"

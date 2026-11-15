@@ -233,51 +233,66 @@ describe('first-run setup', () => {
 });
 
 describe("the router's permission check", () => {
-  const answerInvitations = () => {
-    apiServer.use(http.get('/api/v1/invitations', () => HttpResponse.json({ invitations: [] })));
+  const answerAdminPages = () => {
+    apiServer.use(
+      http.get('/api/v1/invitations', () => HttpResponse.json({ invitations: [] })),
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          users: [
+            { ...testUsers.admin, deactivated: false, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+        }),
+      ),
+    );
   };
 
-  it('opens a page to a user whose role allows it', async () => {
-    answerInvitations();
-    const { router } = await renderApp('/admin/invitations', { signedInAs: 'admin' });
+  it.each([
+    ['/admin/invitations', 'invitations', 'Invitations', 'No open invitations.'],
+    ['/admin/users', 'users', 'Users', testUsers.admin.email],
+  ])('opens %s to a user whose role allows it', async (path, name, heading, loaded) => {
+    answerAdminPages();
+    const { router } = await renderApp(path, { signedInAs: 'admin' });
 
-    await pageHeading('Invitations');
-    expect(router.currentRoute.value.name).toBe('invitations');
-    await screen.findByText('No open invitations.');
+    await pageHeading(heading);
+    expect(router.currentRoute.value.name).toBe(name);
+    await screen.findByText(loaded);
   });
 
   it.each([
-    ['an editor', 'editor'],
-    ['a viewer', 'viewer'],
-  ] as const)("shows %s that they don't have access, at the page's address", async (_, role) => {
-    const { router, user } = await renderApp('/admin/invitations?sort=email#top', {
-      signedInAs: role,
-    });
+    ['an editor', 'editor', '/admin/invitations'],
+    ['a viewer', 'viewer', '/admin/invitations'],
+    ['an editor', 'editor', '/admin/users'],
+    ['a viewer', 'viewer', '/admin/users'],
+  ] as const)(
+    "shows %s that they don't have access to %s, at its address",
+    async (_, role, path) => {
+      const { router, user } = await renderApp(`${path}?sort=email#top`, { signedInAs: role });
 
-    await pageHeading("You don't have access to this page");
-    expect(router.currentRoute.value.name).toBe('no-access');
-    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations?sort=email#top');
-    expect(document.title).toBe('No access · myli');
-    expect(await accessibilityViolations()).toEqual([]);
+      await pageHeading("You don't have access to this page");
+      expect(router.currentRoute.value.name).toBe('no-access');
+      expect(router.currentRoute.value.fullPath).toBe(`${path}?sort=email#top`);
+      expect(document.title).toBe('No access · myli');
+      expect(await accessibilityViolations()).toEqual([]);
 
-    await user.click(screen.getByRole('link', { name: 'Go to the home page' }));
+      await user.click(screen.getByRole('link', { name: 'Go to the home page' }));
 
-    await pageHeading('Recipes');
-  });
+      await pageHeading('Recipes');
+    },
+  );
 
   it('checks it on navigating within the app too', async () => {
     const { router } = await renderApp('/', { signedInAs: 'viewer' });
 
-    await router.push('/admin/invitations');
+    await router.push('/admin/users');
 
     await pageHeading("You don't have access to this page");
-    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations');
+    expect(router.currentRoute.value.fullPath).toBe('/admin/users');
   });
 
   it('sends signed-out visitors to sign in first', async () => {
-    const { router } = await renderApp('/admin/invitations', { signedInAs: null });
+    const { router } = await renderApp('/admin/users', { signedInAs: null });
 
     await pageHeading('Sign in');
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/admin/invitations' });
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/admin/users' });
   });
 });

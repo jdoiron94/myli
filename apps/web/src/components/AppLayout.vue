@@ -11,7 +11,13 @@ const main = useTemplateRef('main');
 const router = useRouter();
 const { data: signedInUser } = useQuery(sessionQuery);
 const signOut = useSignOut();
-const canInvite = computed(() => can(signedInUser.value ?? null, 'user.invite'));
+/** The pages in the header, each linked only for someone whose role allows it. */
+const NAV_PAGES = ['invitations', 'users'] as const;
+const navLinks = computed(() =>
+  NAV_PAGES.map((name) => router.resolve({ name })).filter(
+    ({ meta }) => !meta.permission || can(signedInUser.value ?? null, meta.permission),
+  ),
+);
 
 function focusMain() {
   main.value?.focus();
@@ -57,15 +63,18 @@ onBeforeUnmount(stopForgetting);
           myli
         </RouterLink>
         <nav
-          v-if="canInvite"
+          v-if="signedInUser && navLinks.length > 0"
           aria-label="Main"
+          class="flex gap-4"
         >
           <!-- RouterLink marks the current page's link with aria-current="page". -->
           <RouterLink
-            :to="{ name: 'invitations' }"
+            v-for="link in navLinks"
+            :key="link.fullPath"
+            :to="link.fullPath"
             class="rounded-md text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-foreground"
           >
-            Invitations
+            {{ link.meta.title }}
           </RouterLink>
         </nav>
       </div>

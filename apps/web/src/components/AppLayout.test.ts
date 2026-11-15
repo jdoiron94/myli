@@ -2,7 +2,7 @@ import { AUTH_BASE_PATH } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { accessibilityViolations, apiServer, renderApp } from '../testing.ts';
+import { accessibilityViolations, apiServer, renderApp, testUsers } from '../testing.ts';
 
 describe('the layout', () => {
   it('starts keyboard users at a skip link that moves focus to the main content', async () => {
@@ -138,6 +138,33 @@ describe('the main navigation', () => {
     expect(await accessibilityViolations()).toEqual([]);
   });
 
+  it('links admins to the users too, after the invitations', async () => {
+    apiServer.use(
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          users: [
+            { ...testUsers.admin, deactivated: false, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+        }),
+      ),
+    );
+    const { router, user } = await renderApp('/', { signedInAs: 'admin' });
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((link) => link.textContent.trim())).toEqual(['Invitations', 'Users']);
+
+    await user.click(within(nav).getByRole('link', { name: 'Users' }));
+
+    await screen.findByText(testUsers.admin.email);
+    expect(router.currentRoute.value.fullPath).toBe('/admin/users');
+    expect(within(nav).getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(
+      within(nav).getByRole('link', { name: 'Invitations' }).getAttribute('aria-current'),
+    ).toBeNull();
+  });
+
   it.each([
     ['an editor', 'editor'],
     ['a viewer', 'viewer'],
@@ -147,5 +174,6 @@ describe('the main navigation', () => {
 
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Invitations' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
   });
 });

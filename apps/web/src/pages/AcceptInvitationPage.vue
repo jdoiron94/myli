@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  acceptInvitationRequestSchema,
-  invitationLookupRequestSchema,
-  type Role,
-} from '@myli/shared';
+import { acceptInvitationRequestSchema, invitationLookupRequestSchema } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { useForm } from 'vee-validate';
 import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
@@ -26,14 +22,9 @@ import {
   formSchema,
   newPasswordSchema,
 } from '@/lib/forms.ts';
+import { ROLE_WITH_ARTICLE } from '@/lib/roles.ts';
 
 const FIELDS = ['name', 'password'] as const;
-
-const ROLE_PHRASES: Readonly<Record<Role, string>> = {
-  admin: 'an admin',
-  editor: 'an editor',
-  viewer: 'a viewer',
-};
 
 const expiryFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', timeStyle: 'short' });
 
@@ -204,7 +195,7 @@ const emailDescriptionId = `${emailId}-description`;
     />
     <template v-else-if="view.kind === 'ready'">
       <p class="mt-2 text-muted-foreground">
-        You're invited to join myli as {{ ROLE_PHRASES[view.invitation.role] }}. Choose your name
+        You're invited to join myli as {{ ROLE_WITH_ARTICLE[view.invitation.role] }}. Choose your name
         and a password to create your account.
       </p>
       <p class="mt-2 text-sm text-muted-foreground">
