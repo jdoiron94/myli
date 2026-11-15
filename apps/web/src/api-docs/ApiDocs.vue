@@ -14,6 +14,9 @@ const configuration = {
   // Scalar's servers, and developer tools whose Share button uploads the document to Scalar.
   agent: { disabled: true },
   showDeveloperTools: 'never',
+  // Its Open API Client button opens client.scalar.com in a new tab, which then fetches this
+  // instance's document and loads Scalar's analytics. A CSP can't stop a new tab.
+  hideClientButton: true,
   // Only Scalar's analytics plugin reads this, and the page doesn't load it. Off in case that
   // changes.
   telemetry: false,

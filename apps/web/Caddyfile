@@ -1,0 +1,75 @@
+# myli's web server. The web image (apps/web/Dockerfile) runs it with the built app in /srv. It
+# serves the app and the API docs page, and sends the rest of /api to the API.
+#
+# Each page has a Content Security Policy (ADR 0012). The app's allows no inline scripts or styles
+# and no eval. The API docs page has its own, because Scalar adds styles at runtime (ADR 0011).
+{
+	# No admin endpoint: the configuration is part of the image, and nothing changes it at runtime.
+	admin off
+}
+
+# Docker's healthcheck (see the Dockerfile). Reachable only from inside the container.
+http://127.0.0.1:2020 {
+	bind 127.0.0.1
+	respond /healthz 200
+}
+
+:80 {
+	# On every response, the API's included.
+	header {
+		X-Content-Type-Options nosniff
+		# Links to other sites, such as a recipe's source, don't tell them this instance's address.
+		Referrer-Policy same-origin
+		Cross-Origin-Opener-Policy same-origin
+		# Cook mode keeps the screen on. Nothing uses the camera, the microphone or the location.
+		Permissions-Policy "camera=(), geolocation=(), microphone=(), screen-wake-lock=(self)"
+	}
+
+	# The API, Better Auth's routes included: everything under /api except the docs page. Its
+	# answers are JSON, never pages, so their CSP allows nothing at all. They aren't compressed.
+	@api {
+		path /api/*
+		not path /api/docs /api/docs/*
+	}
+	handle @api {
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+
+	root * /srv
+
+	# The API docs page (ADR 0011). Scalar adds styles as it runs: <style> elements, one of them
+	# built from whichever code editors are open, and style attributes. No hash can cover those, so
+	# inline styles are allowed here (ADR 0012). Scripts are as strict as on the app's pages, and
+	# nothing loads from another site. The file server redirects /api/docs to /api/docs/.
+	@docs path /api/docs /api/docs/*
+	handle @docs {
+		header {
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			Cache-Control no-cache
+		}
+		encode zstd gzip
+		file_server
+	}
+
+	# Vite's output. Each name has a hash of the file's content, so a file never changes and browsers
+	# keep it. A file that isn't there is a 404, not the app, and isn't kept: it may exist later.
+	handle /assets/* {
+		@exists file
+		header @exists Cache-Control "public, max-age=31536000, immutable"
+		encode zstd gzip
+		file_server
+	}
+
+	# The app: a file if there is one (theme.js), otherwise index.html, where the app's router takes
+	# over. Browsers check with the server on every load, so a new release shows up straight away.
+	handle {
+		header {
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			Cache-Control no-cache
+		}
+		encode zstd gzip
+		try_files {path} /index.html
+		file_server
+	}
+}

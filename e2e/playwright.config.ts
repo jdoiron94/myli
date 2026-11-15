@@ -1,18 +1,10 @@
-import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
-
-/** One web server's settings. Playwright doesn't export the type. */
-type WebServer = Exclude<NonNullable<PlaywrightTestConfig['webServer']>, unknown[]>;
+import { defineConfig } from '@playwright/test';
+import { BROWSERS, COMMON_CONFIG, type WebServer } from './browsers.ts';
 
 /**
  * Each browser gets its own API, database and Vite dev server, because first-run setup happens
  * once per database. The ports differ from `pnpm dev`'s (3000 and 5173), so both can run at once.
  */
-const BROWSERS = [
-  { name: 'chromium', device: devices['Desktop Chrome'] },
-  // Firefox lacks some CSS that Chromium has (`text-wrap: pretty`, found in increment 16f).
-  { name: 'firefox', device: devices['Desktop Firefox'] },
-] as const;
-
 const stacks = BROWSERS.map((browser, index) => ({
   ...browser,
   apiPort: 3100 + index,
@@ -20,15 +12,10 @@ const stacks = BROWSERS.map((browser, index) => ({
 }));
 
 export default defineConfig({
-  testDir: 'tests',
-  // One journey per browser, each against its own stack.
-  workers: BROWSERS.length,
-  forbidOnly: Boolean(process.env.CI),
-  reporter: [['list']],
-  use: {
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-  },
+  ...COMMON_CONFIG,
+  // The web server's headers and Content Security Policy come from Caddy, which only the images
+  // run (playwright.containers.config.ts).
+  testIgnore: 'web-server.spec.ts',
   projects: stacks.map(({ name, device, webUrl }) => ({
     name,
     use: { ...device, baseURL: webUrl },
