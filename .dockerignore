@@ -1,0 +1,20 @@
+# The images build from the repo root. Keep secrets, local data, and anything the build installs
+# itself out of the build context.
+
+# Secrets and local data: .env holds passwords and keys, apps/api/data the development database.
+**/.env
+**/.env.*
+!.env.example
+**/*.db
+**/*.db-shm
+**/*.db-wal
+apps/api/data
+
+# Installed or generated inside the image, or not needed there.
+**/node_modules
+**/dist
+coverage
+e2e/test-results
+e2e/playwright-report
+.git
+**/*.test.ts
