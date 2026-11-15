@@ -132,6 +132,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - `@/` is `apps/web/src/`.
 - **shadcn-vue components** live in `apps/web/src/components/ui/`, as its CLI writes them (style `reka-vega`, base color `neutral`, see `components.json`). The CLI never merges into them: `add` skips a file that already exists, and `add --overwrite` replaces it, dropping local edits. So keep edits to them to a minimum. To take an upstream update, overwrite the component, run `pnpm format`, and use `git diff` to re-apply the edits it dropped, such as the `cn` import below.
   - Add one from `apps/web` with `pnpm dlx shadcn-vue@2.9.0 add <name>`.
+  - When the new component depends on one we already have (`alert-dialog` uses `button`), the CLI asks whether to overwrite it, even with `--yes`, and stops when it can't ask. Copy the existing component's folder aside, run with `--overwrite`, and copy it back.
   - The CLI installs shadcn's `cn` package and imports it in the new files. Remove that dependency, and import `cn` from `@/lib/utils` instead (clsx + tailwind-merge). ESLint flags the import.
   - Its other dependencies follow the usual rules: exact versions, at least a week old.
 - **Styling:** theme colors are CSS variables in `src/style.css`. Text uses the system font stack; never load web fonts from a third party.

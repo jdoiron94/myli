@@ -76,7 +76,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **One open invitation per email.** An invitation is open until it's accepted or revoked; an expired one still counts, so the admin resends or revokes it. Inviting an email that already belongs to a user is refused.
 - **Managing invitations:** admins see every open invitation, marked pending or expired.
   - Resending issues a new link that works for the full lifetime again and stops the old one. It works on expired invitations too.
-  - Revoking stops the link and keeps the record, and the email can be invited again.
+  - Revoking stops the link and keeps the record, and the email can be invited again. The admin confirms it first.
   - Neither works on an invitation that's accepted, revoked, or being accepted at that moment.
 - **Tokens:**
   - 32 random bytes; only the SHA-256 hash is stored, so a link can't be shown again later
@@ -94,7 +94,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - If a send fails, the retry does the same with another token. When an invitation gets more than one email, only the newest link works.
   - Nothing is sent for an invitation that was accepted, revoked or expired before its job ran.
   - The email is plain text: who invited them, the role, the link, and when it expires (in UTC).
-- **Without SMTP:** if SMTP isn't configured, the admin gets a **copy invite link** action instead of an email.
+- **Without SMTP:** if SMTP isn't configured, creating or resending an invitation shows the admin its link once, with a copy button, to share however they like. It can't be shown again later, since only its hash is stored: to get a link for an existing invitation, the admin resends it, which stops the old one.
 - Accepting creates exactly one user; replaying a used token fails.
 
 **Account basics**
