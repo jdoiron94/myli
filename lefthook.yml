@@ -6,9 +6,12 @@ pre-commit:
     - name: format
       run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
+    # Also formats `<template>` blocks: eslint-plugin-vue's layout rules are the only rules of
+    # that type turned on. Other problems are reported, not fixed.
     - name: lint
       glob: '*.{js,mjs,cjs,ts,mts,cts,vue}'
-      run: pnpm exec eslint --max-warnings=0 --no-warn-ignored {staged_files}
+      run: pnpm exec eslint --fix --fix-type layout --max-warnings=0 --no-warn-ignored {staged_files}
+      stage_fixed: true
     # Type errors can cross files, so this checks the whole workspace.
     - name: typecheck
       run: pnpm typecheck

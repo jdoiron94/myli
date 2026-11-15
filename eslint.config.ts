@@ -6,6 +6,8 @@ import pluginVue from 'eslint-plugin-vue';
 export default defineConfigWithVueTs(
   globalIgnores(['**/dist/', '**/coverage/']),
   js.configs.recommended,
+  // Its layout rules format `<template>` blocks, and `eslint --fix` applies them. They're the only
+  // layout rules turned on, and they never look at `<script>` or `<style>`, which Biome formats.
   pluginVue.configs['flat/recommended'],
   vueTsConfigs.strictTypeChecked,
   vueTsConfigs.stylisticTypeChecked,
@@ -19,11 +21,5 @@ export default defineConfigWithVueTs(
     // The API logs through pino (`c.var.logger` inside requests), so logs stay structured.
     files: ['apps/api/**'],
     rules: { 'no-console': 'error' },
-  },
-  {
-    // Biome owns formatting, so turn off every rule that only checks layout.
-    // The plugin only ships this preset in the legacy format, so take its rules.
-    name: 'vue/no-layout-rules',
-    rules: pluginVue.configs['no-layout-rules'].rules,
   },
 );
