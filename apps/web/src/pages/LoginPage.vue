@@ -4,10 +4,11 @@ import { useForm } from 'vee-validate';
 import { computed, useTemplateRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { z } from 'zod';
-import { ApiProblem } from '@/api/problem.ts';
+import { failureMessage } from '@/api/failure.ts';
 import { AuthProblem } from '@/auth/client.ts';
 import { safeRedirect } from '@/auth/redirect.ts';
 import { useSignIn } from '@/auth/session.ts';
+import { signInHandoff } from '@/auth/sign-in-handoff.ts';
 import FormTextField from '@/components/FormTextField.vue';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
@@ -19,13 +20,16 @@ const signInSchema = z.object({
   password: z.string().min(1, 'Enter your password.'),
 });
 
-const { handleSubmit, isSubmitting } = useForm({
-  validationSchema: formSchema(signInSchema),
-  initialValues: { email: '', password: '' },
-});
-
 const route = useRoute();
 const router = useRouter();
+/** Set by the page that sent them here, such as setup: the new account's email, and a note. */
+const handoff = signInHandoff(router);
+
+const { handleSubmit, isSubmitting } = useForm({
+  validationSchema: formSchema(signInSchema),
+  initialValues: { email: handoff?.email ?? '', password: '' },
+});
+
 const form = useTemplateRef('form');
 const signIn = useSignIn();
 
@@ -64,8 +68,7 @@ const failure = computed(() => {
     }
     if (error.status === 429) return 'Too many sign-in attempts. Wait a moment, then try again.';
   }
-  if (error instanceof ApiProblem) return "Signing in didn't work. Try again in a moment.";
-  return "Couldn't reach myli. Check your connection, then try again.";
+  return failureMessage(error);
 });
 </script>
 
@@ -74,6 +77,12 @@ const failure = computed(() => {
     <h1 class="text-2xl font-semibold">
       Sign in
     </h1>
+    <p
+      v-if="handoff"
+      class="mt-2 text-muted-foreground"
+    >
+      {{ handoff.notice }}
+    </p>
     <!-- novalidate: the form's own messages, not the browser's, which differ and can't be styled. -->
     <form
       ref="form"

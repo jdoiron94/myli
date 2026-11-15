@@ -41,7 +41,7 @@ async function renderLogin(path = '/login', answer: () => Response = () => HttpR
       return response;
     }),
   );
-  const rendered = await renderApp(path, { answerSession: false });
+  const rendered = await renderApp(path);
   await screen.findByRole('heading', { level: 1, name: 'Sign in' });
   return { ...rendered, signIns };
 }
@@ -158,7 +158,7 @@ describe('the sign-in page', () => {
     [
       'a server error',
       () => new HttpResponse('Internal Server Error', { status: 500 }),
-      "Signing in didn't work. Try again in a moment.",
+      "Something went wrong on myli's server. Try again in a moment.",
     ],
     [
       'no answer at all',
@@ -193,7 +193,7 @@ describe('the sign-in page', () => {
         );
       }),
     );
-    const { user } = await renderApp('/login', { answerSession: false });
+    const { user } = await renderApp('/login');
     await user.type(emailField(), 'ada@example.com');
     await user.type(passwordField(), 'correct horse battery staple');
 

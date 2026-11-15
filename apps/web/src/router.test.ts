@@ -80,7 +80,7 @@ describe("the router's sign-in check", () => {
         return sessionResponse(testUsers.editor);
       }),
     );
-    const { router } = await renderApp('/', { answerSession: false });
+    const { router } = await renderApp('/');
 
     await router.push('/recipes/1');
     await router.push('/');
@@ -107,7 +107,7 @@ describe("when the session can't be fetched", () => {
   it('tries twice more before giving up', async () => {
     const calls = failSession(2);
 
-    await renderApp('/recipes/1', { answerSession: false });
+    await renderApp('/recipes/1');
 
     await pageHeading('Page not found');
     expect(calls.count).toBe(3);
@@ -115,7 +115,7 @@ describe("when the session can't be fetched", () => {
 
   it('says so, and goes on to the page once it can', async () => {
     const calls = failSession(3);
-    const { router, user } = await renderApp('/recipes/1', { answerSession: false });
+    const { router, user } = await renderApp('/recipes/1');
 
     await pageHeading("Can't reach myli");
     expect(router.currentRoute.value.path).toBe('/unavailable');
@@ -132,7 +132,7 @@ describe("when the session can't be fetched", () => {
 
   it('says when trying again failed too', async () => {
     const calls = failSession(6);
-    const { user } = await renderApp('/recipes/1', { answerSession: false });
+    const { user } = await renderApp('/recipes/1');
     await pageHeading("Can't reach myli");
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
@@ -145,8 +145,89 @@ describe("when the session can't be fetched", () => {
   it('still shows the sign-in page, which fetches the session again after signing in', async () => {
     failSession(3);
 
-    await renderApp('/login', { answerSession: false });
+    await renderApp('/login');
 
     await pageHeading('Sign in');
+  });
+});
+
+describe('first-run setup', () => {
+  /** Answers GET /setup with each of `answers` in turn (the last one after that), counting calls. */
+  function answerSetupWith(...answers: (() => Response)[]) {
+    const calls = { count: 0 };
+    apiServer.use(
+      http.get('/api/v1/setup', () => {
+        const answer = answers[Math.min(calls.count, answers.length - 1)];
+        calls.count += 1;
+        if (!answer) throw new Error('give at least one answer');
+        return answer();
+      }),
+    );
+    return calls;
+  }
+  const needed = (value: boolean) => () => HttpResponse.json({ needed: value });
+
+  it.each(['/', '/recipes/1', '/login', '/login?redirect=/recipes/1'])(
+    'is the only page while no user exists, even at %s',
+    async (path) => {
+      const { router } = await renderApp(path, { signedInAs: null, setupNeeded: true });
+
+      await pageHeading('Set up myli');
+      expect(router.currentRoute.value.fullPath).toBe('/setup');
+      expect(document.title).toBe('Set up myli · myli');
+    },
+  );
+
+  it('sends signed-out visitors to the sign-in page once a user exists', async () => {
+    const { router } = await renderApp('/setup', { signedInAs: null });
+
+    await pageHeading('Sign in');
+    expect(router.currentRoute.value.fullPath).toBe('/login');
+  });
+
+  it("sends signed-in users home, without asking: they're proof a user exists", async () => {
+    const calls = answerSetupWith(needed(true));
+
+    const { router } = await renderApp('/setup');
+
+    await pageHeading('Recipes');
+    expect(router.currentRoute.value.fullPath).toBe('/');
+    expect(calls.count).toBe(0);
+  });
+
+  it("asks again on each navigation while it's needed, in case someone else finished it", async () => {
+    const calls = answerSetupWith(needed(true), needed(false));
+    const { router } = await renderApp('/setup', { signedInAs: null });
+
+    await router.push('/recipes/1');
+
+    await pageHeading('Sign in');
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/recipes/1' });
+    expect(calls.count).toBe(2);
+  });
+
+  it("stops asking once it's done", async () => {
+    const calls = answerSetupWith(needed(false));
+    const { router } = await renderApp('/login', { signedInAs: null });
+
+    await router.push('/recipes/1');
+    await router.push('/setup');
+
+    await pageHeading('Sign in');
+    expect(calls.count).toBe(1);
+  });
+
+  it("says when it can't tell whether setup is needed, and goes on once it can", async () => {
+    const unavailable = () => new HttpResponse('Service unavailable', { status: 503 });
+    const calls = answerSetupWith(unavailable, unavailable, unavailable, needed(true));
+    const { router, user } = await renderApp('/', { signedInAs: null });
+
+    await pageHeading("Can't reach myli");
+    expect(calls.count).toBe(3);
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await pageHeading('Set up myli');
+    expect(router.currentRoute.value.fullPath).toBe('/setup');
   });
 });
