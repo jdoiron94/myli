@@ -1,12 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { type AddressInfo, createServer } from 'node:net';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SMTPServer, type SMTPServerOptions } from 'smtp-server';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createLogger } from '../logger.ts';
+import { freePort } from '../testing.ts';
 import {
   checkSmtpServer,
   createSmtpMailer,
@@ -50,15 +51,6 @@ let certificate: { key: string; cert: string };
 beforeAll(() => {
   certificate = makeCertificate();
 });
-
-/** A port nothing listens on: opened, then closed again. */
-async function freePort(): Promise<number> {
-  const probe = createServer().listen(0, '127.0.0.1');
-  await once(probe, 'listening');
-  const { port } = probe.address() as AddressInfo;
-  await new Promise((resolve) => probe.close(resolve));
-  return port;
-}
 
 const servers: SMTPServer[] = [];
 afterEach(async () => {

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { once } from 'node:events';
+import { type AddressInfo, createServer } from 'node:net';
 import { AUTH_BASE_PATH, type Role } from '@myli/shared';
 import { createApp } from './app.ts';
 import { createAuth } from './auth/auth.ts';
@@ -7,6 +9,7 @@ import type { Db } from './db/database.ts';
 import { createTestDatabase } from './db/testing.ts';
 import type { Env } from './env.ts';
 import { createLogger, type Logger } from './logger.ts';
+import type { SearchService } from './search/service.ts';
 
 type TestEnv = Pick<
   Env,
@@ -28,6 +31,8 @@ export interface TestAppOptions {
   db?: Db;
   logger?: Logger;
   env?: Partial<TestEnv>;
+  /** What `/readyz` asks about search. Ready unless given; the search tests use real Meilisearch. */
+  search?: Pick<SearchService, 'isReady'>;
 }
 
 /**
@@ -39,7 +44,8 @@ export function createTestApp(options: TestAppOptions = {}) {
   const logger = options.logger ?? createLogger('silent');
   const env = { ...TEST_ENV, ...options.env };
   const auth = createAuth({ db, logger, env });
-  const app = createApp({ logger, auth, db, env });
+  const search = options.search ?? { isReady: () => Promise.resolve(true) };
+  const app = createApp({ logger, auth, db, env, search });
   return { app, db, auth, logger, env, publicUrl: env.PUBLIC_URL };
 }
 
@@ -74,4 +80,13 @@ export async function signedInAs(t: TestApp, role: Role) {
   });
   if (!res.ok) throw new Error(`sign-in as ${role} failed with ${String(res.status)}`);
   return { user, cookie: cookieHeaderFrom(res) };
+}
+
+/** A port nothing listens on: opened, then closed again. */
+export async function freePort(): Promise<number> {
+  const probe = createServer().listen(0, '127.0.0.1');
+  await once(probe, 'listening');
+  const { port } = probe.address() as AddressInfo;
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
 }

@@ -89,10 +89,11 @@ You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `p
 
 ```sh
 pnpm install     # also installs the git hooks (lefthook)
-cp .env.example .env   # then set PUBLIC_URL and BETTER_AUTH_SECRET, as the comments explain
+cp .env.example .env   # then set PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTER_KEY, as the comments explain
 pnpm dev         # web app on http://localhost:5173, API on :3000 behind it; both reload on change
 pnpm test        # Vitest, across every workspace package
 pnpm test:e2e    # Playwright + axe, in Chromium and Firefox (first: pnpm --filter @myli/e2e exec playwright install chromium firefox)
+pnpm test:containers   # the API against real Meilisearch in Docker, with Testcontainers
 pnpm typecheck   # tsc and vue-tsc, for every workspace package
 pnpm lint        # ESLint; --fix also formats Vue templates
 pnpm format      # Biome
@@ -107,6 +108,14 @@ In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. The browser re
 The first time you open the web app, it asks you to create the first admin, then to sign in. Instead, you can set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, which creates that admin on startup.
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.
+
+Search needs [Meilisearch](https://www.meilisearch.com/), started with the master key from your `.env`. Without it, everything else works, and the API logs once that search is unavailable and keeps trying in the background.
+
+```sh
+docker run --rm -p 127.0.0.1:7700:7700 -e MEILI_NO_ANALYTICS=true \
+  -e MEILI_MASTER_KEY="$(grep '^MEILI_MASTER_KEY=' .env | cut -d= -f2-)" \
+  getmeili/meilisearch:v1.56.1
+```
 
 To see the emails myli sends while developing, run [Mailpit](https://mailpit.axllent.org/) and open its inbox at http://localhost:8025:
 

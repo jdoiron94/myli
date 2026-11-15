@@ -53,6 +53,13 @@ export const envSchema = z
     ADMIN_NAME: userNameSchema.optional(),
     ADMIN_EMAIL: emailSchema.optional(),
     ADMIN_PASSWORD: passwordSchema.optional(),
+    // Meilisearch, the search service (spec §4). The API starts and serves requests without it, and
+    // keeps trying to reach it.
+    MEILI_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:7700'),
+    // Used only at startup, to create the API's own key, which is limited to what the API needs.
+    MEILI_MASTER_KEY: z
+      .string(required)
+      .min(16, 'must be at least 16 characters; generate one with: openssl rand -base64 32'),
     // How long an invitation link works.
     INVITATION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
     // Optional: email. Off unless SMTP_HOST is set. The default port depends on SMTP_SECURITY.
