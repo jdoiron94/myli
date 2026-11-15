@@ -94,7 +94,7 @@ pnpm test        # Vitest, across every workspace package
 pnpm typecheck   # tsc and vue-tsc, for every workspace package
 pnpm lint        # ESLint; --fix also formats Vue templates
 pnpm format      # Biome
-pnpm openapi:generate   # refresh apps/api/openapi.json after changing the API
+pnpm openapi:generate   # refresh apps/api/openapi.json and the web app's API types after changing the API
 pnpm db:generate        # create a migration after changing the database schema
 ```
 

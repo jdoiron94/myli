@@ -21,6 +21,16 @@ allowBuilds:
   # (drizzle-kit) Its postinstall only re-checks the platform binary, which pnpm already
   # installs as an optional dependency.
   esbuild: false
+  # (@tanstack/vue-query) Its postinstall picks the Vue 2 or Vue 3 build. The files it ships are
+  # already the Vue 3 build.
+  vue-demi: false
+
+# Peer ranges that are knowingly wider than a package declares.
+peerDependencyRules:
+  allowedVersions:
+    # openapi-typescript 7 asks for TypeScript 5, and works with 6: it only uses the compiler API to
+    # print type declarations, which vue-tsc then checks along with every call site.
+    openapi-typescript>typescript: '6'
 
 # Refuse to install on a Node version outside "engines" in package.json.
 engineStrict: true

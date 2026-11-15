@@ -57,8 +57,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - `packages/shared` runs in both Node and the browser, so it gets neither Node nor DOM types.
 - Zod schemas in `packages/shared` are the single source for validation and types.
 - The API's OpenAPI 3.1 spec is generated from those schemas. Every versioned route is declared with `createRoute` in its feature module (e.g. `apps/api/src/setup/routes.ts`), registered on the router from `apps/api/src/v1.ts`, and spreads `errorResponses` into its `responses` (a test fails otherwise). Give shared schemas a component name with `.meta({ id })`, not `.openapi()`, because `packages/shared` doesn't depend on the OpenAPI library.
-- The committed copy, `apps/api/openapi.json`, must match the generated one: run `pnpm openapi:generate` after changing a route or schema, or `pnpm test` fails.
-- The frontend's API client is generated from the OpenAPI spec. Never hand-write API request or response types.
+- The committed copy, `apps/api/openapi.json`, must match the generated one, and so must the web app's types generated from it with openapi-typescript, `apps/web/src/api/schema.ts`. Run `pnpm openapi:generate` after changing a route or schema, which rewrites both, or `pnpm test` fails.
+- The web app calls the API only through its typed client (see Web app). Never hand-write API request or response types.
 - API errors use RFC 9457 `application/problem+json`, matching `problemDetailsSchema` in `packages/shared`. Handlers fail by throwing `HttpProblem(status, detail)`, and `detail` goes to the client verbatim. Any other error becomes a generic 500 with only the request ID, and the details go to the log. Never put internals in a response.
 - **The one exception is Better Auth's own routes** under `AUTH_BASE_PATH` (`/api/auth/*`). Better Auth answers them in its own format, and they're not in the OpenAPI document. The web app calls them through Better Auth's client, which ships its own types. Errors Better Auth didn't raise itself still become our generic 500 (`onAPIError.throw`). Never add app endpoints under `/api/auth`.
 
@@ -129,13 +129,16 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Web app
 - `@/` is `apps/web/src/`.
-- **shadcn-vue components** live in `apps/web/src/components/ui/`, as its CLI writes them (style `reka-vega`, base color `neutral`, see `components.json`). Keep edits to them to a minimum, so the CLI can update them.
+- **shadcn-vue components** live in `apps/web/src/components/ui/`, as its CLI writes them (style `reka-vega`, base color `neutral`, see `components.json`). The CLI never merges into them: `add` skips a file that already exists, and `add --overwrite` replaces it, dropping local edits. So keep edits to them to a minimum. To take an upstream update, overwrite the component, run `pnpm format`, and use `git diff` to re-apply the edits it dropped, such as the `cn` import below.
   - Add one from `apps/web` with `pnpm dlx shadcn-vue@2.9.0 add <name>`.
   - The CLI installs shadcn's `cn` package and imports it in the new files. Remove that dependency, and import `cn` from `@/lib/utils` instead (clsx + tailwind-merge). ESLint flags the import.
   - Its other dependencies follow the usual rules: exact versions, at least a week old.
 - **Styling:** theme colors are CSS variables in `src/style.css`. Text uses the system font stack; never load web fonts from a third party.
 - **Every page has exactly one `<h1>`.** After each navigation the layout moves focus to it, for keyboard and screen-reader users. A route other than home sets `meta.title`, which becomes the browser tab's title.
 - **Dark mode** is `useTheme()` in `src/theme.ts`. `public/theme.js` applies the saved choice before the app loads, so the page doesn't flash. The two share a storage key and class names; a test runs the real file against the app.
+- **API calls** go through `api` from `src/api/client.ts` (openapi-fetch, typed by the generated `schema.ts`), never a bare `fetch`. Paths are relative to `/api/v1`: `api.GET('/setup')`. It sends `Content-Type: application/json` on every write, bodyless ones included, which `jsonOnly()` requires.
+  - A failed call throws an `ApiProblem` (`src/api/problem.ts`) with the `status`, the `problem` the API sent, and for a 422, the `fieldErrors` a form shows next to each field. A response that isn't a problem, such as a proxy's error page, becomes a generic one with its status. A call that returns has succeeded.
+- **Server state** goes through TanStack Query (`src/api/query.ts`). Queries retry network failures and 5xx responses twice, never a 4xx. Mutations never retry, since a retried write could happen twice. `installApp()` in `src/app.ts` installs the router and the query client, for `main.ts` and for tests.
 - **No inline scripts and no injected `<style>` elements:** increment 18's Content Security Policy will forbid them. Setting styles from code, as Vue's `:style` does, is fine.
 
 ### Dependencies and Docker
@@ -146,7 +149,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
 
 ### Tooling
-- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS (with Tailwind's directives), YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown and `apps/web/index.html` are left alone.
+- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS (with Tailwind's directives), YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown, `apps/web/index.html` and the generated `apps/web/src/api/schema.ts` are left alone (ESLint skips that file too).
 - **`<template>` blocks are formatted by eslint-plugin-vue's layout rules,** because Biome's template formatter is still experimental. `pnpm lint --fix` and the pre-commit hook apply them. They're the only layout rules turned on, and they never look at `<script>` or `<style>`, so they can't overlap with Biome.
 - **ESLint lints:** `@eslint/js` recommended, typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, and eslint-plugin-vue `recommended`, layout rules included. Warnings fail the build.
 - **Type checks:** `tsc` for the API, `shared` and config files; `vue-tsc` for the web app. `apps/web/src` has its own `tsconfig.json`, with browser types and no Node types; `apps/web/tsconfig.json` covers the Node-side config files next to it, such as `vite.config.ts`.
@@ -155,7 +158,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Testing
 - Vitest for unit tests.
 - Web components are tested with `@testing-library/vue` in jsdom: query by role and accessible name, and interact through `@testing-library/user-event`. `apps/web/src/testing.ts` has the helpers:
-  - `renderApp(path)` renders the whole app, mounting it as `main.ts` does.
+  - `renderApp(path)` renders the whole app, mounting it as `main.ts` does, and returns `{ router, queryClient, user }`.
+  - `apiServer` is the MSW server that stands in for the API. A test answers the requests it expects with `apiServer.use(http.get('/api/v1/...', ...))`, and `problemResponse(status, detail)` builds an error answer. Handlers reset after each test, and a request no handler answered fails the test, even if the code under test caught the error.
   - `fakeDeviceScheme()` stands in for the device's light or dark setting.
   - `accessibilityViolations()` runs axe on the page. jsdom can't measure color contrast, so that rule is off there.
 - API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, env, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
@@ -176,7 +180,7 @@ Run these from the repo root:
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package, and `vue-tsc` for the web app.
 - `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes, which also formats `<template>` blocks.
 - `pnpm format`: Biome formats and sorts imports in place. `pnpm format:check` only reports.
-- `pnpm openapi:generate`: rewrites `apps/api/openapi.json` from the routes.
+- `pnpm openapi:generate`: rewrites `apps/api/openapi.json` from the routes, then the web app's API types (`apps/web/src/api/schema.ts`) from that.
 - `pnpm db:generate`: generates a SQL migration from changes to the Drizzle schema. Name it with `--name <what_changed>` (no `--` separator: pnpm passes arguments straight through, and drizzle-kit rejects a literal `--`).
 
 ## Docs

@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!apps/api/openapi.json", "!apps/api/drizzle"]
+    "includes": ["**", "!apps/api/openapi.json", "!apps/api/drizzle", "!apps/web/src/api/schema.ts"]
   },
   "formatter": {
     "indentStyle": "space",

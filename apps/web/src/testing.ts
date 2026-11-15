@@ -1,10 +1,28 @@
+import { PROBLEM_CONTENT_TYPE } from '@myli/shared';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/vue';
 import axe from 'axe-core';
+import { HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
 import { vi } from 'vitest';
+import type { App as VueApp } from 'vue';
 import { createMemoryHistory } from 'vue-router';
 import App from './App.vue';
-import { createAppRouter } from './router.ts';
+import { installApp } from './app.ts';
+
+/**
+ * Stands in for the API in every test: give it handlers with `apiServer.use()`. Requests nothing
+ * handles fail the test (see test-setup.ts).
+ */
+export const apiServer = setupServer();
+
+/** An RFC 9457 problem response, as the API sends for an error. */
+export function problemResponse(status: number, detail: string, extra: object = {}) {
+  return HttpResponse.json(
+    { type: 'about:blank', title: 'Error', status, detail, ...extra },
+    { status, headers: { 'content-type': PROBLEM_CONTENT_TYPE } },
+  );
+}
 
 /**
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
@@ -15,11 +33,17 @@ export async function renderApp(path: string) {
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();
   history.replace(path);
-  const router = createAppRouter(history);
-  render(App, { global: { plugins: [router] } });
+  const started = Promise.withResolvers<ReturnType<typeof installApp>>();
+  const plugin = {
+    install(app: VueApp) {
+      started.resolve(installApp(app, history));
+    },
+  };
+  render(App, { global: { plugins: [plugin] } });
+  const { router, queryClient } = await started.promise;
   await router.isReady();
   await screen.findByRole('heading', { level: 1 });
-  return { router, user: userEvent.setup() };
+  return { router, queryClient, user: userEvent.setup() };
 }
 
 /**
