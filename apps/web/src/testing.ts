@@ -166,7 +166,8 @@ export const htmlClasses = () => [...document.documentElement.classList];
 export async function accessibilityViolations({ skip = [] }: { skip?: string[] } = {}) {
   const { violations } = await axe.run(document, {
     rules: Object.fromEntries(
-      // jsdom has no layout, so color contrast can't be measured here (Playwright checks it).
+      // jsdom has no layout, so color contrast can't be measured here. The end-to-end tests
+      // check it.
       ['color-contrast', ...skip].map((id) => [id, { enabled: false }]),
     ),
   });

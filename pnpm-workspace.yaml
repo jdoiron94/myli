@@ -1,6 +1,8 @@
 packages:
   - apps/*
   - packages/*
+  # Playwright's end-to-end tests. Outside apps/*, so Vitest's projects don't pick up its specs.
+  - e2e
 
 # Versions shared by more than one workspace package. Reference them as "catalog:".
 catalog:
