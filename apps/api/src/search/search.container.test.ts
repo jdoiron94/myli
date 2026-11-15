@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Meilisearch } from 'meilisearch';
-import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
+import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLogger } from '../logger.ts';
 import { createTestApp, freePort } from '../testing.ts';
@@ -15,30 +15,13 @@ import type { RecipeSearchDocument } from './document.ts';
 import { createSearchService } from './service.ts';
 import { API_KEY, RECIPES_INDEX, RECIPES_SETTINGS } from './settings.ts';
 import { isMeilisearchError, setUpSearch } from './setup.ts';
-
-const IMAGE = 'getmeili/meilisearch:v1.56.1';
-const MASTER_KEY = randomBytes(24).toString('base64url');
+import { MEILI_MASTER_KEY, meilisearchContainer, meilisearchUrl } from './testing.ts';
 
 /** Containers that tests start themselves, stopped at the end. */
 const started: StartedTestContainer[] = [];
 afterAll(async () => {
   await Promise.all(started.map((container) => container.stop()));
 });
-
-/** Meilisearch as production runs it, on a random host port unless given one. */
-function meilisearch(hostPort?: number) {
-  return new GenericContainer(IMAGE)
-    .withEnvironment({
-      MEILI_MASTER_KEY: MASTER_KEY,
-      MEILI_ENV: 'production',
-      MEILI_NO_ANALYTICS: 'true',
-    })
-    .withExposedPorts(hostPort === undefined ? 7700 : { container: 7700, host: hostPort })
-    .withWaitStrategy(Wait.forHttp('/health', 7700).forStatusCode(200));
-}
-
-const urlOf = (container: StartedTestContainer) =>
-  `http://${container.getHost()}:${String(container.getMappedPort(7700))}`;
 
 const sorted = (values: readonly string[]) => [...values].sort();
 
@@ -91,9 +74,9 @@ describe('setUpSearch', () => {
   let master: Meilisearch;
 
   beforeAll(async () => {
-    container = await meilisearch().start();
-    url = urlOf(container);
-    master = new Meilisearch({ host: url, apiKey: MASTER_KEY });
+    container = await meilisearchContainer().start();
+    url = meilisearchUrl(container);
+    master = new Meilisearch({ host: url, apiKey: MEILI_MASTER_KEY });
   });
 
   afterAll(async () => {
@@ -109,7 +92,7 @@ describe('setUpSearch', () => {
   });
 
   it('creates the API key, the recipe index and its settings', async () => {
-    const client = await setUpSearch({ url, masterKey: MASTER_KEY });
+    const client = await setUpSearch({ url, masterKey: MEILI_MASTER_KEY });
 
     const key = await master.getKey(API_KEY.uid);
     expect(sorted(key.actions)).toEqual(sorted(API_KEY.actions));
@@ -131,14 +114,14 @@ describe('setUpSearch', () => {
   });
 
   it('can run again: it keeps the key and the index and their documents', async () => {
-    const first = await setUpSearch({ url, masterKey: MASTER_KEY });
+    const first = await setUpSearch({ url, masterKey: MEILI_MASTER_KEY });
     const { createdAt } = await master.getKey(API_KEY.uid);
     await first
       .index(RECIPES_INDEX)
       .addDocuments([recipe({ id: 'kept' })])
       .waitTask();
 
-    const second = await setUpSearch({ url, masterKey: MASTER_KEY });
+    const second = await setUpSearch({ url, masterKey: MEILI_MASTER_KEY });
 
     expect(second.config.apiKey).toBe(first.config.apiKey);
     expect((await master.getKey(API_KEY.uid)).createdAt).toEqual(createdAt);
@@ -148,7 +131,7 @@ describe('setUpSearch', () => {
   it('replaces a key with its ID that grants something else', async () => {
     await master.createKey({ ...API_KEY, actions: ['*'], indexes: ['*'] });
 
-    await setUpSearch({ url, masterKey: MASTER_KEY });
+    await setUpSearch({ url, masterKey: MEILI_MASTER_KEY });
 
     const key = await master.getKey(API_KEY.uid);
     expect(sorted(key.actions)).toEqual(sorted(API_KEY.actions));
@@ -156,7 +139,7 @@ describe('setUpSearch', () => {
   });
 
   it('gives the API a key that can do only what the API needs', async () => {
-    const client = await setUpSearch({ url, masterKey: MASTER_KEY });
+    const client = await setUpSearch({ url, masterKey: MEILI_MASTER_KEY });
     const recipes = client.index(RECIPES_INDEX);
 
     // Keys, other indexes, and the parts of the recipe index the API doesn't use.
@@ -187,7 +170,7 @@ describe('setUpSearch', () => {
   });
 
   it("supports spec §3.4's synonyms, filters, sorts and autocomplete", async () => {
-    const client = await setUpSearch({ url, masterKey: MASTER_KEY });
+    const client = await setUpSearch({ url, masterKey: MEILI_MASTER_KEY });
     const recipes = client.index<RecipeSearchDocument>(RECIPES_INDEX);
     await recipes
       .addDocuments([
@@ -300,7 +283,7 @@ describe('the search service and /readyz', () => {
   function apiWithSearch(url: string) {
     const { logger, text } = capturedLogger();
     const search = createSearchService({
-      setUp: () => setUpSearch({ url, masterKey: MASTER_KEY }),
+      setUp: () => setUpSearch({ url, masterKey: MEILI_MASTER_KEY }),
       logger,
       retryDelayMs: () => 200,
     });
@@ -318,10 +301,10 @@ describe('the search service and /readyz', () => {
     );
 
   it('becomes ready once Meilisearch is set up, and sets it up again after it loses its data', async () => {
-    const container = await meilisearch().start();
+    const container = await meilisearchContainer().start();
     started.push(container);
-    const url = urlOf(container);
-    const master = new Meilisearch({ host: url, apiKey: MASTER_KEY });
+    const url = meilisearchUrl(container);
+    const master = new Meilisearch({ host: url, apiKey: MEILI_MASTER_KEY });
     const { search, readyz, logText } = apiWithSearch(url);
 
     expect(await readyz()).toBe(503);
@@ -338,7 +321,7 @@ describe('the search service and /readyz', () => {
 
     search.stop();
     const apiKey = (await master.getKey(API_KEY.uid)).key;
-    expect(logText()).not.toContain(MASTER_KEY);
+    expect(logText()).not.toContain(MEILI_MASTER_KEY);
     expect(logText()).not.toContain(apiKey);
   });
 
@@ -353,24 +336,24 @@ describe('the search service and /readyz', () => {
     });
     expect(await readyz()).toBe(503);
 
-    const first = await meilisearch(port).start();
+    const first = await meilisearchContainer(port).start();
     await until(readyz, 200);
 
     // Gone: not ready, until a new Meilisearch with none of the old data takes its place.
     await first.stop();
     expect(await readyz()).toBe(503);
-    const second = await meilisearch(port).start();
+    const second = await meilisearchContainer(port).start();
     started.push(second);
     await until(readyz, 200);
 
     search.stop();
-    expect(logText()).not.toContain(MASTER_KEY);
+    expect(logText()).not.toContain(MEILI_MASTER_KEY);
   });
 });
 
 describe('main.ts', () => {
   it('sets up search with the configured address and master key', async () => {
-    const container = await meilisearch().start();
+    const container = await meilisearchContainer().start();
     started.push(container);
     const port = await freePort();
     const dataDir = mkdtempSync(join(tmpdir(), 'myli-search-'));
@@ -381,8 +364,8 @@ describe('main.ts', () => {
         PUBLIC_URL: 'http://127.0.0.1',
         DATABASE_PATH: join(dataDir, 'myli.db'),
         BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
-        MEILI_URL: urlOf(container),
-        MEILI_MASTER_KEY: MASTER_KEY,
+        MEILI_URL: meilisearchUrl(container),
+        MEILI_MASTER_KEY: MEILI_MASTER_KEY,
       },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
@@ -405,6 +388,6 @@ describe('main.ts', () => {
 
     expect((await exited)[0]).toBe(0);
     expect(stdout).toContain('"msg":"search is ready"');
-    expect(stdout).not.toContain(MASTER_KEY);
+    expect(stdout).not.toContain(MEILI_MASTER_KEY);
   });
 });

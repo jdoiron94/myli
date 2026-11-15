@@ -173,7 +173,12 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - A dependency used by more than one workspace package gets its version in the `catalog` in `pnpm-workspace.yaml`, and each package references it as `catalog:`.
 - Don't use MinIO: its Community Edition is archived and no longer ships official images.
 - Don't add Redis. Background jobs use the SQLite `job` table.
-- Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
+- Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base images by tag and digest.
+- Images build from the repo root. `.dockerignore` keeps `.env`, local databases (`apps/api/data`, `*.db`), `node_modules` and tests out of the build context; a test checks it.
+- **The API image** (`apps/api/Dockerfile`) runs `node src/main.ts` as the `node` user (uid 1000), with the database at `/data/myli.db`.
+  - It keeps pnpm's workspace layout, so Node finds `@myli/shared` outside `node_modules` (ADR 0008). Don't switch it to `pnpm deploy`.
+  - It copies every workspace package's `package.json` before installing, so the lockfile matches. A new workspace package goes into that list.
+  - `main.ts` handles SIGTERM itself, so the `CMD` stays in exec form: a shell in between wouldn't pass the signal on.
 
 ### Tooling
 - **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS (with Tailwind's directives), YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown, `apps/web/index.html` and the generated `apps/web/src/api/schema.ts` are left alone (ESLint skips that file too).
@@ -197,7 +202,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
-- Meilisearch integration tests use Testcontainers, against the same image version production uses. They're named `*.container.test.ts`, and `pnpm test:containers` runs them. `pnpm test` leaves them out, since they need Docker (`apps/api/vitest.config.ts`). The first run pulls the images; Testcontainers' reaper container (Ryuk) removes the containers when the run ends, even if it crashes.
+- Meilisearch integration tests use Testcontainers, against the same image version production uses (`MEILISEARCH_IMAGE` and `meilisearchContainer()` in `apps/api/src/search/testing.ts`). `image.container.test.ts` builds the API image, runs it next to Meilisearch, and checks the build context. They're named `*.container.test.ts`, and `pnpm test:containers` runs them. `pnpm test` leaves them out, since they need Docker (`apps/api/vitest.config.ts`). The first run pulls the images; Testcontainers' reaper container (Ryuk) removes the containers when the run ends, even if it crashes.
 - User flows get Playwright E2E tests with axe accessibility checks, in the `e2e/` workspace package (outside `apps/*`, so Vitest's projects don't pick up its specs). `tests/journey.spec.ts` follows one journey: first-run setup, sign-in, inviting someone, accepting, deactivating and reactivating them, and a role change reaching a page they already have open.
   - Each browser gets its own API, database and Vite dev server, on ports 3100+ and 5180+, so a run doesn't clash with `pnpm dev`. `e2e/start-api.ts` starts the API on an empty temporary database, deleted afterwards, with no first admin and no SMTP. It passes the API only its own variables, never the shell's or `.env`.
   - `checkPage(page)` (`e2e/tests/accessibility.ts`) runs axe in the light and dark themes, color contrast included, and checks that the page doesn't scroll sideways at a phone's width. With a dialog or menu open, `checkPage(page, { popup: true })` checks just the popup, since reka-ui hides the rest of the page while one is open.
