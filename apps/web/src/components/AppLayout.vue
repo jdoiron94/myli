@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import { useQuery } from '@tanstack/vue-query';
 import { nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
 import { RouterLink, RouterView, START_LOCATION, useRouter } from 'vue-router';
+import { sessionQuery, useSignOut } from '@/auth/session.ts';
+import AccountMenu from './AccountMenu.vue';
 import ThemeMenu from './ThemeMenu.vue';
 
 const main = useTemplateRef('main');
 const router = useRouter();
+const { data: signedInUser } = useQuery(sessionQuery);
+const signOut = useSignOut();
 
 function focusMain() {
   main.value?.focus();
@@ -25,6 +30,12 @@ const stopFocusing = router.afterEach((to, from, failure) => {
   void nextTick(focusHeading);
 });
 onBeforeUnmount(stopFocusing);
+
+// A failed sign-out's message stays until they try again or go to another page.
+const stopForgetting = router.afterEach(() => {
+  signOut.reset();
+});
+onBeforeUnmount(stopForgetting);
 </script>
 
 <template>
@@ -42,7 +53,14 @@ onBeforeUnmount(stopFocusing);
       >
         myli
       </RouterLink>
-      <ThemeMenu />
+      <div class="flex items-center gap-1">
+        <ThemeMenu />
+        <AccountMenu
+          v-if="signedInUser"
+          :user="signedInUser"
+          @sign-out="signOut.mutate()"
+        />
+      </div>
     </div>
   </header>
   <main
@@ -51,6 +69,13 @@ onBeforeUnmount(stopFocusing);
     tabindex="-1"
     class="mx-auto max-w-5xl px-4 py-6"
   >
+    <p
+      v-if="signOut.isError.value"
+      role="alert"
+      class="mb-6 text-sm text-destructive"
+    >
+      Couldn't sign out. Check your connection, then try again.
+    </p>
     <RouterView />
   </main>
 </template>

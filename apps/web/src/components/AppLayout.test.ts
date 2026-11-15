@@ -1,6 +1,8 @@
+import { AUTH_BASE_PATH } from '@myli/shared';
 import { screen, waitFor } from '@testing-library/vue';
+import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { accessibilityViolations, renderApp } from '../testing.ts';
+import { accessibilityViolations, apiServer, renderApp } from '../testing.ts';
 
 describe('the layout', () => {
   it('starts keyboard users at a skip link that moves focus to the main content', async () => {
@@ -51,5 +53,71 @@ describe('the layout', () => {
     // `region` (a best practice, not a WCAG rule) wants all content inside landmarks. Popups are
     // rendered at the end of <body>, outside them, and reached by moving focus into them.
     expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
+  });
+});
+
+describe('the account menu', () => {
+  const accountButton = () => screen.getByRole('button', { name: 'Account: Ada Lovelace' });
+
+  it("shows who's signed in, with their email and role", async () => {
+    const { user } = await renderApp('/');
+
+    await user.click(accountButton());
+
+    const menu = await screen.findByRole('menu');
+    expect(menu.textContent).toContain('Ada Lovelace');
+    expect(menu.textContent).toContain('ada@example.com');
+    expect(menu.textContent).toContain('Editor');
+    // See the theme menu's test for `region`.
+    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
+  });
+
+  it("isn't there when no one is signed in", async () => {
+    await renderApp('/login', { signedInAs: null });
+
+    expect(screen.queryByRole('button', { name: /^Account:/ })).toBeNull();
+  });
+
+  it('signs out, goes to the sign-in page and forgets what was fetched', async () => {
+    let signedOut = false;
+    apiServer.use(
+      http.post(`${AUTH_BASE_PATH}/sign-out`, () => {
+        signedOut = true;
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const { router, queryClient, user } = await renderApp('/recipes/1');
+    queryClient.setQueryData(['recipes', '1'], { title: 'Soup' });
+
+    await user.click(accountButton());
+    await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+
+    await screen.findByRole('heading', { level: 1, name: 'Sign in' });
+    expect(signedOut).toBe(true);
+    expect(router.currentRoute.value.fullPath).toBe('/login');
+    expect(screen.queryByRole('button', { name: /^Account:/ })).toBeNull();
+    expect(queryClient.getQueryData(['recipes', '1'])).toBeUndefined();
+    expect(queryClient.getQueryData(['session'])).toBeNull();
+  });
+
+  it("says so when signing out didn't work, and stays signed in", async () => {
+    apiServer.use(
+      http.post(`${AUTH_BASE_PATH}/sign-out`, () => new HttpResponse(null, { status: 500 })),
+    );
+    const { router, user } = await renderApp('/');
+
+    await user.click(accountButton());
+    await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
+      "Couldn't sign out. Check your connection, then try again.",
+    );
+    expect(router.currentRoute.value.fullPath).toBe('/');
+    expect(accountButton()).toBeDefined();
+
+    await router.push('/recipes/1');
+
+    await screen.findByRole('heading', { level: 1, name: 'Page not found' });
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
