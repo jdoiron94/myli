@@ -1,0 +1,110 @@
+// @vitest-environment node
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer as createHttpServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { build, createServer, type ViteDevServer } from 'vite';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// The dev server and the build each start and stop within their own `describe`, one after the
+// other: @vitejs/plugin-vue caches compiled components for the whole process, so a build running
+// next to a dev server can pick up the dev server's copy and fail.
+
+describe('the dev server', () => {
+  let api: Server;
+  let vite: ViteDevServer;
+  let origin: string;
+  const get = (path: string) => fetch(origin + path, { redirect: 'manual' });
+
+  beforeAll(async () => {
+    // Stands in for the API: answers every request with the path it reached.
+    api = createHttpServer((req, res) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ reachedApi: req.url }));
+    });
+    await new Promise<void>((resolve) => api.listen(0, resolve));
+    vi.stubEnv('PORT', String((api.address() as AddressInfo).port));
+
+    vite = await createServer({
+      // As `pnpm dev` runs it, from apps/web.
+      root: import.meta.dirname,
+      configFile: join(import.meta.dirname, 'vite.config.ts'),
+      // No compiling ahead of requests: only the HTML pages are fetched here.
+      server: { port: 0, ws: false, preTransformRequests: false },
+      optimizeDeps: { noDiscovery: true },
+      logLevel: 'silent',
+    });
+    await vite.listen();
+    origin = `http://localhost:${String((vite.httpServer?.address() as AddressInfo).port)}`;
+  });
+
+  afterAll(async () => {
+    await vite.close();
+    await new Promise((resolve) => api.close(resolve));
+    vi.unstubAllEnvs();
+  });
+
+  it.each(['/api/v1/setup', '/api/v1/openapi.json', '/api/auth/get-session'])(
+    'sends %s to the API',
+    async (path) => {
+      await expect((await get(path)).json()).resolves.toEqual({ reachedApi: path });
+    },
+  );
+
+  it('serves the API docs page itself, at /api/docs/', async () => {
+    const response = await get('/api/docs/');
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('<script type="module" src="/src/api-docs/main.ts">');
+  });
+
+  it.each([
+    ['/api/docs', '/api/docs/'],
+    ['/api/docs?x=1', '/api/docs/?x=1'],
+  ])('redirects %s to %s, as Caddy does', async (path, location) => {
+    const response = await get(path);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe(location);
+  });
+
+  it('serves the app everywhere else', async () => {
+    const html = await (await get('/recipes/1')).text();
+
+    expect(html).toContain('<script type="module" src="/src/main.ts">');
+  });
+});
+
+describe('the build', () => {
+  let outDir: string;
+  const read = (path: string) => readFileSync(join(outDir, path), 'utf8');
+
+  beforeAll(async () => {
+    outDir = mkdtempSync(join(tmpdir(), 'myli-web-build-'));
+    await build({
+      root: import.meta.dirname,
+      configFile: join(import.meta.dirname, 'vite.config.ts'),
+      build: { outDir, emptyOutDir: true },
+      logLevel: 'silent',
+    });
+  }, 60_000);
+
+  afterAll(() => {
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it('makes the API docs a page of its own, at api/docs/', () => {
+    expect(read('api/docs/index.html')).toContain('<title>API docs · myli</title>');
+  });
+
+  it('keeps Scalar out of everything the app loads (ADR 0011)', () => {
+    const appHtml = read('index.html');
+    const files = [...appHtml.matchAll(/(?:src|href)="\/(assets\/[^"]+)"/g)].map(
+      ([, file]) => file,
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) expect(read(file ?? ''), file).not.toMatch(/scalar/i);
+  });
+});

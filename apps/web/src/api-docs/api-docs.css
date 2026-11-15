@@ -1,0 +1,22 @@
+/*
+ * The API docs page. Scalar brings its own styles; this only changes what differs from the app.
+ * These rules aren't in a cascade layer, so they win over Scalar's, which are.
+ */
+
+/* Scalar's fonts are Inter and JetBrains Mono, which it would download. Use the system's, as the app does. */
+:root {
+  --scalar-font:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+  --scalar-font-code:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+}
+
+/* public/theme.js sets the class before the first paint, so a dark page isn't white while Scalar loads. */
+:root.light {
+  color-scheme: light;
+}
+:root.dark {
+  color-scheme: dark;
+}
