@@ -1,4 +1,6 @@
-import { AUTH_BASE_PATH, problemDetailsSchema, type Role } from '@myli/shared';
+import { AUTH_BASE_PATH, problemDetailsSchema, ROLES, type Role } from '@myli/shared';
+import { defaultStatements } from 'better-auth/plugins/admin/access';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { user } from '../db/schema.ts';
 import { createLogger } from '../logger.ts';
@@ -234,6 +236,48 @@ describe('admin plugin endpoints', () => {
       });
       expect(res.status, `${method} ${path}`).toBe(404);
     }
+  });
+
+  it('grant no role any permission', async () => {
+    const t = createTestApp();
+    const permissions = [
+      ...defaultStatements.user.map((action) => ({ user: [action] })),
+      ...defaultStatements.session.map((action) => ({ session: [action] })),
+    ];
+    expect(permissions.length).toBeGreaterThan(10);
+
+    for (const role of ROLES) {
+      for (const permission of permissions) {
+        const { success } = await t.auth.api.userHasPermission({
+          body: { role, permissions: permission },
+        });
+        expect(success, `${role}: ${JSON.stringify(permission)}`).toBe(false);
+      }
+    }
+  });
+
+  it("refuse server code acting with an admin's session to change a role or ban", async () => {
+    const t = createTestApp();
+    await userWithRole(t, 'admin');
+    const viewer = await createUserWithPassword(t.auth, {
+      ...ADA,
+      email: 'grace@example.com',
+      role: 'viewer',
+    });
+    const { cookie } = sessionCookie(await signIn(t, ADA.email, ADA.password));
+    const headers = new Headers({ cookie });
+
+    await expect(
+      t.auth.api.setRole({ body: { userId: viewer.id, role: 'admin' }, headers }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    await expect(
+      t.auth.api.banUser({ body: { userId: viewer.id }, headers }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(t.db.select().from(user).where(eq(user.id, viewer.id)).get()).toMatchObject({
+      role: 'viewer',
+      banned: false,
+    });
   });
 });
 

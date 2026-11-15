@@ -65,8 +65,9 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Authentication
 - Better Auth is configured in `apps/api/src/auth/auth.ts`. Public sign-up is disabled. Create users only with `createUserWithPassword()` from `auth/users.ts`.
 - Passwords follow `passwordSchema` from `@myli/shared`. A Better Auth hook enforces it on every path that sets a password (create-user, change, reset), and request bodies that carry a password validate it with `passwordSchema` too, for field-level 422s.
-- The admin plugin stores each user's single role (a CHECK constraint enforces it). Its HTTP endpoints (`/api/auth/admin/*`) are blocked for everyone, so role changes and bans can't skip the policy module or the audit log. Server code calls them through `auth.api.*`.
-- The admin role gets no plugin permission that could reach another user's private recipes or remove a user: no impersonation, no setting passwords or emails, no hard deletes. Don't add them.
+- The admin plugin stores each user's single role (a CHECK constraint enforces it). Its HTTP endpoints (`/api/auth/admin/*`) are blocked for everyone, so role changes and bans can't skip the policy module or the audit log.
+- Role changes, deactivation and reactivation go only through `apps/api/src/users/manage.ts`, which writes the `role` and `banned` columns and deletes sessions directly. The check that the acting admin is still an active admin, the change and its audit event then share one transaction (ADR 0010). Don't use `auth.api.setRole`, `banUser` or `unbanUser` instead.
+- No role has any admin-plugin permission, and none needs one: the only plugin call is `createUser`, made without a session, which the plugin allows without checking permissions. Don't add permissions. The roles still have to be listed in `auth.ts`: without them, admins would get the plugin's defaults, impersonation and hard deletes included.
 - Better Auth reads `process.env` itself in places. Pass anything it would infer from there (rate limiting, the origin check) explicitly from our validated env.
 - On `/api/v1` routes, `c.var.user` (`id`, `name`, `email`, `role`) and `c.var.session` are the signed-in user and session, or `null`. Routes that need a user add the `requireSession` middleware (401 otherwise), which also narrows the type.
 - **Never turn on Better Auth's cookie cache.** Every request reads the session from SQLite, so sign-out, expiry and bans take effect on the next request. The cache would let a revoked cookie keep working until the cache expires.
@@ -80,7 +81,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - `authorize(c, action, resource)`: recipe and comment actions, called in the handler once the resource is loaded. It answers 404 when the user may not see the recipe, identical to `notFound()`, which handlers also throw for IDs they can't find. Never write a different 404 for a hidden resource.
 - Every new endpoint gets an entry in `ENDPOINTS` in `apps/api/src/permission-matrix.ts`: its method, OpenAPI path, `access` (`public`, `signed-in` or an action) and a valid request. The matrix test sends that request as anonymous, viewer, editor and admin and checks the status against `can()`. It also fails if an OpenAPI operation has no entry.
 - **Viewers are strictly read-only.**
-- **Private recipes must never leak** through direct ID access, search results, revision endpoints or public links. Each of those paths has a test.
+- **Private recipes must never leak** through direct ID access, search results, revision endpoints, public links or deactivating their owner. Each of those paths has a test.
 
 ### Database
 - The Drizzle schema in `apps/api/src/db/schema.ts` is authoritative. After changing it, run `pnpm db:generate` and commit the new migration in `apps/api/drizzle/` (`pnpm test` fails if a schema change has no migration).

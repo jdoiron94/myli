@@ -13,6 +13,7 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0007](./0007-revision-snapshots-and-optimistic-concurrency.md) | Revision snapshots and optimistic concurrency | Accepted |
 | [0008](./0008-run-typescript-with-node-type-stripping.md) | Run the API's TypeScript directly on Node, without a build step | Accepted |
 | [0009](./0009-first-run-setup-claims-a-lock-row.md) | First-run setup takes a single-row claim instead of one transaction | Accepted |
+| [0010](./0010-role-changes-and-deactivation-in-one-transaction.md) | Role changes and deactivation are written directly, in one transaction | Accepted |
 
 ## Adding an ADR
 

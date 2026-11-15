@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session } from '../db/schema.ts';
 import { createTestApp, signedInAs } from '../testing.ts';
+import { deactivateUser } from '../users/manage.ts';
 import { requireSession } from './session.ts';
 
 afterEach(() => {
@@ -105,17 +106,14 @@ describe('a session that is no longer valid', () => {
     expect(t.db.select().from(session).where(eq(session.userId, user.id)).all()).toEqual([]);
   });
 
-  it('is rejected on the very next request after the user is banned (deactivated)', async () => {
+  it('is rejected on the very next request after the user is deactivated', async () => {
     const t = appWithTestRoutes();
     const admin = await signedInAs(t, 'admin');
     const viewer = await signedInAs(t, 'viewer');
     expect((await t.get('private', viewer.cookie)).status).toBe(200);
 
-    // Server-side, as increment 14's endpoint will: the HTTP route is blocked (see auth.test.ts).
-    await t.auth.api.banUser({
-      body: { userId: viewer.user.id },
-      headers: new Headers({ cookie: admin.cookie }),
-    });
+    const origin = { actorId: admin.user.id, ip: null, userAgent: null };
+    expect(deactivateUser(t.db, origin, viewer.user.id)).toMatchObject({ ok: true, changed: true });
 
     await expectUnauthorized(await t.get('private', viewer.cookie));
   });
