@@ -420,9 +420,9 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 
 **Accessibility and usability**
 - WCAG 2.2 AA.
-- Full keyboard navigation.
+- Full keyboard navigation. A skip link leads to the main content, and after moving to another page, focus moves to its heading.
 - Mobile-first layouts, especially cook mode and shopping lists.
-- Dark mode.
+- Dark mode. It follows the device's setting by default. Anyone can choose light or dark instead, and the choice is remembered in that browser.
 
 **Operations**
 - **Configuration** comes from environment variables, validated with Zod at startup and documented in `.env.example`. An invalid config stops startup with a clear error.

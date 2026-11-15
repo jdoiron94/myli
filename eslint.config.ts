@@ -22,4 +22,32 @@ export default defineConfigWithVueTs(
     files: ['apps/api/**'],
     rules: { 'no-console': 'error' },
   },
+  {
+    // The shadcn-vue CLI writes new components that import its own young `cn` package. The app
+    // uses clsx and tailwind-merge behind the same helper instead.
+    files: ['apps/web/src/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: 'cn', message: "Import cn from '@/lib/utils' instead." }] },
+      ],
+    },
+  },
+  {
+    // shadcn-vue's components, as its CLI writes them, so they can be updated with it: their names
+    // are single words (`Button`), and optional props stay undefined when not passed.
+    files: ['apps/web/src/components/ui/**/*.vue'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+      'vue/require-default-prop': 'off',
+    },
+  },
+  {
+    // Served to the browser as it is, before the app loads (see the file).
+    files: ['apps/web/public/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { document: 'readonly', localStorage: 'readonly', matchMedia: 'readonly' },
+    },
+  },
 );

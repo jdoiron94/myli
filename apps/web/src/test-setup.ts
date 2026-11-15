@@ -1,8 +1,12 @@
 import { cleanup } from '@testing-library/vue';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
-// Testing Library only unmounts rendered components by itself when test functions are globals,
-// and they're imported from Vitest here.
 afterEach(() => {
+  // Testing Library only unmounts rendered components by itself when test functions are globals,
+  // and they're imported from Vitest here.
   cleanup();
+  vi.unstubAllGlobals();
+  // What the theme leaves behind.
+  localStorage.clear();
+  document.documentElement.className = '';
 });

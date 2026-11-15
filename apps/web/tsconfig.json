@@ -4,7 +4,9 @@
   "compilerOptions": {
     "module": "preserve",
     "moduleResolution": "bundler",
-    "types": ["node"]
+    "types": ["node"],
+    // Not used by vite.config.ts: the shadcn-vue CLI reads the alias from here (see components.json).
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["*.ts"]
 }
