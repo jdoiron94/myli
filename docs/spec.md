@@ -437,6 +437,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 
 **Operations**
 - **Configuration** comes from environment variables, validated with Zod at startup and documented in `.env.example`. An invalid config stops startup with a clear error.
+  - Each secret can be read from a file instead, such as a Docker secret, by setting `NAME_FILE` to its path: `BETTER_AUTH_SECRET`, `MEILI_MASTER_KEY`, `ADMIN_PASSWORD` and `SMTP_PASSWORD`.
 - **Compose services:**
   - `caddy`
   - `api` (the job worker runs inside it)

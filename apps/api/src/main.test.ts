@@ -1,9 +1,9 @@
 // Runs the real entry point under plain Node (no Vitest transform), the way production runs it.
 import { type ChildProcess, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -263,6 +263,33 @@ describe('main.ts', () => {
     const warnings = api.logs().filter((line) => line.msg === SEARCH_UNAVAILABLE);
     expect(warnings).toEqual([expect.objectContaining({ level: 40, retryInMs: 1_000 })]);
     expect(JSON.stringify(api.logs())).not.toContain('hunter2');
+  });
+
+  it('reads secrets from files, as Docker secrets provide them, and never logs them', async () => {
+    const port = await freePort();
+    const databasePath = tempDatabasePath();
+    const secretPath = (name: string, value: string) => {
+      const path = join(dirname(databasePath), name);
+      writeFileSync(path, `${value}\n`);
+      return path;
+    };
+    const { BETTER_AUTH_SECRET, MEILI_MASTER_KEY, ...rest } = REQUIRED_ENV;
+    const api = startApi({
+      ...rest,
+      BETTER_AUTH_SECRET_FILE: secretPath('better_auth_secret', BETTER_AUTH_SECRET),
+      MEILI_MASTER_KEY_FILE: secretPath('meili_master_key', MEILI_MASTER_KEY),
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      DATABASE_PATH: databasePath,
+    });
+    await api.untilListening();
+
+    expect((await fetch(`http://127.0.0.1:${port}/healthz`)).status).toBe(200);
+    api.child.kill('SIGTERM');
+    expect(await api.exited).toBe(0);
+    const output = JSON.stringify(api.logs()) + api.stderr();
+    expect(output).not.toContain(BETTER_AUTH_SECRET);
+    expect(output).not.toContain(MEILI_MASTER_KEY);
   });
 
   it('exits with code 1 and a readable message when the config is invalid', async () => {

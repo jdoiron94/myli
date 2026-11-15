@@ -1,7 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseEnv } from 'node:util';
-import { describe, expect, it } from 'vitest';
-import { EnvError, envSchema, loadEnv } from './env.ts';
+import { afterAll, describe, expect, it } from 'vitest';
+import { EnvError, envSchema, FILE_VARIABLES, loadEnv } from './env.ts';
 
 function loadEnvError(source: Record<string, string>): EnvError {
   try {
@@ -272,11 +274,104 @@ describe('the SMTP variables', () => {
   });
 });
 
+describe('secrets from files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myli-env-'));
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  /** Writes `contents` to a new file and returns its path. */
+  let files = 0;
+  function secretFile(contents: string) {
+    files += 1;
+    const path = join(dir, `secret-${String(files)}`);
+    writeFileSync(path, contents);
+    return path;
+  }
+
+  it('reads each secret from the file its NAME_FILE names, without the trailing newline', () => {
+    const env = loadEnv({
+      PUBLIC_URL: REQUIRED.PUBLIC_URL,
+      BETTER_AUTH_SECRET_FILE: secretFile(`${REQUIRED.BETTER_AUTH_SECRET}\n`),
+      MEILI_MASTER_KEY_FILE: secretFile(`${REQUIRED.MEILI_MASTER_KEY}\r\n`),
+      ADMIN_NAME: 'Ada Lovelace',
+      ADMIN_EMAIL: 'ada@example.com',
+      ADMIN_PASSWORD_FILE: secretFile('Correct horse battery 9'),
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_FROM: 'myli@example.com',
+      SMTP_USER: 'myli',
+      SMTP_PASSWORD_FILE: secretFile(' spaces count \n\n'),
+    });
+
+    expect(env).toMatchObject({
+      BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
+      MEILI_MASTER_KEY: REQUIRED.MEILI_MASTER_KEY,
+      ADMIN_PASSWORD: 'Correct horse battery 9',
+      // Only one newline is the file's own.
+      SMTP_PASSWORD: ' spaces count \n',
+    });
+    expect(Object.keys(env).filter((name) => name.endsWith('_FILE'))).toEqual([]);
+  });
+
+  it('refuses a secret and its file together', () => {
+    const error = loadEnvError({
+      ...REQUIRED,
+      MEILI_MASTER_KEY_FILE: secretFile('another-master-key'),
+    });
+
+    expect(error.message).toMatch(
+      /^\s+MEILI_MASTER_KEY_FILE: can't be set together with MEILI_MASTER_KEY; set one or the other$/m,
+    );
+    expect(error.message).not.toContain('another-master-key');
+  });
+
+  it("says which file can't be read and why, instead of calling the secret missing", () => {
+    const missing = join(dir, 'missing');
+    const error = loadEnvError({
+      PUBLIC_URL: REQUIRED.PUBLIC_URL,
+      BETTER_AUTH_SECRET_FILE: missing,
+      MEILI_MASTER_KEY_FILE: dir,
+    });
+
+    expect(error.message.split('\n').slice(1)).toEqual([
+      `  BETTER_AUTH_SECRET_FILE: can't read ${missing}: there is no such file`,
+      `  MEILI_MASTER_KEY_FILE: can't read ${dir}: it is a directory`,
+    ]);
+  });
+
+  it('refuses an empty file', () => {
+    const empty = secretFile('\n');
+    const error = loadEnvError({
+      ...REQUIRED,
+      BETTER_AUTH_SECRET: '',
+      BETTER_AUTH_SECRET_FILE: empty,
+    });
+
+    expect(error.message.split('\n').slice(1)).toEqual([
+      `  BETTER_AUTH_SECRET_FILE: ${empty} is empty`,
+    ]);
+  });
+
+  it('checks a secret from a file like any other, saying where it came from, without echoing it', () => {
+    const error = loadEnvError({
+      ...REQUIRED,
+      BETTER_AUTH_SECRET: '',
+      BETTER_AUTH_SECRET_FILE: secretFile('too-short-hunter2'),
+    });
+
+    expect(error.message).toMatch(
+      /^\s+BETTER_AUTH_SECRET \(from BETTER_AUTH_SECRET_FILE\): must be at least 32 characters/m,
+    );
+    expect(error.message).not.toContain('hunter2');
+  });
+});
+
 describe('.env.example', () => {
   const example = parseEnv(readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8'));
 
-  it('documents exactly the variables in the schema', () => {
-    expect(Object.keys(example).sort()).toEqual(Object.keys(envSchema.shape).sort());
+  it('documents exactly the variables in the schema, and the files secrets can come from', () => {
+    expect(Object.keys(example).sort()).toEqual(
+      [...Object.keys(envSchema.shape), ...FILE_VARIABLES.map((name) => `${name}_FILE`)].sort(),
+    );
   });
 
   it('leaves the required variables empty', () => {
