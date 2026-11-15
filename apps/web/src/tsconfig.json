@@ -5,7 +5,8 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "lib": ["es2024", "dom", "dom.iterable"],
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": { "@/*": ["./*"] }
   },
   "include": ["**/*.ts", "**/*.vue"]
 }

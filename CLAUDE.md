@@ -38,7 +38,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ## Architecture at a glance
 
 - **Monorepo** with pnpm workspaces:
-  - `apps/web`: Vue 3 + TS + Vite + Vue Router
+  - `apps/web`: Vue 3 + TS + Vite + Vue Router, styled with Tailwind and shadcn-vue
   - `apps/api`: Node + TS + Hono
   - `packages/shared`: Zod schemas, types, permission policy, scaling/unit/aggregation logic
 - **Runtime:** Node runs the API's and `shared`'s TypeScript source directly, using its built-in type stripping. There's no build step or `dist/` (ADR 0008).
@@ -127,6 +127,17 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - The API logs through pino, never `console` (ESLint enforces this). Inside a request, use `c.var.logger`, which tags every line with the request ID. Never log query strings, headers, request bodies or secrets.
 - Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example`, with its default or, if it's required, an empty value. A test fails if the two differ.
 
+### Web app
+- `@/` is `apps/web/src/`.
+- **shadcn-vue components** live in `apps/web/src/components/ui/`, as its CLI writes them (style `reka-vega`, base color `neutral`, see `components.json`). Keep edits to them to a minimum, so the CLI can update them.
+  - Add one from `apps/web` with `pnpm dlx shadcn-vue@2.9.0 add <name>`.
+  - The CLI installs shadcn's `cn` package and imports it in the new files. Remove that dependency, and import `cn` from `@/lib/utils` instead (clsx + tailwind-merge). ESLint flags the import.
+  - Its other dependencies follow the usual rules: exact versions, at least a week old.
+- **Styling:** theme colors are CSS variables in `src/style.css`. Text uses the system font stack; never load web fonts from a third party.
+- **Every page has exactly one `<h1>`.** After each navigation the layout moves focus to it, for keyboard and screen-reader users. A route other than home sets `meta.title`, which becomes the browser tab's title.
+- **Dark mode** is `useTheme()` in `src/theme.ts`. `public/theme.js` applies the saved choice before the app loads, so the page doesn't flash. The two share a storage key and class names; a test runs the real file against the app.
+- **No inline scripts and no injected `<style>` elements:** increment 18's Content Security Policy will forbid them. Setting styles from code, as Vue's `:style` does, is fine.
+
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
 - A dependency used by more than one workspace package gets its version in the `catalog` in `pnpm-workspace.yaml`, and each package references it as `catalog:`.
@@ -135,7 +146,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
 
 ### Tooling
-- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS, YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown and `apps/web/index.html` are left alone.
+- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS (with Tailwind's directives), YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown and `apps/web/index.html` are left alone.
 - **`<template>` blocks are formatted by eslint-plugin-vue's layout rules,** because Biome's template formatter is still experimental. `pnpm lint --fix` and the pre-commit hook apply them. They're the only layout rules turned on, and they never look at `<script>` or `<style>`, so they can't overlap with Biome.
 - **ESLint lints:** `@eslint/js` recommended, typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, and eslint-plugin-vue `recommended`, layout rules included. Warnings fail the build.
 - **Type checks:** `tsc` for the API, `shared` and config files; `vue-tsc` for the web app. `apps/web/src` has its own `tsconfig.json`, with browser types and no Node types; `apps/web/tsconfig.json` covers the Node-side config files next to it, such as `vite.config.ts`.
@@ -143,7 +154,10 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Testing
 - Vitest for unit tests.
-- Web components are tested with `@testing-library/vue` in jsdom: query by role and accessible name, and interact through `@testing-library/user-event`. Render the whole app with `createAppRouter(createMemoryHistory())` (see `apps/web/src/router.test.ts`).
+- Web components are tested with `@testing-library/vue` in jsdom: query by role and accessible name, and interact through `@testing-library/user-event`. `apps/web/src/testing.ts` has the helpers:
+  - `renderApp(path)` renders the whole app, mounting it as `main.ts` does.
+  - `fakeDeviceScheme()` stands in for the device's light or dark setting.
+  - `accessibilityViolations()` runs axe on the page. jsdom can't measure color contrast, so that rule is off there.
 - API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, env, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
