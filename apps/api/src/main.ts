@@ -8,6 +8,8 @@ import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
 import type { Mailer } from './mail/mailer.ts';
 import { checkSmtpServer, createSmtpMailer, smtpConfigFrom } from './mail/smtp.ts';
+import { createSearchService } from './search/service.ts';
+import { setUpSearch } from './search/setup.ts';
 import { seedFirstAdmin } from './setup/seed.ts';
 
 /** How long in-flight requests get to finish after SIGTERM before the process exits anyway. */
@@ -77,7 +79,14 @@ if (requeued > 0) {
 worker.start();
 logger.info('job worker started');
 
-const app = createApp({ logger, auth, db, env });
+// Search is set up in the background: everything else works while Meilisearch is unavailable.
+const search = createSearchService({
+  setUp: () => setUpSearch({ url: env.MEILI_URL, masterKey: env.MEILI_MASTER_KEY }),
+  logger,
+});
+search.start();
+
+const app = createApp({ logger, auth, db, env, search });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');
@@ -101,6 +110,7 @@ function exit(code: number): never {
 
 async function shutdown(signal: NodeJS.Signals) {
   logger.info({ signal }, 'shutting down');
+  search.stop();
   setTimeout(() => {
     logger.error(
       { timeoutMs: SHUTDOWN_TIMEOUT_MS },

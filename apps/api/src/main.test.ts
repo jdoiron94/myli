@@ -1,23 +1,31 @@
 // Runs the real entry point under plain Node (no Vitest transform), the way production runs it.
-import { spawn } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { migrateDatabase, openDatabase } from './db/database.ts';
+import { freePort } from './testing.ts';
 
 const MAIN = fileURLToPath(new URL('./main.ts', import.meta.url));
 
-/** The variables without a default, so tests that expect a successful start can set them. */
+/**
+ * The variables without a default, so tests that expect a successful start can set them, and a
+ * Meilisearch address where nothing listens. The API starts without search (spec §4); the
+ * container tests cover a real one.
+ */
 const REQUIRED_ENV = {
   PUBLIC_URL: 'http://127.0.0.1',
   // Random-looking, or Better Auth logs a low-entropy warning at startup.
   BETTER_AUTH_SECRET: 'Vq7mZ2x9Lk4pR8tW1nB6cY3hJ0fS5gD8aE2uQ7iO4rM=',
+  MEILI_MASTER_KEY: 'master-key-hunter2-secret',
+  MEILI_URL: `http://127.0.0.1:${String(await freePort())}`,
 };
+
+const SEARCH_UNAVAILABLE = 'search is unavailable, retrying in the background';
 
 const ADMIN_ENV = {
   ADMIN_NAME: 'Ada Lovelace',
@@ -26,7 +34,12 @@ const ADMIN_ENV = {
 };
 
 const tempDirs: string[] = [];
+/** Every API a test started. One still running when the test ends (it failed) is killed. */
+const children: ChildProcess[] = [];
 afterEach(() => {
+  for (const child of children.splice(0)) {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -37,18 +50,10 @@ function tempDatabasePath() {
   return join(dir, 'myli.db');
 }
 
-async function freePort(): Promise<number> {
-  const probe = createServer().listen(0, '127.0.0.1');
-  await once(probe, 'listening');
-  const address = probe.address();
-  probe.close();
-  if (address === null || typeof address === 'string') throw new Error('no TCP address');
-  return address.port;
-}
-
 /** Starts main.ts with exactly `env`, so the developer's shell and .env can't leak in. */
 function startApi(env: Record<string, string>) {
   const child = spawn(process.execPath, [MAIN], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  children.push(child);
   let stdout = '';
   let stderr = '';
   child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
@@ -92,6 +97,8 @@ describe('main.ts', () => {
       DATABASE_PATH: databasePath,
     });
     await api.untilListening();
+    // Comes before or after "listening", depending on how soon the connection is refused.
+    await api.untilLogged(SEARCH_UNAVAILABLE);
 
     const res = await fetch(`http://127.0.0.1:${port}/healthz`);
     expect(res.status).toBe(200);
@@ -100,7 +107,7 @@ describe('main.ts', () => {
     expect(await api.exited).toBe(0);
     expect(api.stderr()).toBe('');
 
-    const logs = api.logs();
+    const logs = api.logs().filter((line) => line.msg !== SEARCH_UNAVAILABLE);
     expect(logs.map((line) => line.msg)).toEqual([
       'database ready',
       'email is off because SMTP_HOST is not set',
@@ -148,7 +155,9 @@ describe('main.ts', () => {
     await first.untilListening();
     first.child.kill('SIGTERM');
     expect(await first.exited).toBe(0);
-    expect(first.logs().map((line) => line.msg)).toEqual([
+    const messages = first.logs().map((line) => line.msg);
+    // Whether the search warning comes before SIGTERM depends on timing; another test covers it.
+    expect(messages.filter((msg) => msg !== SEARCH_UNAVAILABLE)).toEqual([
       'database ready',
       'first admin created from the environment',
       'email is off because SMTP_HOST is not set',
@@ -231,12 +240,38 @@ describe('main.ts', () => {
     expect(JSON.stringify(api.logs())).not.toContain('hunter2');
   });
 
+  it('starts without Meilisearch, warns once, and reports search unavailable on /readyz', async () => {
+    const port = await freePort();
+    const api = startApi({
+      ...REQUIRED_ENV,
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      DATABASE_PATH: tempDatabasePath(),
+    });
+    await api.untilListening();
+    await api.untilLogged(SEARCH_UNAVAILABLE);
+
+    const ready = await fetch(`http://127.0.0.1:${port}/readyz`);
+    expect(ready.status).toBe(503);
+    expect(await ready.json()).toMatchObject({ detail: 'Not ready: search is unavailable.' });
+    expect((await fetch(`http://127.0.0.1:${port}/healthz`)).status).toBe(200);
+
+    // The wait before the next attempt doesn't hold up shutting down.
+    api.child.kill('SIGTERM');
+    expect(await api.exited).toBe(0);
+
+    const warnings = api.logs().filter((line) => line.msg === SEARCH_UNAVAILABLE);
+    expect(warnings).toEqual([expect.objectContaining({ level: 40, retryInMs: 1_000 })]);
+    expect(JSON.stringify(api.logs())).not.toContain('hunter2');
+  });
+
   it('exits with code 1 and a readable message when the config is invalid', async () => {
     const api = startApi({ PORT: 'not-a-port' });
 
     expect(await api.exited).toBe(1);
     expect(api.stderr()).toMatch(/^Invalid environment configuration:\n\s+PORT: /);
     expect(api.stderr()).toMatch(/^\s+BETTER_AUTH_SECRET: is required$/m);
+    expect(api.stderr()).toMatch(/^\s+MEILI_MASTER_KEY: is required$/m);
     expect(api.stderr()).not.toMatch(/^\s+at /m); // no stack trace
   });
 });

@@ -17,6 +17,7 @@ function loadEnvError(source: Record<string, string>): EnvError {
 const REQUIRED = {
   PUBLIC_URL: 'https://myli.example',
   BETTER_AUTH_SECRET: 'a-test-secret-that-is-at-least-32-chars',
+  MEILI_MASTER_KEY: 'a-test-master-key',
 };
 
 describe('loadEnv', () => {
@@ -27,6 +28,7 @@ describe('loadEnv', () => {
       PORT: 3000,
       LOG_LEVEL: 'info',
       DATABASE_PATH: './data/myli.db',
+      MEILI_URL: 'http://localhost:7700',
       INVITATION_TTL_DAYS: 7,
       SMTP_SECURITY: 'starttls',
       ...REQUIRED,
@@ -43,6 +45,8 @@ describe('loadEnv', () => {
         DATABASE_PATH: '/data/myli.db',
         PUBLIC_URL: 'http://localhost:5173',
         BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
+        MEILI_URL: 'http://meilisearch:7700',
+        MEILI_MASTER_KEY: REQUIRED.MEILI_MASTER_KEY,
         INVITATION_TTL_DAYS: '14',
       }),
     ).toEqual({
@@ -53,6 +57,8 @@ describe('loadEnv', () => {
       DATABASE_PATH: '/data/myli.db',
       PUBLIC_URL: 'http://localhost:5173',
       BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
+      MEILI_URL: 'http://meilisearch:7700',
+      MEILI_MASTER_KEY: REQUIRED.MEILI_MASTER_KEY,
       INVITATION_TTL_DAYS: 14,
       SMTP_SECURITY: 'starttls',
     });
@@ -104,6 +110,19 @@ describe('loadEnv', () => {
     const { message } = loadEnvError({ ...REQUIRED, BETTER_AUTH_SECRET: 'too-short-hunter2' });
     expect(message).toMatch(/^\s+BETTER_AUTH_SECRET: must be at least 32 characters/m);
     expect(message).not.toContain('hunter2');
+  });
+
+  it('requires MEILI_MASTER_KEY, of at least 16 characters, without echoing it', () => {
+    const unset = loadEnvError({ ...REQUIRED, MEILI_MASTER_KEY: '' });
+    expect(unset.message).toMatch(/^\s+MEILI_MASTER_KEY: is required$/m);
+
+    const { message } = loadEnvError({ ...REQUIRED, MEILI_MASTER_KEY: 'short-hunter2' });
+    expect(message).toMatch(/^\s+MEILI_MASTER_KEY: must be at least 16 characters/m);
+    expect(message).not.toContain('hunter2');
+  });
+
+  it.each(['meilisearch:7700', 'ftp://meilisearch:7700'])('rejects MEILI_URL=%s', (url) => {
+    expect(loadEnvError({ ...REQUIRED, MEILI_URL: url }).message).toMatch(/^\s+MEILI_URL: /m);
   });
 
   it('lists every invalid variable in one error', () => {

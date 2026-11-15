@@ -28,6 +28,14 @@ allowBuilds:
   # (@tanstack/vue-query) Its postinstall picks the Vue 2 or Vue 3 build. The files it ships are
   # already the Vue 3 build.
   vue-demi: false
+  # (testcontainers, through dockerode) Builds optional native code for Docker over SSH, which
+  # isn't used: Testcontainers reaches Docker through its local socket. ssh2 falls back to plain
+  # JavaScript without its binding, and cpu-features only serves that binding.
+  ssh2: false
+  cpu-features: false
+  # (testcontainers, through gRPC) Its postinstall only warns about how a parent package writes
+  # its version range.
+  protobufjs: false
 
 # Peer ranges that are knowingly wider than a package declares.
 peerDependencyRules:

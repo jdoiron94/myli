@@ -104,9 +104,12 @@ describe('request logging', () => {
     });
   });
 
-  it('skips /healthz, so the container healthcheck does not flood the logs', async () => {
-    const { app, logs } = appWithCapturedLogs();
-    await app.request('/healthz');
-    expect(logs).toEqual([]);
-  });
+  it.each(['/healthz', '/readyz'])(
+    'skips %s, so polling it does not flood the logs',
+    async (path) => {
+      const { app, logs } = appWithCapturedLogs();
+      await app.request(path);
+      expect(logs).toEqual([]);
+    },
+  );
 });

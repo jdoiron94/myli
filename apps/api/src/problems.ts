@@ -29,7 +29,7 @@ export class HttpProblem extends Error {
   }
 }
 
-function problemResponse(c: Context<AppEnv>, status: ContentfulStatusCode, detail?: string) {
+export function problemResponse(c: Context<AppEnv>, status: ContentfulStatusCode, detail?: string) {
   const body: ProblemDetails = {
     type: 'about:blank',
     title: STATUS_CODES[status] ?? 'Unknown Error',
