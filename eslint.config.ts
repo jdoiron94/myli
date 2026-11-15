@@ -4,7 +4,8 @@ import { globalIgnores } from 'eslint/config';
 import pluginVue from 'eslint-plugin-vue';
 
 export default defineConfigWithVueTs(
-  globalIgnores(['**/dist/', '**/coverage/']),
+  // schema.ts is generated from the OpenAPI document (see apps/web/scripts/api-types.ts).
+  globalIgnores(['**/dist/', '**/coverage/', 'apps/web/src/api/schema.ts']),
   js.configs.recommended,
   // Its layout rules format `<template>` blocks, and `eslint --fix` applies them. They're the only
   // layout rules turned on, and they never look at `<script>` or `<style>`, which Biome formats.
@@ -34,8 +35,9 @@ export default defineConfigWithVueTs(
     },
   },
   {
-    // shadcn-vue's components, as its CLI writes them, so they can be updated with it: their names
-    // are single words (`Button`), and optional props stay undefined when not passed.
+    // shadcn-vue's components, kept close to what its CLI writes, because updating one means
+    // overwriting it: their names are single words (`Button`), and optional props stay undefined
+    // when not passed.
     files: ['apps/web/src/components/ui/**/*.vue'],
     rules: {
       'vue/multi-word-component-names': 'off',

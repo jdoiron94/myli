@@ -8,5 +8,5 @@
     // Not used by vite.config.ts: the shadcn-vue CLI reads the alias from here (see components.json).
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "scripts"]
 }
