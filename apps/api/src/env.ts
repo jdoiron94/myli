@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { emailSchema, passwordSchema, userNameSchema } from '@myli/shared';
 import { z } from 'zod';
 
@@ -105,12 +106,68 @@ export const envSchema = z
 
 export type Env = z.infer<typeof envSchema>;
 
+/**
+ * Secrets that can come from a file instead, such as a Docker secret in `/run/secrets`:
+ * `NAME_FILE` holds the file's path. Set `NAME` or `NAME_FILE`, not both.
+ */
+export const FILE_VARIABLES = [
+  'BETTER_AUTH_SECRET',
+  'MEILI_MASTER_KEY',
+  'ADMIN_PASSWORD',
+  'SMTP_PASSWORD',
+] as const satisfies readonly (keyof typeof envSchema.shape)[];
+
+/** Why a file couldn't be read, in the operator's terms. */
+const READ_FAILURES: Record<string, string> = {
+  ENOENT: 'there is no such file',
+  EACCES: 'permission denied',
+  EISDIR: 'it is a directory',
+};
+
+/**
+ * Reads each secret whose `NAME_FILE` is set. Returns the values, and the problems by variable
+ * name. A file's path isn't a secret, so a problem can name it; its contents are never shown.
+ */
+function readFileVariables(set: Readonly<Record<string, string | undefined>>) {
+  const values: Record<string, string> = {};
+  const problems = new Map<string, string>();
+  for (const name of FILE_VARIABLES) {
+    const fileVariable = `${name}_FILE`;
+    const path = set[fileVariable];
+    if (path === undefined) continue;
+    if (set[name] !== undefined) {
+      problems.set(
+        name,
+        `${fileVariable}: can't be set together with ${name}; set one or the other`,
+      );
+      continue;
+    }
+    let contents: string;
+    try {
+      contents = readFileSync(path, 'utf8');
+    } catch (error) {
+      const code = error instanceof Error && 'code' in error ? String(error.code) : 'unknown error';
+      problems.set(name, `${fileVariable}: can't read ${path}: ${READ_FAILURES[code] ?? code}`);
+      continue;
+    }
+    // A file written with `echo` ends in a newline that isn't part of the secret.
+    const value = contents.replace(/\r?\n$/, '');
+    if (value === '') {
+      problems.set(name, `${fileVariable}: ${path} is empty`);
+      continue;
+    }
+    values[name] = value;
+  }
+  return { values, problems };
+}
+
 export class EnvError extends Error {
   override name = 'EnvError';
 }
 
 /**
- * Validates the environment and returns typed config.
+ * Validates the environment and returns typed config, reading the secrets that come from files
+ * (`FILE_VARIABLES`).
  *
  * Empty strings count as unset, so `PORT=` in a `.env` file falls back to the default.
  * Throws an `EnvError` that lists every invalid variable. The message never includes
@@ -118,12 +175,24 @@ export class EnvError extends Error {
  */
 export function loadEnv(source: Readonly<Record<string, string | undefined>> = process.env): Env {
   const set = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''));
-  const result = envSchema.safeParse(set);
-  if (result.success) {
+  const files = readFileVariables(set);
+  // The schema drops the NAME_FILE variables, as it does any variable it doesn't know.
+  const result = envSchema.safeParse({ ...set, ...files.values });
+  if (result.success && files.problems.size === 0) {
     return result.data;
   }
-  const problems = result.error.issues.map(
-    (issue) => `  ${issue.path.join('.')}: ${issue.message}`,
-  );
+  const label = (name: string) => (name in files.values ? `${name} (from ${name}_FILE)` : name);
+  const issues = (result.error?.issues ?? []).map((issue) => ({
+    name: issue.path.join('.'),
+    message: issue.message,
+  }));
+  const problems = [
+    ...[...files.problems.values()].map((problem) => `  ${problem}`),
+    // A variable whose file couldn't be read is already explained, so "is required" would only
+    // confuse.
+    ...issues
+      .filter(({ name }) => !files.problems.has(name))
+      .map(({ name, message }) => `  ${label(name)}: ${message}`),
+  ];
   throw new EnvError(['Invalid environment configuration:', ...problems].join('\n'));
 }
