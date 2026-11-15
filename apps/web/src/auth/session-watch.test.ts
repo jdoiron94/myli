@@ -163,11 +163,30 @@ describe('when the API refuses something (403)', () => {
   });
 
   it('several refusals at once fetch the session once', async () => {
-    const asked = answerSessionWith(() => testUsers.editor);
-    apiServer.use(http.post(INVITATIONS_PATH, refused));
+    // The session isn't answered until the app has heard both refusals, so the second arrives
+    // while the request the first one started is still under way. Without that, a slow run can
+    // finish the first request before the second refusal, which rightly asks again.
+    const heardBoth = Promise.withResolvers<undefined>();
+    const asked = { count: 0 };
+    apiServer.use(
+      http.get(SESSION_PATH, async () => {
+        asked.count += 1;
+        if (asked.count > 1) await heardBoth.promise;
+        return sessionResponse(testUsers.editor);
+      }),
+      http.post(INVITATIONS_PATH, refused),
+    );
     const { queryClient } = await renderApp('/recipes/1');
+    // Subscribed after the app's watcher, so it hears each refusal once the watcher has.
+    let refusals = 0;
+    queryClient.getMutationCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'error') return;
+      refusals += 1;
+      if (refusals === 2) heardBoth.resolve(undefined);
+    });
 
     await Promise.all([mutate(queryClient, invite), mutate(queryClient, invite)]);
+    await heardBoth.promise;
     await waitFor(() => {
       expect(asked.count).toBe(2);
     });
