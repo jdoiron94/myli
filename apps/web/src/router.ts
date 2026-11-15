@@ -61,6 +61,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Invitations', permission: 'user.invite' },
   },
   {
+    path: '/admin/users',
+    name: 'users',
+    component: () => import('./pages/UsersPage.vue'),
+    meta: { title: 'Users', permission: 'user.manage' },
+  },
+  {
     path: '/unavailable',
     name: 'unavailable',
     component: () => import('./pages/UnavailablePage.vue'),

@@ -2,7 +2,7 @@ import { type QueryClient, VueQueryPlugin } from '@tanstack/vue-query';
 import type { App } from 'vue';
 import { createWebHistory, type RouterHistory } from 'vue-router';
 import { createAppQueryClient } from './api/query.ts';
-import { watchForSessionEnd } from './auth/session-end.ts';
+import { watchSession } from './auth/session-watch.ts';
 import { createAppRouter } from './router.ts';
 
 /**
@@ -15,7 +15,7 @@ export function installApp(
   queryClient: QueryClient = createAppQueryClient(),
 ) {
   const router = createAppRouter(queryClient, history);
-  watchForSessionEnd(queryClient, router);
+  watchSession(queryClient, router);
   app.use(router).use(VueQueryPlugin, { queryClient });
   return { router, queryClient };
 }
