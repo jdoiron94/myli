@@ -1,5 +1,5 @@
 import { AUTH_BASE_PATH } from '@myli/shared';
-import { screen, waitFor } from '@testing-library/vue';
+import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { accessibilityViolations, apiServer, renderApp } from '../testing.ts';
@@ -119,5 +119,33 @@ describe('the account menu', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Page not found' });
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('the main navigation', () => {
+  it('links admins to the invitations, marking the link of the page they are on', async () => {
+    apiServer.use(http.get('/api/v1/invitations', () => HttpResponse.json({ invitations: [] })));
+    const { router, user } = await renderApp('/', { signedInAs: 'admin' });
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    const link = within(nav).getByRole('link', { name: 'Invitations' });
+    expect(link.getAttribute('aria-current')).toBeNull();
+
+    await user.click(link);
+
+    await screen.findByText('No open invitations.');
+    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations');
+    expect(link.getAttribute('aria-current')).toBe('page');
+    expect(await accessibilityViolations()).toEqual([]);
+  });
+
+  it.each([
+    ['an editor', 'editor'],
+    ['a viewer', 'viewer'],
+    ['no one signed in', null],
+  ] as const)("isn't there for %s, who has no page to go to yet", async (_, role) => {
+    await renderApp(role ? '/' : '/login', { signedInAs: role });
+
+    expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Invitations' })).toBeNull();
   });
 });

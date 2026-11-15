@@ -1,5 +1,5 @@
 import { type User, userSchema } from '@myli/shared';
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/vue-query';
+import { type QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { useRouter } from 'vue-router';
 import { z } from 'zod';
 import { authClient, unwrap } from './client.ts';
@@ -40,19 +40,25 @@ export function useSignIn() {
   });
 }
 
+/**
+ * After signing out, or finding the session ended: no one is signed in any more. Goes where
+ * `navigate` says, then forgets everything else fetched while signed in, only once the pages that
+ * showed it are gone, so nothing the last user saw stays behind.
+ */
+export async function forgetSession(queryClient: QueryClient, navigate: () => Promise<unknown>) {
+  queryClient.setQueryData(sessionQuery.queryKey, null);
+  await navigate();
+  queryClient.removeQueries({
+    predicate: ({ queryKey }) => queryKey[0] !== sessionQuery.queryKey[0],
+  });
+}
+
 /** Signs out, then goes to the sign-in page and forgets everything fetched while signed in. */
 export function useSignOut() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation({
     mutationFn: () => unwrap(authClient.signOut()),
-    onSuccess: async () => {
-      queryClient.setQueryData(sessionQuery.queryKey, null);
-      await router.push({ name: 'login' });
-      // Only now, once the pages that showed it are gone: nothing the last user saw stays behind.
-      queryClient.removeQueries({
-        predicate: ({ queryKey }) => queryKey[0] !== sessionQuery.queryKey[0],
-      });
-    },
+    onSuccess: () => forgetSession(queryClient, () => router.push({ name: 'login' })),
   });
 }

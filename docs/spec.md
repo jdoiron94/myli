@@ -48,6 +48,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Enforcement**
 
 - The matrix is implemented once, as a policy module in `packages/shared`. The UI uses it to hide controls; the API uses it to enforce. Neither has inline role checks.
+- Pages a role can't use, like the admin pages, aren't linked for it. Opening one anyway says the user doesn't have access, at the same address.
 - **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, revisions and public links.
 - No one can act on a recipe they can't see. An admin's "any" in the table means any recipe they can see: shared recipes and their own private ones.
 - A request for a resource the caller may not see returns `404`, so its existence isn't revealed. A request the caller may see but not act on returns `403`.
@@ -102,6 +103,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - email verification
 - password reset
 - rate limiting: Better Auth's built-in limiter on auth routes, and a general limiter on the rest of the API
+- **When a session ends** (it expires, the user is deactivated, or they sign out on another device), the web app finds out from its next request. It goes to the sign-in page, which says they've been signed out and fills in their email, and back to the same page once they've signed in. Nothing the app had loaded stays behind.
 
 **User lifecycle**
 - Admins change roles and deactivate users. Users are never hard-deleted, so revision and comment authorship stays intact.
