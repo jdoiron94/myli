@@ -38,7 +38,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ## Architecture at a glance
 
 - **Monorepo** with pnpm workspaces:
-  - `apps/web`: Vue 3 + TS + Vite
+  - `apps/web`: Vue 3 + TS + Vite + Vue Router
   - `apps/api`: Node + TS + Hono
   - `packages/shared`: Zod schemas, types, permission policy, scaling/unit/aggregation logic
 - **Runtime:** Node runs the API's and `shared`'s TypeScript source directly, using its built-in type stripping. There's no build step or `dist/` (ADR 0008).
@@ -135,13 +135,15 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base image versions.
 
 ### Tooling
-- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS, YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown is left alone.
-- **ESLint lints:** `@eslint/js` recommended, typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, and eslint-plugin-vue `recommended` with its layout rules off. Warnings fail the build.
-- **Type checks:** `tsc` now; vue-tsc once `apps/web` has Vue components.
-- **lefthook pre-commit,** in order: Biome fixes staged files and re-stages them, ESLint checks staged files, then the whole workspace is typechecked.
+- **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS, YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown and `apps/web/index.html` are left alone.
+- **`<template>` blocks are formatted by eslint-plugin-vue's layout rules,** because Biome's template formatter is still experimental. `pnpm lint --fix` and the pre-commit hook apply them. They're the only layout rules turned on, and they never look at `<script>` or `<style>`, so they can't overlap with Biome.
+- **ESLint lints:** `@eslint/js` recommended, typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, and eslint-plugin-vue `recommended`, layout rules included. Warnings fail the build.
+- **Type checks:** `tsc` for the API, `shared` and config files; `vue-tsc` for the web app. `apps/web/src` has its own `tsconfig.json`, with browser types and no Node types; `apps/web/tsconfig.json` covers the Node-side config files next to it, such as `vite.config.ts`.
+- **lefthook pre-commit,** in order: Biome fixes staged files and re-stages them, ESLint checks staged files (fixing only template layout, then re-staging), then the whole workspace is typechecked.
 
 ### Testing
 - Vitest for unit tests.
+- Web components are tested with `@testing-library/vue` in jsdom: query by role and accessible name, and interact through `@testing-library/user-event`. Render the whole app with `createAppRouter(createMemoryHistory())` (see `apps/web/src/router.test.ts`).
 - API integration tests use Hono's `app.request()` against in-memory SQLite. `createTestApp()` from `apps/api/src/testing.ts` builds the whole app (auth included) on a fresh, migrated database and returns `{ app, db, auth, logger, env, publicUrl }`. `signedInAs(t, role)` creates a user with that role, signs them in over HTTP and returns `{ user, cookie }`. `createTestDatabase()` from `apps/api/src/db/testing.ts` gives just the database.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
@@ -154,11 +156,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 Run these from the repo root:
 
 - `pnpm install`: also installs the git hooks.
-- `pnpm dev`: starts the API on port 3000 in watch mode, with logs pretty-printed, reading `.env` from the repo root if one exists.
+- `pnpm dev`: starts the API on port 3000 in watch mode, with logs pretty-printed, reading `.env` from the repo root if one exists. It also starts the web app's Vite dev server on http://localhost:5173, which proxies `/api` to the API. Set `PUBLIC_URL=http://localhost:5173` in development: that's the origin the browser uses.
 - `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
 - `pnpm test:watch`: Vitest in watch mode.
-- `pnpm typecheck`: `tsc --noEmit` for the root config files and every package.
-- `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes.
+- `pnpm typecheck`: `tsc --noEmit` for the root config files and every package, and `vue-tsc` for the web app.
+- `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes, which also formats `<template>` blocks.
 - `pnpm format`: Biome formats and sorts imports in place. `pnpm format:check` only reports.
 - `pnpm openapi:generate`: rewrites `apps/api/openapi.json` from the routes.
 - `pnpm db:generate`: generates a SQL migration from changes to the Drizzle schema. Name it with `--name <what_changed>` (no `--` separator: pnpm passes arguments straight through, and drizzle-kit rejects a literal `--`).

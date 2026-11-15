@@ -51,7 +51,7 @@ flowchart LR
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vue 3, TypeScript, Vite, Pinia, TanStack Query, shadcn-vue, Tailwind, Milkdown |
+| Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, shadcn-vue, Tailwind, Milkdown |
 | API | Node, TypeScript, Hono, Zod, OpenAPI 3.1, Scalar |
 | Data | SQLite, Drizzle ORM |
 | Search | Meilisearch |
@@ -89,14 +89,16 @@ You need Node 26.13.1 (pinned in `.node-version`) and pnpm 12.18.0 (pinned in `p
 ```sh
 pnpm install     # also installs the git hooks (lefthook)
 cp .env.example .env   # then set PUBLIC_URL and BETTER_AUTH_SECRET, as the comments explain
-pnpm dev         # API on http://localhost:3000 with readable logs, restarts on change; reads .env if present
+pnpm dev         # web app on http://localhost:5173, API on :3000 behind it; both reload on change
 pnpm test        # Vitest, across every workspace package
-pnpm typecheck   # tsc, for every workspace package
-pnpm lint        # ESLint
+pnpm typecheck   # tsc and vue-tsc, for every workspace package
+pnpm lint        # ESLint; --fix also formats Vue templates
 pnpm format      # Biome
 pnpm openapi:generate   # refresh apps/api/openapi.json after changing the API
 pnpm db:generate        # create a migration after changing the database schema
 ```
+
+In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. The browser reaches the API through the web app's dev server, and sign-in only accepts requests from `PUBLIC_URL`. The API reads `.env` if it's there and shows readable logs.
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.
 

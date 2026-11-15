@@ -4,13 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p src"
   },
   "dependencies": {
-    "@myli/shared": "workspace:*"
+    "@myli/shared": "workspace:*",
+    "vue": "3.5.45",
+    "vue-router": "5.4.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "9.3.4",
+    "@testing-library/user-event": "14.6.8",
+    "@testing-library/vue": "8.1.0",
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "6.0.10",
+    "jsdom": "31.0.0",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "3.3.14"
   }
 }
