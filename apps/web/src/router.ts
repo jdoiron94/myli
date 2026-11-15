@@ -1,4 +1,4 @@
-import type { User } from '@myli/shared';
+import { INVITATION_ACCEPT_PATH, type User } from '@myli/shared';
 import type { QueryClient } from '@tanstack/vue-query';
 import {
   createRouter,
@@ -41,6 +41,14 @@ export const routes: RouteRecordRaw[] = [
     name: 'setup',
     component: () => import('./pages/SetupPage.vue'),
     meta: { title: 'Set up myli', access: 'setup' },
+  },
+  {
+    // Open to anyone: the page itself explains why a signed-in user can't accept. Redirecting them
+    // would lose the token without saying why.
+    path: INVITATION_ACCEPT_PATH,
+    name: 'accept-invitation',
+    component: () => import('./pages/AcceptInvitationPage.vue'),
+    meta: { title: 'Accept invitation', access: 'public' },
   },
   {
     path: '/unavailable',
