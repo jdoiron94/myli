@@ -93,7 +93,7 @@ cp .env.example .env   # then set PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTE
 pnpm dev         # web app on http://localhost:5173, API on :3000 behind it; both reload on change
 pnpm test        # Vitest, across every workspace package
 pnpm test:e2e    # Playwright + axe, in Chromium and Firefox (first: pnpm --filter @myli/e2e exec playwright install chromium firefox)
-pnpm test:containers   # the API against real Meilisearch in Docker, with Testcontainers
+pnpm test:containers   # the API against real Meilisearch, then Playwright against the Docker images (needs Docker)
 pnpm typecheck   # tsc and vue-tsc, for every workspace package
 pnpm lint        # ESLint; --fix also formats Vue templates
 pnpm format      # Biome

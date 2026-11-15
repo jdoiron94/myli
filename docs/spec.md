@@ -420,7 +420,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | CI | GitHub Actions; images published to GHCR; Renovate |
 
 **Security**
-- Content Security Policy and the other standard security headers.
+- Content Security Policy and the other standard security headers, sent by Caddy. The app's pages allow no inline scripts or styles and no eval (ADR 0012).
 - Session cookies are `HttpOnly`, `Secure` and `SameSite`; Better Auth checks the request origin.
 - Every API request that changes data must be sent as JSON, even without a body, so no other origin can make one with a user's cookie.
 - All input is validated with Zod at the API boundary.

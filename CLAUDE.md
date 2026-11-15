@@ -164,9 +164,13 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - A new password is a `PasswordField`, validated with `newPasswordSchema`: it lists the shared password rules (`passwordChecklist`), marking each one met as it's typed, and has a "Show password" toggle. The list isn't a live region; the input points to it with `aria-describedby`.
   - After a submit that fails validation, `focusFirstInvalidField()` moves focus to the first field with an error. A form doesn't start a second submit while one is under way (VeeValidate's `isSubmitting`); mark its button `aria-disabled` meanwhile, rather than `disabled`, so it keeps focus.
   - When the API refuses a submit, `apiFieldErrors(error, fields)` gives a 422's field errors for the form's `setErrors`, then focus the first one. Explain any other failure with `failureMessage(error)` from `src/api/failure.ts`, which shows the API's `detail` for a 4xx.
-- **No inline scripts and no injected `<style>` elements:** increment 18's Content Security Policy will forbid them. Setting styles from code, as Vue's `:style` does, is fine. The API docs page is the one exception, with a CSP of its own (see below).
-- **The API docs** are a separate page, `api/docs/index.html`, served at `/api/docs/`, where Scalar renders `/api/v1/openapi.json` (ADR 0011). The app never imports Scalar, and a build test checks that. The dev server sends everything under `/api` to the API except `/api/docs`.
-  - Keep Scalar's services off in `src/api-docs/ApiDocs.vue`: its default fonts, and the AI agent and developer tools it turns on by default on a local address. Its tests render it at one.
+- **Content Security Policy:** Caddy sends it (`apps/web/Caddyfile`, ADR 0012). On the app's pages it allows nothing inline and no eval:
+  - no inline scripts, no `<style>` elements, and no `style` attributes in markup, so markdown rendered with `v-html` can't carry styles either
+  - no `eval` or `new Function`. Zod's compiled fast path is off for that reason (`src/zod-jitless.ts`, which each page's entry imports first).
+  - Setting styles from code, as Vue's `:style` does, is fine.
+  - The end-to-end tests against the images fail on any violation (see Testing). The API docs page is the one exception, with a CSP of its own (see below).
+- **The API docs** are a separate page, `api/docs/index.html`, served at `/api/docs/`, where Scalar renders `/api/v1/openapi.json` (ADR 0011). Its CSP allows inline styles, because Scalar adds them as it runs; scripts are as strict as on the app's pages (ADR 0012). The app never imports Scalar, and a build test checks that. The dev server sends everything under `/api` to the API except `/api/docs`.
+  - Keep Scalar's services off in `src/api-docs/ApiDocs.vue`: its default fonts, the AI agent and developer tools it turns on by default on a local address, and its Open API Client button, which opens client.scalar.com. Its tests render it at a local address.
 
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
@@ -179,6 +183,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - It keeps pnpm's workspace layout, so Node finds `@myli/shared` outside `node_modules` (ADR 0008). Don't switch it to `pnpm deploy`.
   - It copies every workspace package's `package.json` before installing, so the lockfile matches. A new workspace package goes into that list.
   - `main.ts` handles SIGTERM itself, so the `CMD` stays in exec form: a shell in between wouldn't pass the signal on.
+- **The web image** (`apps/web/Dockerfile`) builds the app with Vite and serves it with Caddy, as the `caddy` user (uid 1000).
+  - Its configuration is `apps/web/Caddyfile`, which the build checks with `caddy validate`. Headers, the CSP, caching and routing are all set there. It sends `/api` to `API_UPSTREAM` (`api:3000` unless set), except the docs page.
+  - Its healthcheck asks Caddy on an address only reachable inside the container (`127.0.0.1:2020`), so it doesn't depend on the site's address.
+  - It has no admin endpoint (`admin off`): a configuration change means a new image.
+  - Its build stage runs on the build machine's platform (`--platform=$BUILDPLATFORM`), since its output is static files.
 
 ### Tooling
 - **Biome formats and sorts imports.** Its linter is off. It covers TS, JS, JSON, CSS (with Tailwind's directives), YAML, and the `<script>` and `<style>` blocks of `.vue` files. Markdown, `apps/web/index.html` and the generated `apps/web/src/api/schema.ts` are left alone (ESLint skips that file too).
@@ -203,8 +212,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers, against the same image version production uses (`MEILISEARCH_IMAGE` and `meilisearchContainer()` in `apps/api/src/search/testing.ts`). `image.container.test.ts` builds the API image, runs it next to Meilisearch, and checks the build context. They're named `*.container.test.ts`, and `pnpm test:containers` runs them. `pnpm test` leaves them out, since they need Docker (`apps/api/vitest.config.ts`). The first run pulls the images; Testcontainers' reaper container (Ryuk) removes the containers when the run ends, even if it crashes.
-- User flows get Playwright E2E tests with axe accessibility checks, in the `e2e/` workspace package (outside `apps/*`, so Vitest's projects don't pick up its specs). `tests/journey.spec.ts` follows one journey: first-run setup, sign-in, inviting someone, accepting, deactivating and reactivating them, and a role change reaching a page they already have open.
-  - Each browser gets its own API, database and Vite dev server, on ports 3100+ and 5180+, so a run doesn't clash with `pnpm dev`. `e2e/start-api.ts` starts the API on an empty temporary database, deleted afterwards, with no first admin and no SMTP. It passes the API only its own variables, never the shell's or `.env`.
+- User flows get Playwright E2E tests with axe accessibility checks, in the `e2e/` workspace package (outside `apps/*`, so Vitest's projects don't pick up its specs). `tests/journey.spec.ts` follows one journey: first-run setup, sign-in, inviting someone, accepting, deactivating and reactivating them, and a role change reaching a page they already have open. `tests/api-docs.spec.ts` loads the API docs page and sends a request from it.
+  - Specs import `test` and `expect` from `tests/fixtures.ts`, which fails a test on any Content Security Policy violation in its pages. Open another browser context with its `newContext` fixture, so that one is watched too.
+  - **Two runs.** `pnpm test:e2e` runs against the dev servers. `pnpm test:containers` runs against the Docker images, where Caddy sends the real headers and CSP; only that run includes `tests/web-server.spec.ts`, which checks Caddy's headers, caching and routing.
+  - **Against the dev servers,** each browser gets its own API, database and Vite dev server, on ports 3100+ and 5180+, so a run doesn't clash with `pnpm dev`. `e2e/start-api.ts` starts the API on an empty temporary database, deleted afterwards, with no first admin and no SMTP. It passes the API only its own variables, never the shell's or `.env`.
+  - **Against the images,** `e2e/build-images.ts` builds `myli-api:e2e` and `myli-web:e2e`, and `e2e/start-images.ts` runs them for each browser, on ports 5190+ (`playwright.containers.config.ts`). The API gets the same variables as `start-api.ts`, and its database lives in its container, which is removed afterwards.
   - `checkPage(page)` (`e2e/tests/accessibility.ts`) runs axe in the light and dark themes, color contrast included, and checks that the page doesn't scroll sideways at a phone's width. With a dialog or menu open, `checkPage(page, { popup: true })` checks just the popup, since reka-ui hides the rest of the page while one is open.
   - axe runs in Chromium only: running it over the Invitations page crashes the page's process in Playwright's Firefox 159 build. Firefox still goes through every step, both themes and the phone width.
   - A failed run keeps a trace and a screenshot in `e2e/test-results/`. Open the trace with `pnpm --filter @myli/e2e exec playwright show-trace <path>`.
@@ -217,7 +229,7 @@ Run these from the repo root:
 - `pnpm dev`: starts the API on port 3000 in watch mode, with logs pretty-printed, reading `.env` from the repo root if one exists. It also starts the web app's Vite dev server on http://localhost:5173, which proxies `/api` to the API. Set `PUBLIC_URL=http://localhost:5173` in development: that's the origin the browser uses.
 - `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
 - `pnpm test:watch`: Vitest in watch mode.
-- `pnpm test:containers`: the API's tests against real services in Docker containers (see Testing). Docker must be running. Not part of `pnpm test` or the pre-commit hook.
+- `pnpm test:containers`: the API's tests against real services in Docker containers, then the end-to-end tests against the Docker images (see Testing). Docker must be running, and Playwright's browsers installed. Not part of `pnpm test` or the pre-commit hook.
 - `pnpm test:e2e`: Playwright's end-to-end tests, in Chromium and Firefox (see Testing). Not part of `pnpm test` or the pre-commit hook. Install the browsers once with `pnpm --filter @myli/e2e exec playwright install chromium firefox`. Arguments pass through: `pnpm test:e2e --project=firefox`, or `--headed` to watch.
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package, and `vue-tsc` for the web app.
 - `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes, which also formats `<template>` blocks.

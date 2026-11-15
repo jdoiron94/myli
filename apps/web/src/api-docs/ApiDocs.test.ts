@@ -38,6 +38,8 @@ describe('the API docs page', () => {
 
     expect(screen.queryByRole('button', { name: 'Ask AI' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Share|Developer Tools/ })).toBeNull();
+    // It would open client.scalar.com.
+    expect(screen.queryByText('Open API Client')).toBeNull();
     const styles = [...document.querySelectorAll('style')].map((style) => style.textContent);
     expect(styles.filter((css) => css.includes('scalar.com'))).toEqual([]);
   });

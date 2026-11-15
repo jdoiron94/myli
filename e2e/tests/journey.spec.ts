@@ -1,5 +1,6 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { checkPage } from './accessibility.ts';
+import { expect, test } from './fixtures.ts';
 
 const ADMIN = {
   name: 'Grace Hopper',
@@ -25,7 +26,7 @@ async function signIn(page: Page, { email, password }: { email: string; password
 
 test('an admin sets up myli, invites someone and manages their account', async ({
   page,
-  browser,
+  newContext,
   baseURL,
 }) => {
   test.setTimeout(180_000);
@@ -88,9 +89,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
   });
 
   // Someone else, in their own browser.
-  const member = await (
-    await browser.newContext({ baseURL, viewport: page.viewportSize() })
-  ).newPage();
+  const member = await (await newContext({ baseURL, viewport: page.viewportSize() })).newPage();
 
   await test.step('they accept the invitation and sign in', async () => {
     await member.goto(link);
