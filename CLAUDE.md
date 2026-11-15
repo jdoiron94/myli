@@ -104,6 +104,14 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Sends are at-least-once: if the process dies after the server accepted a message but before the job was marked done, it's sent again.
 - SMTP server certificates are always verified. Don't add an option to turn that off.
 
+### Audit log
+- Record an event with `recordAuditEvent(tx, auditOrigin(c), { action, target, metadata })` from `apps/api/src/audit/audit.ts`, **inside the transaction of the change it records**.
+- Only when the change already happened outside our transaction (Better Auth created the user, signed them in or out), use `recordAuditEventAfterwards`, which logs a failure instead of failing the request.
+- Actions are `AUDIT_ACTIONS` in `packages/shared/src/audit.ts`, the full list from spec §3.1, and a CHECK constraint enforces them. Adding one takes a migration.
+- Metadata is for admins to read. Never put a secret in it: no tokens, hashes or passwords.
+- `audit_event` is append-only: triggers refuse every UPDATE and DELETE. Rebuilding the table (which drizzle-kit does for some changes) drops them, so such a migration must create them again. `audit.test.ts` fails if they're missing.
+- Sign-ins and sign-outs are recorded by `auditSignIns` and `auditSignOuts` (`audit/auth-events.ts`) in front of Better Auth's routes, from its HTTP responses, not its internals.
+
 ### Search
 - The browser never talks to Meilisearch. All search goes through the API, which adds the authorization filter.
 - Any write that affects a recipe's search document queues a job with `enqueueJob` **in the same SQLite transaction**. Never call Meilisearch inline from a request handler.

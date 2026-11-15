@@ -1,9 +1,11 @@
 import type { SetupRequest, User } from '@myli/shared';
 import { and, eq, lt } from 'drizzle-orm';
+import { type AuditOrigin, recordAuditEvent, recordAuditEventAfterwards } from '../audit/audit.ts';
 import type { Auth } from '../auth/auth.ts';
 import { createUserWithPassword } from '../auth/users.ts';
 import type { Db } from '../db/database.ts';
 import { setupClaim, user } from '../db/schema.ts';
+import type { Logger } from '../logger.ts';
 
 /**
  * A claim older than this was left by a process that crashed mid-setup, and may be taken over.
@@ -74,4 +76,24 @@ function takeClaim(db: Db, claimedAt: Date): 'claimed' | 'complete' | 'in-progre
     // Take the write lock up front, so two setups can't both pass the check before either inserts.
     { behavior: 'immediate' },
   );
+}
+
+/**
+ * Records that setup created the first admin, through the API or from the environment at startup.
+ * Better Auth created them outside any transaction of ours, so this comes afterwards.
+ */
+export function recordSetupCompleted(
+  db: Db,
+  logger: Logger,
+  origin: Omit<AuditOrigin, 'actorId'>,
+  adminId: string,
+  via: 'api' | 'environment',
+): void {
+  recordAuditEventAfterwards(logger, 'setup.completed', () => {
+    recordAuditEvent(
+      db,
+      { ...origin, actorId: adminId },
+      { action: 'setup.completed', target: { type: 'user', id: adminId }, metadata: { via } },
+    );
+  });
 }

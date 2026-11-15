@@ -29,6 +29,20 @@
       "when": 1794691094082,
       "tag": "0003_invitation",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794701423324,
+      "tag": "0004_audit_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794701423828,
+      "tag": "0005_audit_event_append_only",
+      "breakpoints": true
     }
   ]
 }

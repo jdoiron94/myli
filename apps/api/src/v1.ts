@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { API_BASE_PATH } from '@myli/shared';
+import { registerAuditRoutes } from './audit/routes.ts';
 import type { Auth } from './auth/auth.ts';
 import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
@@ -40,6 +41,7 @@ export function createV1Router(deps: V1Deps) {
   });
 
   registerSetupRoutes(v1, deps);
+  registerAuditRoutes(v1, { db: deps.db });
   registerInvitationRoutes(v1, {
     db: deps.db,
     auth: deps.auth,

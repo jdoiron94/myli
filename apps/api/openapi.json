@@ -199,6 +199,136 @@
         "maxLength": 128,
         "description": "15 to 128 characters, with a lowercase letter, an uppercase letter, a number and a special character (anything but a letter or a number, a space included)."
       },
+      "AuditEventList": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEvent"
+            },
+            "description": "Newest first."
+          },
+          "nextBefore": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "Pass as `before` to get the next page. `null` on the last page."
+          }
+        },
+        "required": [
+          "events",
+          "nextBefore"
+        ]
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "setup.completed",
+              "invitation.created",
+              "invitation.resent",
+              "invitation.revoked",
+              "invitation.accepted",
+              "user.role_changed",
+              "user.deactivated",
+              "user.reactivated",
+              "sign_in.succeeded",
+              "sign_in.failed",
+              "sign_out.succeeded",
+              "recipe.deleted",
+              "recipe.restored",
+              "recipe.purged",
+              "revision.restored",
+              "public_link.created",
+              "public_link.revoked",
+              "instance.exported"
+            ]
+          },
+          "actor": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "description": "Who did it. `null` when nobody was signed in, as for a failed sign-in."
+          },
+          "target": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "invitation",
+                  "user",
+                  "recipe"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "description": "What it was done to, if anything."
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Details that depend on the action, such as the email a failed sign-in tried."
+          },
+          "ip": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userAgent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "actor",
+          "target",
+          "metadata",
+          "ip",
+          "userAgent",
+          "createdAt"
+        ]
+      },
       "InvitationList": {
         "type": "object",
         "properties": {
@@ -439,6 +569,101 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit-events": {
+      "get": {
+        "tags": [
+          "Audit log"
+        ],
+        "summary": "List audit events",
+        "description": "Admins only. Newest first, a page at a time.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Only events older than this ID: the `nextBefore` of the previous page."
+            },
+            "required": false,
+            "description": "Only events older than this ID: the `nextBefore` of the previous page.",
+            "name": "before",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "setup.completed",
+                "invitation.created",
+                "invitation.resent",
+                "invitation.revoked",
+                "invitation.accepted",
+                "user.role_changed",
+                "user.deactivated",
+                "user.reactivated",
+                "sign_in.succeeded",
+                "sign_in.failed",
+                "sign_out.succeeded",
+                "recipe.deleted",
+                "recipe.restored",
+                "recipe.purged",
+                "revision.restored",
+                "public_link.created",
+                "public_link.revoked",
+                "instance.exported"
+              ],
+              "description": "Only events of this kind."
+            },
+            "required": false,
+            "description": "Only events of this kind.",
+            "name": "action",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of audit events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventList"
                 }
               }
             }

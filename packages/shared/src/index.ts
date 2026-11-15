@@ -8,6 +8,16 @@ export const API_BASE_PATH = '/api/v1';
 export const AUTH_BASE_PATH = '/api/auth';
 
 export {
+  AUDIT_ACTIONS,
+  AUDIT_PAGE_SIZE_MAX,
+  AUDIT_TARGET_TYPES,
+  type AuditAction,
+  type AuditTargetType,
+  auditEventListQuerySchema,
+  auditEventListSchema,
+  auditEventSchema,
+} from './audit.ts';
+export {
   type AcceptInvitationRequest,
   acceptInvitationRequestSchema,
   acceptInvitationResultSchema,

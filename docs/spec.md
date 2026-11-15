@@ -120,17 +120,25 @@ There are three roles: **admin**, **editor** and **viewer**.
 - Making a recipe private revokes its public link.
 
 **Audit log**
-- Append-only; viewable by admins only.
+- Append-only, enforced by the database: triggers refuse every change to a recorded event. Viewable by admins only, newest first, a page at a time, optionally filtered by action.
 - Records:
+  - first-run setup creating the first admin, through the setup screen or from the environment
   - invitation created, resent, revoked, accepted
   - role changed
   - user deactivated or reactivated
-  - successful and failed logins
+  - successful and failed logins, and sign-outs
   - recipe deleted, restored or purged
   - revision restored
   - public link created or revoked
   - full-instance export
 - Each event stores actor, action, target, timestamp, IP address and user agent.
+- **Sign-ins:**
+  - Only email-and-password sign-ins whose credentials were checked are recorded. Requests refused for coming from another origin, being malformed or being rate limited are not.
+  - A failed sign-in has no actor. It keeps the email that was tried and the reason (wrong email or password, or a deactivated account), and targets the account when that email has one.
+  - A sign-out is recorded only when it ended a session.
+  - Every failed sign-in is recorded and kept (open question 5). Rate limiting bounds how fast they accumulate. Pruning old ones can come with the scheduled purge job in Phase 2.
+- An event and the change it records are saved together, in one transaction. Setup, sign-ins, sign-outs and accepted invitations are the exception, because Better Auth makes those changes itself: their events are written right after, and if that write fails, the error is logged and the request still succeeds.
+- **IP address:** the address the connection came from. Behind Caddy, it's read from `X-Forwarded-For`, trusted only from Caddy.
 - The audit log is separate from revision history (§3.3), which records recipe content.
 
 ### 3.2 Recipes
@@ -461,4 +469,4 @@ These need decisions before or during the phase that uses them:
 2. **Bayesian rating parameters** (Phase 2). Suggestion: prior = the instance-wide mean rating, weight = 3 ratings.
 3. **Image limits** (Phase 1). Suggestion: 10 MB max upload, variants at 400 px and 1200 px wide, served as WebP.
 4. **Revision retention** (Phase 2). Suggestion: keep all revisions; snapshots are small.
-5. **Failed-login audit events** may be noisy (Phase 0). Possibly sample them or keep them for a limited time.
+5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided in Phase 0: record every one and keep them. Revisit pruning when the Phase 2 purge job exists.

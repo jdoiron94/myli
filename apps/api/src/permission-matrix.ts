@@ -64,6 +64,7 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
   const result = createInvitation(
     { db: t.db, auth: t.auth, publicUrl: t.publicUrl, ttlDays: 7, emailEnabled: false },
     { email: `invitee-${randomUUID()}@example.com`, role: 'viewer', invitedBy: admin.id },
+    { actorId: admin.id, ip: null, userAgent: null },
   );
   if (!result.ok) throw new Error(`could not create an invitation: ${result.reason}`);
   if (result.link === undefined) throw new Error('expected a link: email is off here');
@@ -123,6 +124,12 @@ export const ENDPOINTS: readonly EndpointCase[] = [
         name: 'Invitee',
         password: 'An invitee password 1',
       }),
+  },
+  {
+    method: 'get',
+    path: '/audit-events',
+    access: 'auditLog.read',
+    send: (t, cookie) => request(t, 'GET', '/audit-events', cookie),
   },
   {
     method: 'post',

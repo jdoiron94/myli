@@ -1,6 +1,6 @@
 import type { Env } from '../env.ts';
 import type { Logger } from '../logger.ts';
-import { runSetup, type SetupDeps } from './setup.ts';
+import { recordSetupCompleted, runSetup, type SetupDeps } from './setup.ts';
 
 export type SeedOutcome = 'not-configured' | 'created' | 'users-exist' | 'in-progress';
 
@@ -20,6 +20,14 @@ export async function seedFirstAdmin(
   const result = await runSetup(deps, { name, email, password });
   if (result.ok) {
     deps.logger.info({ userId: result.user.id }, 'first admin created from the environment');
+    // No request: it happens at startup.
+    recordSetupCompleted(
+      deps.db,
+      deps.logger,
+      { ip: null, userAgent: null },
+      result.user.id,
+      'environment',
+    );
     return 'created';
   }
   if (result.reason === 'complete') {
