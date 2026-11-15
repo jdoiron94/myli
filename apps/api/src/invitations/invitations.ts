@@ -1,6 +1,7 @@
 import type { AcceptInvitationRequest, InvitationStatus, Role, User } from '@myli/shared';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
+import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Auth } from '../auth/auth.ts';
 import { createUserWithPassword } from '../auth/users.ts';
 import type { Db, Tx } from '../db/database.ts';
@@ -91,6 +92,7 @@ export type CreateInvitationResult =
 export function createInvitation(
   { db, publicUrl, ttlDays, emailEnabled, now = () => new Date() }: InvitationDeps,
   request: { email: string; role: Role; invitedBy: string },
+  audit: AuditOrigin,
 ): CreateInvitationResult {
   // With email on, nobody ever sees this token: the email job replaces it before it sends.
   const { token, tokenHash } = newInvitationToken();
@@ -115,6 +117,11 @@ export function createInvitation(
         .returning()
         .get();
       if (emailEnabled) enqueueJob(tx, invitationEmailJob, { invitationId: row.id });
+      recordAuditEvent(tx, audit, {
+        action: 'invitation.created',
+        target: { type: 'invitation', id: row.id },
+        metadata: { email: row.email, role: row.role },
+      });
       return row;
     },
     // Take the write lock first, so two requests can't both pass the checks before either inserts.
@@ -177,6 +184,7 @@ export type ResendInvitationResult =
 export function resendInvitation(
   { db, publicUrl, ttlDays, emailEnabled, now = () => new Date() }: InvitationDeps,
   id: string,
+  audit: AuditOrigin,
 ): ResendInvitationResult {
   const { token, tokenHash } = newInvitationToken();
   const sentAt = now();
@@ -196,6 +204,11 @@ export function resendInvitation(
         .returning()
         .get();
       if (emailEnabled) enqueueJob(tx, invitationEmailJob, { invitationId: id });
+      recordAuditEvent(tx, audit, {
+        action: 'invitation.resent',
+        target: { type: 'invitation', id },
+        metadata: { email: row.email },
+      });
       return updated;
     },
     // Take the write lock first, so an acceptance can't claim the invitation between the checks
@@ -214,14 +227,23 @@ export function resendInvitation(
 export function revokeInvitation(
   { db, now = () => new Date() }: Pick<InvitationDeps, 'db' | 'now'>,
   id: string,
+  audit: AuditOrigin,
 ): boolean {
-  const revoked = db
-    .update(invitation)
-    .set({ revokedAt: now() })
-    .where(and(eq(invitation.id, id), isOpen()))
-    .returning({ id: invitation.id })
-    .all();
-  return revoked.length > 0;
+  return db.transaction((tx) => {
+    const [revoked] = tx
+      .update(invitation)
+      .set({ revokedAt: now() })
+      .where(and(eq(invitation.id, id), isOpen()))
+      .returning({ email: invitation.email })
+      .all();
+    if (!revoked) return false;
+    recordAuditEvent(tx, audit, {
+      action: 'invitation.revoked',
+      target: { type: 'invitation', id },
+      metadata: { email: revoked.email },
+    });
+    return true;
+  });
 }
 
 /** The invitation a token belongs to, if its link still works. */

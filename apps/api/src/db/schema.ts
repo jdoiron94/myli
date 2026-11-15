@@ -1,4 +1,4 @@
-import { DEFAULT_ROLE, ROLES } from '@myli/shared';
+import { AUDIT_ACTIONS, AUDIT_TARGET_TYPES, DEFAULT_ROLE, ROLES } from '@myli/shared';
 import { sql } from 'drizzle-orm';
 import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
@@ -176,5 +176,41 @@ export const job = sqliteTable(
     check('job_status_check', sql`${table.status} in ${sqlList(JOB_STATUSES)}`),
     // The worker's query: the next pending jobs that are due.
     index('job_status_run_after_idx').on(table.status, table.runAfter),
+  ],
+);
+
+/**
+ * The audit log (spec §3.1). Append-only: triggers from migration 0005 refuse every UPDATE and
+ * DELETE. A migration that rebuilds this table drops them, so it must create them again;
+ * `audit.test.ts` fails if they're missing.
+ */
+export const auditEvent = sqliteTable(
+  'audit_event',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `null` when nobody was signed in, as for a failed sign-in. Users are never deleted. */
+    actorId: text('actor_id').references(() => user.id),
+    action: text('action', { enum: AUDIT_ACTIONS }).notNull(),
+    targetType: text('target_type', { enum: AUDIT_TARGET_TYPES }),
+    targetId: text('target_id'),
+    metadata: text('metadata', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check('audit_event_action_check', sql`${table.action} in ${sqlList(AUDIT_ACTIONS)}`),
+    check(
+      'audit_event_target_type_check',
+      sql`${table.targetType} is null or ${table.targetType} in ${sqlList(AUDIT_TARGET_TYPES)}`,
+    ),
+    check(
+      'audit_event_target_check',
+      sql`(${table.targetType} is null) = (${table.targetId} is null)`,
+    ),
+    index('audit_event_action_idx').on(table.action, table.id),
   ],
 );

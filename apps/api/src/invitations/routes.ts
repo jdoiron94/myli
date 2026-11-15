@@ -11,6 +11,7 @@ import {
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
 } from '@myli/shared';
+import { auditOrigin, recordAuditEvent, recordAuditEventAfterwards } from '../audit/audit.ts';
 import { requirePermission } from '../auth/authorize.ts';
 import type { AppEnv } from '../context.ts';
 import { errorResponses, HttpProblem } from '../problems.ts';
@@ -199,7 +200,11 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
   });
 
   v1.openapi(postInvitation, (c) => {
-    const result = createInvitation(deps, { ...c.req.valid('json'), invitedBy: c.var.user.id });
+    const result = createInvitation(
+      deps,
+      { ...c.req.valid('json'), invitedBy: c.var.user.id },
+      auditOrigin(c),
+    );
     if (!result.ok) throw new HttpProblem(409, CONFLICTS[result.reason]);
     // Never the email or the link: one is personal, the other is a secret.
     c.var.logger.info({ invitationId: result.invitation.id }, 'invitation created');
@@ -207,7 +212,7 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
   });
 
   v1.openapi(postResend, (c) => {
-    const result = resendInvitation(deps, c.req.valid('param').id);
+    const result = resendInvitation(deps, c.req.valid('param').id, auditOrigin(c));
     if (!result.ok) {
       throw result.reason === 'not-open'
         ? new HttpProblem(404, NOT_OPEN)
@@ -219,7 +224,7 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
 
   v1.openapi(postRevoke, (c) => {
     const { id } = c.req.valid('param');
-    if (!revokeInvitation(deps, id)) throw new HttpProblem(404, NOT_OPEN);
+    if (!revokeInvitation(deps, id, auditOrigin(c))) throw new HttpProblem(404, NOT_OPEN);
     c.var.logger.info({ invitationId: id }, 'invitation revoked');
     return c.body(null, 204);
   });
@@ -244,6 +249,18 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
       { invitationId: result.invitationId, userId: result.user.id },
       'invitation accepted',
     );
+    // Better Auth created the user outside the claim's transaction, so this comes afterwards.
+    recordAuditEventAfterwards(c.var.logger, 'invitation.accepted', () => {
+      recordAuditEvent(
+        deps.db,
+        { ...auditOrigin(c), actorId: result.user.id },
+        {
+          action: 'invitation.accepted',
+          target: { type: 'invitation', id: result.invitationId },
+          metadata: { email: result.user.email, role: result.user.role },
+        },
+      );
+    });
     return c.json({ user: result.user }, 201);
   });
 }

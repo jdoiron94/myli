@@ -58,6 +58,7 @@ describe('migrateDatabase', () => {
     expect(tableNames(db)).toEqual([
       '__drizzle_migrations',
       'account',
+      'audit_event',
       'invitation',
       'job',
       'session',

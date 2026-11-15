@@ -6,9 +6,10 @@ import {
   setupResultSchema,
   setupStatusSchema,
 } from '@myli/shared';
+import { auditOrigin } from '../audit/audit.ts';
 import type { AppEnv } from '../context.ts';
 import { errorResponses, HttpProblem } from '../problems.ts';
-import { isSetupNeeded, runSetup, type SetupDeps } from './setup.ts';
+import { isSetupNeeded, recordSetupCompleted, runSetup, type SetupDeps } from './setup.ts';
 
 const UNAVAILABLE = {
   complete: 'Setup is already complete. Sign in instead.',
@@ -64,6 +65,7 @@ export function registerSetupRoutes(v1: OpenAPIHono<AppEnv>, deps: SetupDeps) {
     const result = await runSetup(deps, c.req.valid('json'));
     if (!result.ok) throw new HttpProblem(409, UNAVAILABLE[result.reason]);
     c.var.logger.info({ userId: result.user.id }, 'first admin created');
+    recordSetupCompleted(deps.db, c.var.logger, auditOrigin(c), result.user.id, 'api');
     return c.json({ user: result.user }, 201);
   });
 }
