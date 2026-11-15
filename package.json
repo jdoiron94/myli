@@ -17,6 +17,7 @@
     "openapi:generate": "pnpm --filter @myli/api openapi:generate && pnpm --filter @myli/web openapi:generate",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @myli/e2e test",
     "typecheck": "tsc --noEmit && pnpm --recursive typecheck"
   },
   "devDependencies": {

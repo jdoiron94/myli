@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // Playwright runs in Node and drives the browser from there, so only Node types apply.
+    "module": "nodenext",
+    "lib": ["es2024", "dom"],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["test-results", "playwright-report"]
+}

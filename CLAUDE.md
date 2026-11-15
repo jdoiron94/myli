@@ -135,7 +135,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - When the new component depends on one we already have (`alert-dialog` uses `button`), the CLI asks whether to overwrite it, even with `--yes`, and stops when it can't ask. Copy the existing component's folder aside, run with `--overwrite`, and copy it back.
   - The CLI installs shadcn's `cn` package and imports it in the new files. Remove that dependency, and import `cn` from `@/lib/utils` instead (clsx + tailwind-merge). ESLint flags the import.
   - Its other dependencies follow the usual rules: exact versions, at least a week old.
-- **Styling:** theme colors are CSS variables in `src/style.css`. Text uses the system font stack; never load web fonts from a third party.
+- **Styling:** theme colors are CSS variables in `src/style.css`. They must meet WCAG AA contrast in both themes, which only the end-to-end tests can measure (jsdom has no layout); `--destructive` is darker than shadcn's for that reason. Text uses the system font stack; never load web fonts from a third party.
 - **Every page has exactly one `<h1>`.** After each navigation the layout moves focus to it, for keyboard and screen-reader users. A route other than home sets `meta.title`, which becomes the browser tab's title.
 - **Dark mode** is `useTheme()` in `src/theme.ts`. `public/theme.js` applies the saved choice before the app loads, so the page doesn't flash. The two share a storage key and class names; a test runs the real file against the app.
 - **API calls** go through `api` from `src/api/client.ts` (openapi-fetch, typed by the generated `schema.ts`), never a bare `fetch`. Paths are relative to `/api/v1`: `api.GET('/setup')`. It sends `Content-Type: application/json` on every write, bodyless ones included, which `jsonOnly()` requires. `responseData(await api.GET(...))` gives a successful call's body.
@@ -192,7 +192,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
 - Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers.
-- User flows get Playwright E2E tests with axe accessibility checks.
+- User flows get Playwright E2E tests with axe accessibility checks, in the `e2e/` workspace package (outside `apps/*`, so Vitest's projects don't pick up its specs). `tests/journey.spec.ts` follows one journey: first-run setup, sign-in, inviting someone, accepting, deactivating and reactivating them, and a role change reaching a page they already have open.
+  - Each browser gets its own API, database and Vite dev server, on ports 3100+ and 5180+, so a run doesn't clash with `pnpm dev`. `e2e/start-api.ts` starts the API on an empty temporary database, deleted afterwards, with no first admin and no SMTP. It passes the API only its own variables, never the shell's or `.env`.
+  - `checkPage(page)` (`e2e/tests/accessibility.ts`) runs axe in the light and dark themes, color contrast included, and checks that the page doesn't scroll sideways at a phone's width. With a dialog or menu open, `checkPage(page, { popup: true })` checks just the popup, since reka-ui hides the rest of the page while one is open.
+  - axe runs in Chromium only: running it over the Invitations page crashes the page's process in Playwright's Firefox 159 build. Firefox still goes through every step, both themes and the phone width.
+  - A failed run keeps a trace and a screenshot in `e2e/test-results/`. Open the trace with `pnpm --filter @myli/e2e exec playwright show-trace <path>`.
 
 ## Commands
 
@@ -202,6 +206,7 @@ Run these from the repo root:
 - `pnpm dev`: starts the API on port 3000 in watch mode, with logs pretty-printed, reading `.env` from the repo root if one exists. It also starts the web app's Vite dev server on http://localhost:5173, which proxies `/api` to the API. Set `PUBLIC_URL=http://localhost:5173` in development: that's the origin the browser uses.
 - `pnpm test`: Vitest across every workspace package. Run one package with `pnpm test --project @myli/api`.
 - `pnpm test:watch`: Vitest in watch mode.
+- `pnpm test:e2e`: Playwright's end-to-end tests, in Chromium and Firefox (see Testing). Not part of `pnpm test` or the pre-commit hook. Install the browsers once with `pnpm --filter @myli/e2e exec playwright install chromium firefox`. Arguments pass through: `pnpm test:e2e --project=firefox`, or `--headed` to watch.
 - `pnpm typecheck`: `tsc --noEmit` for the root config files and every package, and `vue-tsc` for the web app.
 - `pnpm lint`: ESLint over the whole repo. Add `--fix` to apply fixes, which also formats `<template>` blocks.
 - `pnpm format`: Biome formats and sorts imports in place. `pnpm format:check` only reports.
