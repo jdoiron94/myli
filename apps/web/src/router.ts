@@ -1,13 +1,12 @@
-import { INVITATION_ACCEPT_PATH, type User } from '@myli/shared';
+import { can, INVITATION_ACCEPT_PATH, type RoleAction, type User } from '@myli/shared';
 import type { QueryClient } from '@tanstack/vue-query';
 import {
   createRouter,
   createWebHistory,
-  type RouteLocationNormalized,
   type RouteRecordRaw,
   type RouterHistory,
 } from 'vue-router';
-import { safeRedirect } from './auth/redirect.ts';
+import { comeBackTo, safeRedirect } from './auth/redirect.ts';
 import { sessionQuery } from './auth/session.ts';
 import { setupStatusQuery } from './auth/setup.ts';
 
@@ -22,6 +21,11 @@ declare module 'vue-router' {
      * - `public`: for anyone, without checking the session
      */
     access?: 'signed-out' | 'setup' | 'public';
+    /**
+     * What a signed-in user must be allowed to do (`can()`) to open the page. Anyone else sees the
+     * no-access page at its address.
+     */
+    permission?: RoleAction;
   }
 }
 
@@ -51,6 +55,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Accept invitation', access: 'public' },
   },
   {
+    path: '/admin/invitations',
+    name: 'invitations',
+    component: () => import('./pages/InvitationsPage.vue'),
+    meta: { title: 'Invitations', permission: 'user.invite' },
+  },
+  {
     path: '/unavailable',
     name: 'unavailable',
     component: () => import('./pages/UnavailablePage.vue'),
@@ -62,17 +72,21 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('./pages/NotFoundPage.vue'),
     meta: { title: 'Page not found' },
   },
+  {
+    // Matches any address too, but after the route above, so it's only shown when the router sends
+    // someone here by name, keeping the address of the page they can't open.
+    path: '/:pathMatch(.*)*',
+    name: 'no-access',
+    component: () => import('./pages/NoAccessPage.vue'),
+    meta: { title: 'No access' },
+  },
 ];
-
-/** `redirect` for a page to come back to afterwards. Home needs none. */
-const comeBackTo = (to: RouteLocationNormalized) =>
-  to.fullPath === '/' ? {} : { redirect: to.fullPath };
 
 /**
  * The app's router. The browser uses the History API; tests pass `createMemoryHistory()`. Before
  * each navigation, it waits for the session from `queryClient` and sends people who can't open the
- * page elsewhere: everyone to setup while it's needed, signed-out visitors to the sign-in page, and
- * signed-in users away from it.
+ * page elsewhere: everyone to setup while it's needed, signed-out visitors to the sign-in page,
+ * signed-in users away from it, and to the no-access page when their role doesn't allow a page.
  */
 export function createAppRouter(
   queryClient: QueryClient,
@@ -103,7 +117,18 @@ export function createAppRouter(
         return { path, query, hash, replace: true };
       }
       default:
-        return user ? true : { name: 'login', query: comeBackTo(to), replace: true };
+        if (!user) return { name: 'login', query: comeBackTo(to), replace: true };
+        if (to.meta.permission && !can(user, to.meta.permission)) {
+          const { path, query, hash } = to;
+          return {
+            name: 'no-access',
+            params: { pathMatch: path.slice(1).split('/') },
+            query,
+            hash,
+            replace: true,
+          };
+        }
+        return true;
     }
   });
 

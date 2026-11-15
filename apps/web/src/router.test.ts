@@ -231,3 +231,53 @@ describe('first-run setup', () => {
     expect(router.currentRoute.value.fullPath).toBe('/setup');
   });
 });
+
+describe("the router's permission check", () => {
+  const answerInvitations = () => {
+    apiServer.use(http.get('/api/v1/invitations', () => HttpResponse.json({ invitations: [] })));
+  };
+
+  it('opens a page to a user whose role allows it', async () => {
+    answerInvitations();
+    const { router } = await renderApp('/admin/invitations', { signedInAs: 'admin' });
+
+    await pageHeading('Invitations');
+    expect(router.currentRoute.value.name).toBe('invitations');
+    await screen.findByText('No open invitations.');
+  });
+
+  it.each([
+    ['an editor', 'editor'],
+    ['a viewer', 'viewer'],
+  ] as const)("shows %s that they don't have access, at the page's address", async (_, role) => {
+    const { router, user } = await renderApp('/admin/invitations?sort=email#top', {
+      signedInAs: role,
+    });
+
+    await pageHeading("You don't have access to this page");
+    expect(router.currentRoute.value.name).toBe('no-access');
+    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations?sort=email#top');
+    expect(document.title).toBe('No access · myli');
+    expect(await accessibilityViolations()).toEqual([]);
+
+    await user.click(screen.getByRole('link', { name: 'Go to the home page' }));
+
+    await pageHeading('Recipes');
+  });
+
+  it('checks it on navigating within the app too', async () => {
+    const { router } = await renderApp('/', { signedInAs: 'viewer' });
+
+    await router.push('/admin/invitations');
+
+    await pageHeading("You don't have access to this page");
+    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations');
+  });
+
+  it('sends signed-out visitors to sign in first', async () => {
+    const { router } = await renderApp('/admin/invitations', { signedInAs: null });
+
+    await pageHeading('Sign in');
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/admin/invitations' });
+  });
+});

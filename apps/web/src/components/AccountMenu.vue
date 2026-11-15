@@ -22,7 +22,7 @@ const emit = defineEmits<{ signOut: [] }>();
       <!-- Its name includes the visible text, so voice control finds it by that (WCAG 2.5.3). -->
       <Button
         variant="ghost"
-        class="max-w-48"
+        class="max-w-48 min-w-0 shrink"
         :aria-label="`Account: ${user.name}`"
       >
         <UserRoundIcon aria-hidden="true" />

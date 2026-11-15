@@ -6,15 +6,17 @@ import {
 } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { useForm } from 'vee-validate';
-import { computed, nextTick, ref, useId, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
+import { useRetry } from '@/api/retry.ts';
 import { invitationQuery, useAcceptInvitation } from '@/auth/invitation.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import { goToSignIn } from '@/auth/sign-in-handoff.ts';
 import FormTextField from '@/components/FormTextField.vue';
 import PasswordField from '@/components/PasswordField.vue';
+import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -58,15 +60,7 @@ const lookup = useQuery({
   enabled: () => token !== undefined && !session.isPending.value && !session.data.value,
 });
 type Invitation = NonNullable<typeof lookup.data.value>;
-
-/**
- * The lookup's last failure. Trying again with no invitation yet puts the query back to pending and
- * clears its error, but the page keeps showing the failure, and the button they pressed, meanwhile.
- */
-const lastFailure = ref<unknown>();
-watch(lookup.error, (error) => {
-  if (error) lastFailure.value = error;
-});
+const { failure: lookupFailure, retrying, stillFailing, retry } = useRetry(lookup);
 
 /** The API's answer for an invitation link that doesn't work (any more). */
 const isUnusable = (error: unknown) => error instanceof ApiProblem && error.status === 404;
@@ -83,7 +77,7 @@ type View =
   | { kind: 'checking' }
   | { kind: 'signed-in'; name: string }
   | { kind: 'unusable'; message: string }
-  | { kind: 'failed'; message: string }
+  | { kind: 'failed'; error: Error }
   | { kind: 'ready'; invitation: Invitation };
 
 const view = computed((): View => {
@@ -92,10 +86,11 @@ const view = computed((): View => {
   if (session.data.value) return { kind: 'signed-in', name: session.data.value.name };
   if (goneMessage.value) return { kind: 'unusable', message: goneMessage.value };
   if (lookup.data.value) return { kind: 'ready', invitation: lookup.data.value };
-  const error = lookup.error.value ?? lastFailure.value;
+  const error = lookupFailure.value;
   if (!error) return { kind: 'checking' };
-  const message = failureMessage(error);
-  return isUnusable(error) ? { kind: 'unusable', message } : { kind: 'failed', message };
+  return isUnusable(error)
+    ? { kind: 'unusable', message: failureMessage(error) }
+    : { kind: 'failed', error };
 });
 
 const heading = useTemplateRef('heading');
@@ -107,17 +102,6 @@ const heading = useTemplateRef('heading');
 async function focusHeading() {
   await nextTick();
   heading.value?.focus();
-}
-
-/** The last try failed too, so the message alone wouldn't show that anything happened. */
-const stillFailing = ref(false);
-
-/** A second press while it's trying joins the same request: TanStack Query doesn't start another. */
-async function lookUpAgain() {
-  stillFailing.value = false;
-  await lookup.refetch();
-  if (view.value.kind === 'failed') stillFailing.value = true;
-  else await focusHeading();
 }
 
 const { handleSubmit, isSubmitting, setErrors } = useForm({
@@ -210,27 +194,14 @@ const emailDescriptionId = `${emailId}-description`;
     >
       {{ view.message }}
     </p>
-    <template v-else-if="view.kind === 'failed'">
-      <p
-        role="alert"
-        class="mt-2"
-      >
-        {{ view.message }}
-      </p>
-      <Button
-        class="mt-6 aria-disabled:opacity-50"
-        :aria-disabled="lookup.isFetching.value ? true : undefined"
-        @click="lookUpAgain"
-      >
-        {{ lookup.isFetching.value ? 'Trying again…' : 'Try again' }}
-      </Button>
-      <p
-        role="status"
-        class="mt-4 text-sm"
-      >
-        {{ stillFailing ? 'Still not working. Try again in a moment.' : '' }}
-      </p>
-    </template>
+    <RetryableFailure
+      v-else-if="view.kind === 'failed'"
+      class="mt-2"
+      :error="view.error"
+      :retrying="retrying"
+      :still-failing="stillFailing"
+      @retry="retry"
+    />
     <template v-else-if="view.kind === 'ready'">
       <p class="mt-2 text-muted-foreground">
         You're invited to join myli as {{ ROLE_PHRASES[view.invitation.role] }}. Choose your name
