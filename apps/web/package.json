@@ -12,6 +12,7 @@
   "dependencies": {
     "@lucide/vue": "1.70.0",
     "@myli/shared": "workspace:*",
+    "@scalar/api-reference": "1.77.0",
     "@tanstack/vue-query": "5.107.1",
     "@vueuse/core": "15.0.0",
     "class-variance-authority": "0.7.1",

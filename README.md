@@ -51,8 +51,8 @@ flowchart LR
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, shadcn-vue, Tailwind, Milkdown |
-| API | Node, TypeScript, Hono, Zod, OpenAPI 3.1, Scalar |
+| Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, shadcn-vue, Tailwind, Milkdown, Scalar (API docs) |
+| API | Node, TypeScript, Hono, Zod, OpenAPI 3.1 |
 | Data | SQLite, Drizzle ORM |
 | Search | Meilisearch |
 | Auth | Better Auth |
@@ -73,6 +73,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 8. [Run the API's TypeScript directly on Node, without a build step](docs/adr/0008-run-typescript-with-node-type-stripping.md)
 9. [First-run setup takes a single-row claim instead of one transaction](docs/adr/0009-first-run-setup-claims-a-lock-row.md)
 10. [Role changes and deactivation are written directly, in one transaction](docs/adr/0010-role-changes-and-deactivation-in-one-transaction.md)
+11. [The API docs are a separate page of the web app](docs/adr/0011-api-docs-as-a-separate-page.md)
 
 ## Getting started
 
@@ -97,6 +98,8 @@ pnpm format      # Biome
 pnpm openapi:generate   # refresh apps/api/openapi.json and the web app's API types after changing the API
 pnpm db:generate        # create a migration after changing the database schema
 ```
+
+The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.
 
 In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. The browser reaches the API through the web app's dev server, and sign-in only accepts requests from `PUBLIC_URL`. The API reads `.env` if it's there and shows readable logs.
 
