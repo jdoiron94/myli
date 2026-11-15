@@ -1,8 +1,14 @@
-import { AUTH_BASE_PATH, PROBLEM_CONTENT_TYPE, type Role, type User } from '@myli/shared';
+import {
+  API_BASE_PATH,
+  AUTH_BASE_PATH,
+  PROBLEM_CONTENT_TYPE,
+  type Role,
+  type User,
+} from '@myli/shared';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/vue';
 import axe from 'axe-core';
-import { HttpResponse, http } from 'msw';
+import { HttpHandler, HttpResponse, http } from 'msw';
 import { vi } from 'vitest';
 import type { App as VueApp } from 'vue';
 import { createMemoryHistory } from 'vue-router';
@@ -56,28 +62,50 @@ export function sessionResponse(user: User | null) {
   });
 }
 
+const SESSION_PATH = `${AUTH_BASE_PATH}/get-session`;
+const SETUP_PATH = `${API_BASE_PATH}/setup`;
+
 /** Answers `GET /api/auth/get-session` with `user` signed in, or `null` for no one. */
 export function answerSession(user: User | null) {
-  apiServer.use(http.get(`${AUTH_BASE_PATH}/get-session`, () => sessionResponse(user)));
+  apiServer.use(http.get(SESSION_PATH, () => sessionResponse(user)));
+}
+
+/** Answers `GET /api/v1/setup`: whether first-run setup is needed. */
+export function answerSetup(needed: boolean) {
+  apiServer.use(http.get(SETUP_PATH, () => HttpResponse.json({ needed })));
+}
+
+/** Whether the current test already answers `method path` itself. */
+function answered(method: string, path: string) {
+  return apiServer
+    .listHandlers()
+    .some(
+      (handler) =>
+        handler instanceof HttpHandler &&
+        handler.info.method === method &&
+        handler.info.path === path,
+    );
 }
 
 export interface RenderAppOptions {
   /** The role of the signed-in user (`testUsers`), or `null` for no one. An editor by default. */
   signedInAs?: Role | null;
-  /** `false` when the test answers `GET /api/auth/get-session` itself. */
-  answerSession?: boolean;
+  /** Whether first-run setup is needed, which the router asks when no one is signed in. */
+  setupNeeded?: boolean;
 }
 
 /**
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
- * while the router is still making its first navigation, which waits for the session. Queries
- * retry without waiting in between.
+ * while the router is still making its first navigation, which waits for the session and, when no
+ * one is signed in, for whether setup is needed. It answers both from the options, unless the test
+ * already answers them itself. Queries retry without waiting in between.
  */
 export async function renderApp(
   path: string,
-  { signedInAs = 'editor', answerSession: answer = true }: RenderAppOptions = {},
+  { signedInAs = 'editor', setupNeeded = false }: RenderAppOptions = {},
 ) {
-  if (answer) answerSession(signedInAs ? testUsers[signedInAs] : null);
+  if (!answered('GET', SESSION_PATH)) answerSession(signedInAs ? testUsers[signedInAs] : null);
+  if (!answered('GET', SETUP_PATH)) answerSetup(setupNeeded);
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();

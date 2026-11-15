@@ -35,6 +35,7 @@ export {
 export {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  passwordChecklist,
   passwordProblems,
   passwordSchema,
 } from './password.ts';

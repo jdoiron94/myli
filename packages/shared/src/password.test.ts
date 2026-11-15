@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  passwordChecklist,
   passwordProblems,
   passwordSchema,
 } from './password.ts';
@@ -57,5 +58,53 @@ describe('password rules', () => {
 
   it('list every broken rule at once', () => {
     expect(passwordProblems('abc')).toEqual([TOO_SHORT, UPPERCASE, NUMBER, SPECIAL]);
+  });
+});
+
+describe('the password checklist', () => {
+  const unmet = (password: string) =>
+    passwordChecklist(password)
+      .filter(({ met }) => !met)
+      .map(({ label }) => label);
+
+  it('lists every rule, all unmet for an empty password', () => {
+    expect(passwordChecklist('')).toEqual([
+      { label: 'At least 15 characters', met: false },
+      { label: 'A lowercase letter', met: false },
+      { label: 'An uppercase letter', met: false },
+      { label: 'A number', met: false },
+      {
+        label: 'A special character: anything but a letter or a number, a space included',
+        met: false,
+      },
+    ]);
+  });
+
+  it.each([
+    [
+      'abc',
+      [
+        'At least 15 characters',
+        'An uppercase letter',
+        'A number',
+        'A special character: anything but a letter or a number, a space included',
+      ],
+    ],
+    ['Abcdefghijk1!x', ['At least 15 characters']],
+    ['Abcdefghijk1 xy', []],
+  ])('marks what %j still needs', (password, needed) => {
+    expect(unmet(password)).toEqual(needed);
+  });
+
+  it.each([
+    'Correct horse battery 9',
+    'abc',
+    'Abcdefghijk1!x',
+    'ÄBCdéf123ßxyz!!',
+    `Aa1!${'x'.repeat(PASSWORD_MAX_LENGTH)}`,
+  ])('agrees with the rules the API enforces, for %j', (password) => {
+    const allMet = passwordChecklist(password).every(({ met }) => met);
+    const tooLong = password.length > PASSWORD_MAX_LENGTH;
+    expect(allMet && !tooLong).toBe(passwordProblems(password).length === 0);
   });
 });

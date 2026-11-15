@@ -9,6 +9,7 @@ import {
 } from 'vue-router';
 import { safeRedirect } from './auth/redirect.ts';
 import { sessionQuery } from './auth/session.ts';
+import { setupStatusQuery } from './auth/setup.ts';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -17,9 +18,10 @@ declare module 'vue-router' {
     /**
      * Who can open the page. Pages are for signed-in users unless this says otherwise:
      * - `signed-out`: only for someone not signed in, like the sign-in page
+     * - `setup`: only while first-run setup is needed, which is the only page then
      * - `public`: for anyone, without checking the session
      */
-    access?: 'signed-out' | 'public';
+    access?: 'signed-out' | 'setup' | 'public';
   }
 }
 
@@ -33,6 +35,12 @@ export const routes: RouteRecordRaw[] = [
     name: 'login',
     component: () => import('./pages/LoginPage.vue'),
     meta: { title: 'Sign in', access: 'signed-out' },
+  },
+  {
+    path: '/setup',
+    name: 'setup',
+    component: () => import('./pages/SetupPage.vue'),
+    meta: { title: 'Set up myli', access: 'setup' },
   },
   {
     path: '/unavailable',
@@ -55,7 +63,8 @@ const comeBackTo = (to: RouteLocationNormalized) =>
 /**
  * The app's router. The browser uses the History API; tests pass `createMemoryHistory()`. Before
  * each navigation, it waits for the session from `queryClient` and sends people who can't open the
- * page elsewhere: signed-out visitors to the sign-in page, and signed-in users away from it.
+ * page elsewhere: everyone to setup while it's needed, signed-out visitors to the sign-in page, and
+ * signed-in users away from it.
  */
 export function createAppRouter(
   queryClient: QueryClient,
@@ -68,17 +77,26 @@ export function createAppRouter(
     let user: User | null;
     try {
       user = await queryClient.query(sessionQuery);
+      // No one is signed in: maybe no one exists yet. Someone signed in means setup is done.
+      if (!user && (await queryClient.query(setupStatusQuery))) {
+        return to.meta.access === 'setup' ? true : { name: 'setup', replace: true };
+      }
     } catch {
-      // Signing in doesn't need to know: it fetches the session again.
+      // The sign-in page works without knowing: signing in fetches the session again.
       if (to.meta.access === 'signed-out') return true;
       return { name: 'unavailable', query: comeBackTo(to), replace: true };
     }
-    if (to.meta.access === 'signed-out') {
-      if (!user) return true;
-      const { path, query, hash } = router.resolve(safeRedirect(to.query.redirect));
-      return { path, query, hash, replace: true };
+    switch (to.meta.access) {
+      case 'setup':
+        return { name: user ? 'home' : 'login', replace: true };
+      case 'signed-out': {
+        if (!user) return true;
+        const { path, query, hash } = router.resolve(safeRedirect(to.query.redirect));
+        return { path, query, hash, replace: true };
+      }
+      default:
+        return user ? true : { name: 'login', query: comeBackTo(to), replace: true };
     }
-    return user ? true : { name: 'login', query: comeBackTo(to), replace: true };
   });
 
   // Every page gets its own title (WCAG 2.4.2), which is also what screen readers announce first.

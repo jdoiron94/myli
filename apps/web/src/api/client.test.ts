@@ -2,7 +2,7 @@ import { VALIDATION_PROBLEM_TYPE } from '@myli/shared';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiServer, problemResponse } from '../testing.ts';
-import { api } from './client.ts';
+import { api, responseData } from './client.ts';
 import { ApiProblem } from './problem.ts';
 
 /** Answers `method path` with `response`, keeping the Content-Type each request was sent with. */
@@ -66,6 +66,15 @@ describe('the API client', () => {
     const { data } = await api.GET('/setup');
 
     expect(data).toEqual({ needed: true });
+  });
+
+  it("refuses a success that's missing the body the API promises", async () => {
+    apiServer.use(http.get('/api/v1/setup', () => new HttpResponse(null, { status: 200 })));
+
+    const result = await api.GET('/setup');
+
+    expect(() => responseData(result)).toThrow('The API answered without a body.');
+    expect(responseData({ data: { needed: false } })).toEqual({ needed: false });
   });
 
   it('throws the problem the API answered with', async () => {

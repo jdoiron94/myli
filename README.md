@@ -103,7 +103,7 @@ The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.
 
 In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. The browser reaches the API through the web app's dev server, and sign-in only accepts requests from `PUBLIC_URL`. The API reads `.env` if it's there and shows readable logs.
 
-Every page of the web app needs you signed in. To create the first admin, set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, then sign in with that email and password.
+The first time you open the web app, it asks you to create the first admin, then to sign in. Instead, you can set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, which creates that admin on startup.
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.
 

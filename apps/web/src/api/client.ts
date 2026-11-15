@@ -39,3 +39,12 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 });
 api.use(sendWritesAsJson, throwProblems);
+
+/**
+ * The body of a successful call. Failed calls have already thrown (`throwProblems`), so this only
+ * fails if the API answered a success without the body its OpenAPI document promises.
+ */
+export function responseData<T>({ data }: { data?: T }): T {
+  if (data === undefined) throw new Error('The API answered without a body.');
+  return data;
+}
