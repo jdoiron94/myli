@@ -1,6 +1,6 @@
 import { cleanup } from '@testing-library/vue';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
-import { apiServer } from './testing.ts';
+import { apiServer } from './fake-api.ts';
 
 // Tests that run in Node (`// @vitest-environment node`), like the dev server's, have no page to
 // clean up and don't use the fake API.

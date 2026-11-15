@@ -51,7 +51,7 @@ flowchart LR
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, shadcn-vue, Tailwind, Milkdown, Scalar (API docs) |
+| Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, VeeValidate, shadcn-vue, Tailwind, Milkdown, Scalar (API docs) |
 | API | Node, TypeScript, Hono, Zod, OpenAPI 3.1 |
 | Data | SQLite, Drizzle ORM |
 | Search | Meilisearch |
@@ -102,6 +102,8 @@ pnpm db:generate        # create a migration after changing the database schema
 The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.
 
 In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. The browser reaches the API through the web app's dev server, and sign-in only accepts requests from `PUBLIC_URL`. The API reads `.env` if it's there and shows readable logs.
+
+Every page of the web app needs you signed in. To create the first admin, set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, then sign in with that email and password.
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace.
 

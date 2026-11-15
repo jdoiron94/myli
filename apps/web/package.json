@@ -15,13 +15,16 @@
     "@scalar/api-reference": "1.77.0",
     "@tanstack/vue-query": "5.107.1",
     "@vueuse/core": "15.0.0",
+    "better-auth": "catalog:",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "openapi-fetch": "0.17.0",
     "reka-ui": "2.11.0",
     "tailwind-merge": "3.7.0",
+    "vee-validate": "4.15.1",
     "vue": "3.5.45",
-    "vue-router": "5.4.0"
+    "vue-router": "5.4.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.5",

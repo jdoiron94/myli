@@ -1,20 +1,17 @@
-import { PROBLEM_CONTENT_TYPE } from '@myli/shared';
+import { AUTH_BASE_PATH, PROBLEM_CONTENT_TYPE, type Role, type User } from '@myli/shared';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/vue';
 import axe from 'axe-core';
-import { HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
+import { HttpResponse, http } from 'msw';
 import { vi } from 'vitest';
 import type { App as VueApp } from 'vue';
 import { createMemoryHistory } from 'vue-router';
 import App from './App.vue';
+import { createAppQueryClient } from './api/query.ts';
 import { installApp } from './app.ts';
+import { apiServer } from './fake-api.ts';
 
-/**
- * Stands in for the API in every test: give it handlers with `apiServer.use()`. Requests nothing
- * handles fail the test (see test-setup.ts).
- */
-export const apiServer = setupServer();
+export { apiServer };
 
 /** An RFC 9457 problem response, as the API sends for an error. */
 export function problemResponse(status: number, detail: string, extra: object = {}) {
@@ -24,23 +21,80 @@ export function problemResponse(status: number, detail: string, extra: object = 
   );
 }
 
+/** A user with each role, as the session shows them. */
+export const testUsers: Readonly<Record<Role, User>> = {
+  admin: { id: 'user-admin', name: 'Grace Hopper', email: 'grace@example.com', role: 'admin' },
+  editor: { id: 'user-editor', name: 'Ada Lovelace', email: 'ada@example.com', role: 'editor' },
+  viewer: { id: 'user-viewer', name: 'Alan Turing', email: 'alan@example.com', role: 'viewer' },
+};
+
+/** Better Auth's answer to `GET /get-session`: `user` signed in, or `null` for no one. */
+export function sessionResponse(user: User | null) {
+  if (!user) return HttpResponse.json(null);
+  const now = new Date().toISOString();
+  return HttpResponse.json({
+    session: {
+      id: 'session-1',
+      token: 'session-token',
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      ipAddress: '127.0.0.1',
+      userAgent: 'test',
+    },
+    user: {
+      ...user,
+      emailVerified: true,
+      image: null,
+      createdAt: now,
+      updatedAt: now,
+      banned: false,
+      banReason: null,
+      banExpires: null,
+    },
+  });
+}
+
+/** Answers `GET /api/auth/get-session` with `user` signed in, or `null` for no one. */
+export function answerSession(user: User | null) {
+  apiServer.use(http.get(`${AUTH_BASE_PATH}/get-session`, () => sessionResponse(user)));
+}
+
+export interface RenderAppOptions {
+  /** The role of the signed-in user (`testUsers`), or `null` for no one. An editor by default. */
+  signedInAs?: Role | null;
+  /** `false` when the test answers `GET /api/auth/get-session` itself. */
+  answerSession?: boolean;
+}
+
 /**
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
- * while the router is still making its first navigation.
+ * while the router is still making its first navigation, which waits for the session. Queries
+ * retry without waiting in between.
  */
-export async function renderApp(path: string) {
+export async function renderApp(
+  path: string,
+  { signedInAs = 'editor', answerSession: answer = true }: RenderAppOptions = {},
+) {
+  if (answer) answerSession(signedInAs ? testUsers[signedInAs] : null);
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();
   history.replace(path);
+  const queryClient = createAppQueryClient();
+  queryClient.setDefaultOptions({
+    ...queryClient.getDefaultOptions(),
+    queries: { ...queryClient.getDefaultOptions().queries, retryDelay: 0 },
+  });
   const started = Promise.withResolvers<ReturnType<typeof installApp>>();
   const plugin = {
     install(app: VueApp) {
-      started.resolve(installApp(app, history));
+      started.resolve(installApp(app, history, queryClient));
     },
   };
   render(App, { global: { plugins: [plugin] } });
-  const { router, queryClient } = await started.promise;
+  const { router } = await started.promise;
   await router.isReady();
   await screen.findByRole('heading', { level: 1 });
   return { router, queryClient, user: userEvent.setup() };

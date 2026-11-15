@@ -5,6 +5,8 @@ packages:
 # Versions shared by more than one workspace package. Reference them as "catalog:".
 catalog:
   '@types/node': 26.6.6
+  # The API's server and the web app's client must be the same release.
+  better-auth: 1.7.23
   # TypeScript 7 (the native compiler) ships no JS API, which vue-tsc and
   # typescript-eslint both depend on. Stay on 6.x until they support 7.
   typescript: 6.0.3
