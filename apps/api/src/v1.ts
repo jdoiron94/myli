@@ -9,6 +9,7 @@ import { registerInvitationRoutes } from './invitations/routes.ts';
 import { jsonOnly } from './json-only.ts';
 import { validationHook } from './problems.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
+import { registerUserRoutes } from './users/routes.ts';
 
 /**
  * The versioned REST API, mounted at `API_BASE_PATH`. Every route is declared with `createRoute`
@@ -42,6 +43,7 @@ export function createV1Router(deps: V1Deps) {
 
   registerSetupRoutes(v1, deps);
   registerAuditRoutes(v1, { db: deps.db });
+  registerUserRoutes(v1, { db: deps.db });
   registerInvitationRoutes(v1, {
     db: deps.db,
     auth: deps.auth,

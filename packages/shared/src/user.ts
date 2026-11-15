@@ -18,3 +18,28 @@ export const userNameSchema = z.string().trim().min(1, 'Enter a name.').max(100)
 
 /** Compared and stored in lower case, as Better Auth does. */
 export const emailSchema = z.email('Enter a valid email address.').max(254).toLowerCase();
+
+/** A user as admins manage them. */
+export const userAccountSchema = userSchema
+  .extend({
+    deactivated: z
+      .boolean()
+      .describe("Deactivated users can't sign in. Deactivating them ended their sessions."),
+    createdAt: z.iso.datetime(),
+  })
+  .meta({ id: 'UserAccount' });
+
+export const userAccountListSchema = z
+  .object({ users: z.array(userAccountSchema).describe('Every user, oldest first.') })
+  .meta({ id: 'UserAccountList' });
+
+export const userAccountResultSchema = z
+  .object({ user: userAccountSchema })
+  .meta({ id: 'UserAccountResult' });
+
+export const changeRoleRequestSchema = z
+  .object({ role: roleSchema })
+  .meta({ id: 'ChangeRoleRequest' });
+
+/** The path parameter of one user. Unknown IDs get 404, so the format isn't checked. */
+export const userIdParamsSchema = z.object({ id: z.string().min(1).max(100) });

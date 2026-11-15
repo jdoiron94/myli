@@ -18,18 +18,21 @@ import type { Env } from '../env.ts';
 import type { Logger } from '../logger.ts';
 
 /**
- * What each role may do through the admin plugin's server-side API (`auth.api.*`). Nothing is
- * granted that could reach another user's private recipes or erase a user: no impersonation,
- * setting passwords or emails, or hard deletes. App-level permissions live in the policy module.
+ * The admin plugin's roles, with no permissions at all. Nothing needs one:
+ * - role changes and deactivation go through `users/manage.ts` (ADR 0010)
+ * - the plugin's HTTP endpoints are blocked (see the hook below)
+ * - server code calls only `createUser`, without a session, which the plugin allows without
+ *   checking permissions
+ *
+ * The roles still have to be listed: without them, admins would get the plugin's defaults,
+ * impersonation and hard deletes included. App-level permissions live in the policy module.
  */
 const accessControl = createAccessControl(defaultStatements);
+const noPermissions = accessControl.newRole({ user: [], session: [] });
 const adminPluginRoles = {
-  admin: accessControl.newRole({
-    user: ['create', 'list', 'get', 'set-role', 'ban'],
-    session: ['list', 'revoke'],
-  }),
-  editor: accessControl.newRole({ user: [], session: [] }),
-  viewer: accessControl.newRole({ user: [], session: [] }),
+  admin: noPermissions,
+  editor: noPermissions,
+  viewer: noPermissions,
 } satisfies Record<Role, unknown>;
 
 /** The Better Auth endpoints that set a password, and the body field that carries it. */

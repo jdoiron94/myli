@@ -66,5 +66,15 @@ export {
   setupResultSchema,
   setupStatusSchema,
 } from './setup.ts';
-export { emailSchema, type User, userNameSchema, userSchema } from './user.ts';
+export {
+  changeRoleRequestSchema,
+  emailSchema,
+  type User,
+  userAccountListSchema,
+  userAccountResultSchema,
+  userAccountSchema,
+  userIdParamsSchema,
+  userNameSchema,
+  userSchema,
+} from './user.ts';
 export { VISIBILITIES, type Visibility, visibilitySchema } from './visibility.ts';

@@ -71,6 +71,17 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
   return { id: result.invitation.id, token: new URL(result.link).hash.slice(1) };
 }
 
+/** The ID of a new viewer, made directly in the database, for user-management requests. */
+async function someUserId(t: TestApp): Promise<string> {
+  const created = await createUserWithPassword(t.auth, {
+    name: 'Managed User',
+    email: `managed-${randomUUID()}@example.com`,
+    password: 'A managed user password 1',
+    role: 'viewer',
+  });
+  return created.id;
+}
+
 /** Every endpoint of the versioned API. Add an entry with each new endpoint. */
 export const ENDPOINTS: readonly EndpointCase[] = [
   {
@@ -130,6 +141,33 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/audit-events',
     access: 'auditLog.read',
     send: (t, cookie) => request(t, 'GET', '/audit-events', cookie),
+  },
+  {
+    method: 'get',
+    path: '/users',
+    access: 'user.manage',
+    send: (t, cookie) => request(t, 'GET', '/users', cookie),
+  },
+  {
+    method: 'put',
+    path: '/users/{id}/role',
+    access: 'user.manage',
+    send: async (t, cookie) =>
+      request(t, 'PUT', `/users/${await someUserId(t)}/role`, cookie, { role: 'editor' }),
+  },
+  {
+    method: 'post',
+    path: '/users/{id}/deactivate',
+    access: 'user.manage',
+    send: async (t, cookie) =>
+      request(t, 'POST', `/users/${await someUserId(t)}/deactivate`, cookie),
+  },
+  {
+    method: 'post',
+    path: '/users/{id}/reactivate',
+    access: 'user.manage',
+    send: async (t, cookie) =>
+      request(t, 'POST', `/users/${await someUserId(t)}/reactivate`, cookie),
   },
   {
     method: 'post',
