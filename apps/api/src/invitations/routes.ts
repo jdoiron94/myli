@@ -11,7 +11,7 @@ import {
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
 } from '@myli/shared';
-import { auditOrigin, recordAuditEvent, recordAuditEventAfterwards } from '../audit/audit.ts';
+import { auditOrigin } from '../audit/audit.ts';
 import { requirePermission } from '../auth/authorize.ts';
 import type { AppEnv } from '../context.ts';
 import { errorResponses, HttpProblem } from '../problems.ts';
@@ -23,6 +23,7 @@ import {
   type InvitationRow,
   invitationStatus,
   listOpenInvitations,
+  recordInvitationAccepted,
   resendInvitation,
   revokeInvitation,
 } from './invitations.ts';
@@ -249,18 +250,7 @@ export function registerInvitationRoutes(v1: OpenAPIHono<AppEnv>, deps: Invitati
       { invitationId: result.invitationId, userId: result.user.id },
       'invitation accepted',
     );
-    // Better Auth created the user outside the claim's transaction, so this comes afterwards.
-    recordAuditEventAfterwards(c.var.logger, 'invitation.accepted', () => {
-      recordAuditEvent(
-        deps.db,
-        { ...auditOrigin(c), actorId: result.user.id },
-        {
-          action: 'invitation.accepted',
-          target: { type: 'invitation', id: result.invitationId },
-          metadata: { email: result.user.email, role: result.user.role },
-        },
-      );
-    });
+    recordInvitationAccepted(deps.db, c.var.logger, auditOrigin(c), result);
     return c.json({ user: result.user }, 201);
   });
 }

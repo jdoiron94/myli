@@ -1,13 +1,14 @@
 import type { AcceptInvitationRequest, InvitationStatus, Role, User } from '@myli/shared';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
+import { type AuditOrigin, recordAuditEvent, recordAuditEventAfterwards } from '../audit/audit.ts';
 import type { Auth } from '../auth/auth.ts';
 import { createUserWithPassword } from '../auth/users.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { invitation, user } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
 import { enqueueJob } from '../jobs/queue.ts';
+import type { Logger } from '../logger.ts';
 import { invitationEmail } from './email.ts';
 import { hashInvitationToken, invitationLink, newInvitationToken } from './tokens.ts';
 
@@ -307,4 +308,27 @@ export async function acceptInvitation(
     db.update(invitation).set({ acceptedAt: null }).where(eq(invitation.id, claim.id)).run();
     throw error;
   }
+}
+
+/**
+ * Records that someone accepted an invitation and now has an account. Better Auth created them
+ * outside the claim's transaction, so this comes afterwards.
+ */
+export function recordInvitationAccepted(
+  db: Db,
+  logger: Logger,
+  origin: Omit<AuditOrigin, 'actorId'>,
+  { user: created, invitationId }: { user: User; invitationId: string },
+): void {
+  recordAuditEventAfterwards(logger, 'invitation.accepted', () => {
+    recordAuditEvent(
+      db,
+      { ...origin, actorId: created.id },
+      {
+        action: 'invitation.accepted',
+        target: { type: 'invitation', id: invitationId },
+        metadata: { email: created.email, role: created.role },
+      },
+    );
+  });
 }

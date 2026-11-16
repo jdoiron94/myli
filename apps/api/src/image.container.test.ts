@@ -141,6 +141,18 @@ describe('the API image', () => {
     }
   });
 
+  it('runs the demo seed script, which prints the accounts it created', async () => {
+    const { exitCode, stdout, stderr } = await api.exec(['node', 'src/seed-demo.ts']);
+
+    expect(exitCode).toBe(0);
+    for (const role of ['admin', 'editor', 'viewer']) {
+      expect(stdout).toContain(`${role}@example.com`);
+    }
+    // Its log goes to stderr, so stdout holds only the accounts.
+    expect(stdout).not.toContain('"level"');
+    expect(stderr).toContain('"msg":"demo accounts created"');
+  });
+
   it('shuts down cleanly when Docker stops it', async () => {
     const id = api.getId();
     await api.stop({ timeout: 10_000, remove: false });

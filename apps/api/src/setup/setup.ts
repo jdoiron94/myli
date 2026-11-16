@@ -79,15 +79,16 @@ function takeClaim(db: Db, claimedAt: Date): 'claimed' | 'complete' | 'in-progre
 }
 
 /**
- * Records that setup created the first admin, through the API or from the environment at startup.
- * Better Auth created them outside any transaction of ours, so this comes afterwards.
+ * Records that setup created the first admin: through the API, from the environment at startup,
+ * or with the demo accounts (`seed-demo.ts`). Better Auth created them outside any transaction of
+ * ours, so this comes afterwards.
  */
 export function recordSetupCompleted(
   db: Db,
   logger: Logger,
   origin: Omit<AuditOrigin, 'actorId'>,
   adminId: string,
-  via: 'api' | 'environment',
+  via: 'api' | 'environment' | 'demo-seed',
 ): void {
   recordAuditEventAfterwards(logger, 'setup.completed', () => {
     recordAuditEvent(

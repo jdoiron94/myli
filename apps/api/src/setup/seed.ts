@@ -33,7 +33,7 @@ export async function seedFirstAdmin(
   if (result.reason === 'complete') {
     deps.logger.warn(
       'ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD are set, but users already exist, so they were ' +
-        'ignored. Remove ADMIN_PASSWORD from the environment.',
+        'ignored. Empty ADMIN_PASSWORD, or remove it from the environment.',
     );
     return 'users-exist';
   }
