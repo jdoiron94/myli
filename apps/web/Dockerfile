@@ -9,7 +9,7 @@
 #
 # The API's address is API_UPSTREAM (host:port), `api:3000` unless set.
 
-# Node 26.13.1 (as in .node-version) on Debian 13, pinned to one build. It only builds the static
+# Node, at the version in .node-version, on Debian 13, pinned to one build. It only builds the static
 # files, so it runs on the build machine's platform, whatever platform the image is for.
 ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
 # Caddy 2.11.9 on Alpine, pinned to one build.
