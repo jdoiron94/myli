@@ -1,5 +1,7 @@
 # myli
 
+[![CI](https://github.com/jdoiron94/myli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jdoiron94/myli/actions/workflows/ci.yml)
+
 A self-hosted recipe manager for your household, run with Docker Compose.
 
 > **Status: Phase 0 (foundation) in progress.** The app isn't usable yet.
@@ -180,7 +182,7 @@ In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. Docker Compose
 
 The first time you open the web app, it asks you to create the first admin, then to sign in. Instead, you can set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, which creates that admin on startup.
 
-The pre-commit hook formats staged files, lints them, and typechecks the workspace.
+The pre-commit hook formats staged files, lints them, and typechecks the workspace. [CI](.github/workflows/ci.yml) runs every check above on each push to a branch, with `pnpm audit`, whose findings it reports without failing.
 
 Search needs [Meilisearch](https://www.meilisearch.com/), started with the master key from your `.env`. Without it, everything else works, and the API logs once that search is unavailable and keeps trying in the background.
 

@@ -428,7 +428,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 - All user markdown is sanitized when rendered.
 - Upload validation (§3.2) and the SSRF guard (§3.7).
 - Rate limiting (§3.1).
-- `pnpm audit` runs in CI.
+- `pnpm audit` runs in CI, which lists any advisories in the run's summary. They never fail the build.
 
 **Accessibility and usability**
 - WCAG 2.2 AA.

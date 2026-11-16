@@ -1,0 +1,29 @@
+# The steps every CI job starts with, after checking out the repository.
+name: Set up the workspace
+description: Installs pnpm and Node at the versions the repository pins, then the dependencies, and optionally Playwright's browsers.
+
+inputs:
+  playwright:
+    description: Also install Playwright's browsers, with the system packages they need.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # The version comes from "packageManager" in package.json. Caches pnpm's store, keyed by the
+    # lockfile.
+    - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      with:
+        cache: true
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .node-version
+    # CI is set, so the git hooks aren't installed.
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    # Not cached: Playwright's docs say restoring them takes about as long as downloading them.
+    - name: Install Playwright's browsers
+      if: inputs.playwright == 'true'
+      shell: bash
+      run: pnpm --filter @myli/e2e exec playwright install --with-deps chromium firefox

@@ -210,6 +210,23 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Type checks:** `tsc` for the API, `shared` and config files; `vue-tsc` for the web app. `apps/web/src` has its own `tsconfig.json`, with browser types and no Node types; `apps/web/tsconfig.json` covers the Node-side config files next to it, such as `vite.config.ts`.
 - **lefthook pre-commit,** in order: Biome fixes staged files and re-stages them, ESLint checks staged files (fixing only template layout, then re-staging), then the whole workspace is typechecked.
 
+### CI
+- `.github/workflows/ci.yml` runs on every push to a branch, and on pull requests from forks (a branch of this repository was already checked when it was pushed). Three jobs run side by side on `ubuntu-24.04`:
+  - format, lint, typecheck, `pnpm test` and `pnpm audit`
+  - `pnpm test:e2e`
+  - `pnpm test:containers`
+- It runs the same commands as here, nothing CI-only. Every root script that's a check must run in it, and `ci-workflow.test.ts` (in `apps/api/src`) fails otherwise; the scripts that aren't checks are listed there, with why.
+- A failed end-to-end run keeps `e2e/test-results/` as an artifact for 7 days.
+- The jobs share their setup, `.github/actions/setup`: pnpm from `packageManager`, Node from `.node-version`, `pnpm install --frozen-lockfile`, and Playwright's browsers when asked.
+- **`pnpm audit` never fails CI.** It lists advisories in the run's summary, with a warning. Don't make it, or any other vulnerability scan, a gate.
+- **Supply chain** (`ci-workflow.test.ts` checks each):
+  - Actions are pinned by commit SHA, with the version in a comment: `actions/checkout@<sha> # v7.0.1`.
+  - In-repo actions use GitHub's self-repository syntax, `uses: $/.github/actions/...`, never `./...`, which would load whatever an earlier step left in the workspace.
+  - The token can only read the repository (`permissions: contents: read`, and no job asks for more), and checkout keeps no credentials (`persist-credentials: false`).
+- Check a workflow change with zizmor, which should find nothing, and actionlint, whose 1.7.12 doesn't know the `$/` syntax yet:
+  - `docker run --rm --network none -v "$PWD:/repo:ro" ghcr.io/zizmorcore/zizmor:1.32.0 --offline /repo/.github`
+  - `docker run --rm --network none -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:1.7.12 -ignore 'ref is missing'`
+
 ### Testing
 - Vitest for unit tests.
 - Web components are tested with `@testing-library/vue` in jsdom: query by role and accessible name, and interact through `@testing-library/user-event`. `apps/web/src/testing.ts` has the helpers:
