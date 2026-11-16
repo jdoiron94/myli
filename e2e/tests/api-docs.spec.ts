@@ -16,7 +16,8 @@ test('the API docs page shows the API and sends requests, using only this site',
 
   await page.goto('/api/docs');
 
-  await expect(page).toHaveURL('/api/docs/');
+  // Redirected to the trailing slash. Scalar may add the current section as a fragment.
+  await expect(page).toHaveURL(/\/api\/docs\/(#.*)?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'myli API' })).toBeVisible();
 
   await page.getByRole('button', { name: /^Test Request\s*\(get \/setup\)$/ }).click();
