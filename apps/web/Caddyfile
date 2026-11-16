@@ -9,6 +9,9 @@
 {
 	# No admin endpoint: the configuration is part of the image, and nothing changes it at runtime.
 	admin off
+	# Nor a saved copy of it, in /config: /data is all Caddy writes to, so the container can be
+	# read-only (compose.yaml).
+	persist_config off
 	# The local CA's root goes onto people's devices. Caddy would otherwise try to add it to the
 	# container's own trust store, which it can't and shouldn't change.
 	skip_install_trust

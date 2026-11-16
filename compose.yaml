@@ -1,0 +1,146 @@
+# myli with Docker Compose: Caddy serving the app over HTTPS, the API, and Meilisearch. See the
+# README's "Getting started".
+#
+# Settings come from the environment, or from .env next to this file (.env.example lists them).
+# PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTER_KEY are required. ADMIN_PASSWORD and
+# SMTP_PASSWORD must be listed even when unused, empty if so: every secret goes to the containers as
+# a file, and Compose refuses to start when a secret's variable isn't there at all.
+#
+# Images come from MYLI_IMAGE_PREFIX (a registry, like registry.example.com/myli/) at MYLI_VERSION.
+# Without them, Compose builds them here from the repo: `docker compose up --build`.
+
+name: myli
+
+# Every service: no Linux capabilities and no way to gain any, and restarted unless stopped.
+x-hardened: &hardened
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+
+services:
+  caddy:
+    <<: *hardened
+    image: ${MYLI_IMAGE_PREFIX:-}myli-web:${MYLI_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    # Caddy writes only to /data (apps/web/Caddyfile).
+    read_only: true
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:?must be set to the address people open myli at, like https://myli.home.arpa}
+    # HTTPS on PUBLIC_URL's port (TCP, and UDP for HTTP/3), and HTTP, which only redirects to it.
+    # Caddy listens on PUBLIC_URL's port inside the container too, so MYLI_HTTPS_PORT must match it.
+    ports:
+      - ${MYLI_HTTP_PORT:-80}:80
+      - ${MYLI_HTTPS_PORT:-443}:${MYLI_HTTPS_PORT:-443}/tcp
+      - ${MYLI_HTTPS_PORT:-443}:${MYLI_HTTPS_PORT:-443}/udp
+    volumes:
+      # The local CA, whose root every device trusts, and the certificates (ADR 0013). Back it up:
+      # losing it means trusting a new root on every device.
+      - caddy-data:/data
+    networks: [proxy]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    <<: *hardened
+    image: ${MYLI_IMAGE_PREFIX:-}myli-api:${MYLI_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    # Not read_only: Compose copies secrets from the environment into the container, which it can't
+    # do in a read-only one.
+    # The image sets NODE_ENV, HOST, PORT and DATABASE_PATH (apps/api/Dockerfile). An empty value
+    # counts as unset, so the API's defaults apply.
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:?must be set to the address people open myli at, like https://myli.home.arpa}
+      # Each secret is a file in /run/secrets (see `secrets` below), named only when it's set. Unset,
+      # the API's own error says what's missing.
+      BETTER_AUTH_SECRET_FILE: ${BETTER_AUTH_SECRET:+/run/secrets/better_auth_secret}
+      MEILI_URL: http://meilisearch:7700
+      MEILI_MASTER_KEY_FILE: ${MEILI_MASTER_KEY:+/run/secrets/meili_master_key}
+      # Caddy is the API's only way in, and only Caddy and the API are on the proxy network.
+      TRUSTED_PROXIES: ${MYLI_PROXY_SUBNET:-10.89.0.0/29}
+      LOG_LEVEL: ${LOG_LEVEL:-}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD_FILE: ${ADMIN_PASSWORD:+/run/secrets/admin_password}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURITY: ${SMTP_SECURITY:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD_FILE: ${SMTP_PASSWORD:+/run/secrets/smtp_password}
+      SMTP_FROM: ${SMTP_FROM:-}
+    secrets: [better_auth_secret, meili_master_key, admin_password, smtp_password]
+    volumes:
+      # The database: all of the instance's data.
+      - api-data:/data
+    networks: [proxy, backend]
+    # The API starts without search, and keeps trying to reach it.
+    depends_on: [meilisearch]
+
+  meilisearch:
+    <<: *hardened
+    image: getmeili/meilisearch:v1.56.1@sha256:b7ba431bf6f9b26cc86132798f3640964147a699cf23f026b74c6c05dbb1d60d
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    # Meilisearch reads its master key only from its environment or a config file, so this reads
+    # the secret into its environment as it starts. The image runs it as root, under tini.
+    entrypoint: [tini, --, sh, -c]
+    command: [MEILI_MASTER_KEY="$$(cat /run/secrets/meili_master_key)" exec /bin/meilisearch]
+    secrets: [meili_master_key]
+    volumes:
+      # The search index, rebuilt from the database when needed: no need to back it up.
+      - meilisearch-data:/meili_data
+    networks: [backend]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --output, /dev/null, http://127.0.0.1:7700/health]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      start_interval: 1s
+      retries: 3
+
+  # Development only (`docker compose --profile dev up`): catches the API's email, with
+  # SMTP_HOST=mailpit, SMTP_SECURITY=none and any SMTP_FROM. Its inbox is at http://localhost:8025,
+  # and an API run on this machine (`pnpm dev`) can send to localhost:1025.
+  mailpit:
+    <<: *hardened
+    profiles: [dev]
+    image: axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce
+    user: '1000:1000'
+    read_only: true
+    tmpfs: [/tmp]
+    ports:
+      - 127.0.0.1:8025:8025
+      - 127.0.0.1:1025:1025
+    networks: [backend]
+
+networks:
+  # Caddy and the API. The API believes what's said in X-Forwarded-For only when it comes from this
+  # subnet. Change MYLI_PROXY_SUBNET if it clashes with a network on the host.
+  proxy:
+    ipam:
+      config:
+        - subnet: ${MYLI_PROXY_SUBNET:-10.89.0.0/29}
+  # The API and Meilisearch, which Caddy can't reach.
+  backend:
+
+volumes:
+  api-data:
+  caddy-data:
+  meilisearch-data:
+
+# Each from the variable of the same name. An empty one isn't mounted.
+secrets:
+  better_auth_secret:
+    environment: BETTER_AUTH_SECRET
+  meili_master_key:
+    environment: MEILI_MASTER_KEY
+  admin_password:
+    environment: ADMIN_PASSWORD
+  smtp_password:
+    environment: SMTP_PASSWORD

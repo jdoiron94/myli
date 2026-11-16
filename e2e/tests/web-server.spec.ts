@@ -226,8 +226,9 @@ test.describe('the image', () => {
     }
   });
 
-  test('serves the whole site at PUBLIC_URL, slash or not, with its local CA', () => {
+  test('serves the whole site at PUBLIC_URL, slash or not, with its local CA, writing only to /data', () => {
     interface CaddyConfig {
+      admin: unknown;
       apps: {
         http: { servers: Record<string, { listen: string[]; routes: { match?: unknown }[] }> };
         tls: unknown;
@@ -263,6 +264,9 @@ test.describe('the image', () => {
       expect(config.apps.pki).toEqual({
         certificate_authorities: { local: { install_trust: false } },
       });
+      // No admin endpoint, and no copy of the configuration saved in /config, so the container can
+      // be read-only (compose.yaml).
+      expect(config.admin).toEqual({ disabled: true, config: { persist: false } });
     }
   });
 });

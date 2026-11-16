@@ -32,6 +32,15 @@ async function watch(context: BrowserContext, violations: string[]) {
   });
 }
 
+/** Settings a project gives its tests (playwright.config.ts, playwright.containers.config.ts). */
+export interface Options {
+  /**
+   * The address the API should record for the browser's requests. Through the dev server's proxy,
+   * it's the loopback address, the default. Through Caddy, the API takes it from X-Forwarded-For.
+   */
+  clientAddress: string;
+}
+
 interface Fixtures {
   /** Opens another browser context, for someone else in their own browser. Closed afterwards. */
   newContext: (options?: BrowserContextOptions) => Promise<BrowserContext>;
@@ -40,7 +49,8 @@ interface Fixtures {
 }
 
 /** Playwright's `test`, failing when a page it opens breaks the Content Security Policy. */
-export const test = base.extend<Fixtures>({
+export const test = base.extend<Fixtures & Options>({
+  clientAddress: ['127.0.0.1', { option: true }],
   cspViolations: [
     // eslint-disable-next-line no-empty-pattern -- Playwright requires a destructuring pattern.
     async ({}, use) => {

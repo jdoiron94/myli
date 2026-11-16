@@ -1,39 +1,54 @@
 import { defineConfig } from '@playwright/test';
 import { BROWSERS, COMMON_CONFIG, type WebServer } from './browsers.ts';
-import { redirectPortFor } from './images.ts';
+import { composeProject, redirectPortFor } from './images.ts';
+import type { Options } from './tests/fixtures.ts';
 
 /**
- * The end-to-end tests against the Docker images, as they're deployed: Caddy in front of the API,
- * with HTTPS, its headers and Content Security Policy. `pnpm test:containers` builds the images
- * first (build-images.ts). Each browser gets its own containers (start-images.ts), on ports that
- * differ from the dev servers' run, so both can run at once.
+ * The end-to-end tests against the Docker images, as they're deployed with compose.yaml: Caddy in
+ * front of the API, with HTTPS, its headers and Content Security Policy, and Meilisearch.
+ * `pnpm test:containers` builds the images first (build-images.ts). Each browser gets its own
+ * Compose stack (start-compose.ts), on ports that differ from the dev servers' run, so both can run
+ * at once.
  *
  * Each run's web server makes a new local CA, which the browsers don't trust, so they ignore
  * certificate errors here. web-server.spec.ts checks the certificate itself.
  */
-const stacks = BROWSERS.map((browser, index) => ({
-  ...browser,
-  webUrl: `https://localhost:${String(5190 + index)}`,
-}));
+const stacks = BROWSERS.map((browser, index) => {
+  const network = `10.89.${String(index + 1)}`;
+  return {
+    ...browser,
+    webUrl: `https://localhost:${String(5190 + index)}`,
+    proxySubnet: `${network}.0/29`,
+    // Docker forwards connections to published ports from the network's gateway, its first address.
+    clientAddress: `${network}.1`,
+  };
+});
 
-export default defineConfig({
+export default defineConfig<Options>({
   ...COMMON_CONFIG,
-  projects: stacks.map(({ name, device, webUrl }) => ({
+  projects: stacks.map(({ name, device, webUrl, clientAddress }) => ({
     name,
-    use: { ...device, baseURL: webUrl, ignoreHTTPSErrors: true },
+    use: { ...device, baseURL: webUrl, ignoreHTTPSErrors: true, clientAddress },
   })),
   webServer: stacks.map(
-    ({ name, webUrl }): WebServer => ({
-      name: `${name} containers`,
-      command: 'node start-images.ts',
-      env: { PUBLIC_URL: webUrl, HTTP_PORT: String(redirectPortFor(webUrl)) },
+    ({ name, webUrl, proxySubnet }): WebServer => ({
+      name: `${name} stack`,
+      command: 'node start-compose.ts',
+      env: {
+        PROJECT: composeProject(name),
+        PUBLIC_URL: webUrl,
+        HTTP_PORT: String(redirectPortFor(webUrl)),
+        PROXY_SUBNET: proxySubnet,
+      },
       url: webUrl,
       ignoreHTTPSErrors: true,
       reuseExistingServer: false,
-      // The launcher stops and removes its containers when it's told to stop.
-      gracefulShutdown: { signal: 'SIGTERM', timeout: 20_000 },
+      // The launcher removes its stack when it's told to stop.
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
       stdout: 'pipe',
       stderr: 'pipe',
+      // Meilisearch's image may need pulling first.
+      timeout: 180_000,
     }),
   ),
 });
