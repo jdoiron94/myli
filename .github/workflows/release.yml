@@ -1,0 +1,80 @@
+# Releases (CLAUDE.md, "CI"). On every push to main, release-please keeps a release PR open with the
+# next version and its changelog, from the conventional commits since the last release. Merging
+# that PR makes release-please tag the commit and create the GitHub release, and only then are the
+# images tested and published to GHCR.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Each job asks for what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release PR, or tag and GitHub release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # the release PR's branch, the tag and the GitHub release
+      pull-requests: write # the release PR
+      issues: write # the release PR's labels
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      # With GitHub's own token, which starts no workflow runs: CI doesn't run on release PRs. They
+      # change only the changelog and the version, and the images are tested before publishing.
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Test the images and publish them to GHCR
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read # checking out the released commit
+      packages: write # pushing the images to GHCR
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+        with:
+          playwright: 'true'
+      # Builds myli-api:e2e and myli-web:e2e, and tests them, the Compose stack included.
+      - run: pnpm test:containers
+      # Exactly the images just tested, for the runner's platform (linux/amd64), the only one
+      # published. New packages in GHCR are private.
+      - name: Push the tested images
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Not a version: $VERSION"; exit 1; }
+          for image in myli-api myli-web; do
+            platform=$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image:e2e")
+            [ "$platform" = linux/amd64 ] || { echo "::error::$image is for $platform"; exit 1; }
+          done
+          registry="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for image in myli-api myli-web; do
+            for tag in "$VERSION" latest; do
+              docker tag "$image:e2e" "$registry/$image:$tag"
+              docker push --quiet "$registry/$image:$tag"
+            done
+            echo "Published $registry/$image:$VERSION and :latest" >> "$GITHUB_STEP_SUMMARY"
+          done
+          docker logout ghcr.io

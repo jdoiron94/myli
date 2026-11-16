@@ -1,7 +1,7 @@
 // Renovate's configuration (renovate.json). Renovate itself only reads it on the default branch, so
 // these check what it can't: the user's decisions, and the custom patterns, which stop finding
 // anything without a word if the file they read changes. Lives with the API's tests, like
-// ci-workflow.test.ts.
+// workflows.test.ts.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';

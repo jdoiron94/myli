@@ -113,7 +113,25 @@ myli runs with Docker Compose: Caddy serves it over HTTPS and passes `/api` to t
 
 Caddy takes ports 80 (which only redirects) and 443, on TCP and UDP. To use others, set `MYLI_HTTP_PORT` and `MYLI_HTTPS_PORT`, and put the HTTPS port in `PUBLIC_URL` too.
 
-With images from a registry, set `MYLI_IMAGE_PREFIX` and `MYLI_VERSION`, and leave out `--build`. Then all you need is `compose.yaml` and the variables, which a Compose management tool can hold in place of `.env`.
+### Run a published release instead
+
+Each release publishes both images to GitHub's container registry, privately: `ghcr.io/jdoiron94/myli-api` and `ghcr.io/jdoiron94/myli-web`, for linux/amd64. The [releases page](https://github.com/jdoiron94/myli/releases) lists each version and what changed.
+
+1. Log Docker in to the registry once, with a GitHub personal access token (classic) that has only the `read:packages` scope:
+
+   ```sh
+   docker login ghcr.io --username <your GitHub username>
+   ```
+
+2. Set `MYLI_IMAGE_PREFIX=ghcr.io/jdoiron94/` and `MYLI_VERSION` to a release, like `0.1.0`, and start the stack without `--build`:
+
+   ```sh
+   docker compose up --detach
+   ```
+
+Then all you need is `compose.yaml` and the variables, which a Compose management tool can hold in place of `.env`, with the token as its credentials for `ghcr.io`.
+
+To upgrade, back up first (below), set `MYLI_VERSION` to the new release, and run `docker compose up --detach` again. The API applies any database migrations as it starts.
 
 ### Trust myli's certificate on each device
 
@@ -183,6 +201,8 @@ In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. Docker Compose
 The first time you open the web app, it asks you to create the first admin, then to sign in. Instead, you can set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, which creates that admin on startup.
 
 The pre-commit hook formats staged files, lints them, and typechecks the workspace. [CI](.github/workflows/ci.yml) runs every check above on each push to a branch, with `pnpm audit`, whose findings it reports without failing. [Renovate](renovate.json) opens dependency PRs on Mondays, only for releases at least a week old, and each waits for review.
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/), which decide each release's version: `feat` bumps the minor version and `fix` the patch, and before 1.0 a breaking change bumps the minor too. On every push to `main`, [release-please](release-please-config.json) keeps a release PR open with the next version and its changelog. Merging it tags the release, creates the GitHub release, then [tests both images and publishes them](.github/workflows/release.yml).
 
 Search needs [Meilisearch](https://www.meilisearch.com/), started with the master key from your `.env`. Without it, everything else works, and the API logs once that search is unavailable and keeps trying in the background.
 

@@ -217,22 +217,30 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Type checks:** `tsc` for the API, `shared` and config files; `vue-tsc` for the web app. `apps/web/src` has its own `tsconfig.json`, with browser types and no Node types; `apps/web/tsconfig.json` covers the Node-side config files next to it, such as `vite.config.ts`.
 - **lefthook pre-commit,** in order: Biome fixes staged files and re-stages them, ESLint checks staged files (fixing only template layout, then re-staging), then the whole workspace is typechecked.
 
-### CI
+### CI and releases
 - `.github/workflows/ci.yml` runs on every push to a branch, and on pull requests from forks (a branch of this repository was already checked when it was pushed). Three jobs run side by side on `ubuntu-24.04`:
   - format, lint, typecheck, `pnpm test` and `pnpm audit`
   - `pnpm test:e2e`
   - `pnpm test:containers`
 - The runner's tools aren't yours: `ubuntu-24.04` has Docker Compose 2.38, for one. Don't make a test depend on behavior only a newer version has.
-- It runs the same commands as here, nothing CI-only. Every root script that's a check must run in it, and `ci-workflow.test.ts` (in `apps/api/src`) fails otherwise; the scripts that aren't checks are listed there, with why.
+- It runs the same commands as here, nothing CI-only. Every root script that's a check must run in it, and `workflows.test.ts` (in `apps/api/src`) fails otherwise; the scripts that aren't checks are listed there, with why.
 - A failed end-to-end run keeps `e2e/test-results/` as an artifact for 7 days.
 - The jobs share their setup, `.github/actions/setup`: pnpm from `packageManager`, Node from `.node-version`, `pnpm install --frozen-lockfile`, and Playwright's browsers when asked.
 - **`pnpm audit` never fails CI.** It lists advisories in the run's summary, with a warning. Don't make it, or any other vulnerability scan, a gate.
-- **Supply chain** (`ci-workflow.test.ts` checks each):
+- **Supply chain,** in every workflow (`workflows.test.ts` checks each):
   - Actions are pinned by commit SHA, with the version in a comment: `actions/checkout@<sha> # v7.0.1`.
   - In-repo actions use GitHub's self-repository syntax, `uses: $/.github/actions/...`, never `./...`, which would load whatever an earlier step left in the workspace.
-  - The token can only read the repository (`permissions: contents: read`, and no job asks for more), and checkout keeps no credentials (`persist-credentials: false`).
+  - Each job's token gets only the access it needs, with a comment saying why. `ci.yml` can only read the repository. `ACCESS` in `workflows.test.ts` lists every workflow's and job's access, so more access shows in review.
+  - Checkout keeps no credentials (`persist-credentials: false`).
+- **Releases** (`.github/workflows/release.yml`, with `release-please-config.json`):
+  - On every push to `main`, release-please keeps a release PR open with the next version and `CHANGELOG.md`, from the conventional commits since the last release.
+  - Merging it tags the commit (`v0.1.0`) and creates the GitHub release. Only then does the `publish` job check out that commit, run `pnpm test:containers`, and push exactly the images it tested (`myli-api:e2e`, `myli-web:e2e`) to GHCR as `ghcr.io/jdoiron94/myli-api` and `…/myli-web`, tagged with the version and `latest`, for linux/amd64 only. New GHCR packages are private.
+  - The commit type decides the version: `feat` bumps the minor, `fix` the patch. Before 1.0, a breaking change bumps the minor too: going to 1.0.0 is a decision, made with `release-as` in `release-please-config.json` (and removed after that release). `docs`, `chore`, `ci`, `test` and `refactor` commits don't release anything; Renovate's `fix(deps)` does.
+  - Never edit `CHANGELOG.md`, the `version` in `package.json` or `.release-please-manifest.json` by hand: release-please owns them.
+  - It uses GitHub's own token, which starts no workflow runs, so CI doesn't run on release PRs. That's also why publishing is a job in the same workflow, not a workflow started by the tag. The repository must allow GitHub Actions to create pull requests (Settings > Actions > General).
+  - The images' OCI labels (title, description, `source`, license) are what GHCR shows, and `source` links each package to the repository. The web image replaces every label of the Caddy image it builds on. The image tests check them.
 - Check a workflow change with zizmor, which should find nothing, and actionlint, whose 1.7.12 doesn't know the `$/` syntax yet:
-  - `docker run --rm --network none -v "$PWD:/repo:ro" ghcr.io/zizmorcore/zizmor:1.32.0 --offline /repo/.github`
+  - `docker run --rm --network none -v "$PWD:/repo:ro" ghcr.io/zizmorcore/zizmor:1.32.0 --offline --persona pedantic /repo/.github`
   - `docker run --rm --network none -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:1.7.12 -ignore 'ref is missing'`
 
 ### Testing

@@ -447,6 +447,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
   - the `s3` profile adds `garage` and an init container that sets it up
 - **In Compose,** secrets reach the containers as files, never in their environment, and the API trusts `X-Forwarded-For` only from Caddy's network. No service has Linux capabilities.
 - **Images:** multi-stage builds, non-root user, healthchecks, pinned versions.
+- **Releases:** versions follow the conventional commits (release-please). Each release tags the commit, creates a GitHub release with its changelog, and publishes both images to GHCR, privately, for linux/amd64, tagged with the version and `latest`.
 - **Backups:** a scheduled `VACUUM INTO` snapshot of SQLite plus an archive of the uploads volume, with a documented restore procedure. Meilisearch isn't backed up (§4).
 - **Demo data:** a seed script, for a new instance only, creates one account per role, with random passwords it prints once, and about 20 recipes.
 

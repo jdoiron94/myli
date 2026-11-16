@@ -24,6 +24,13 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.cache/pnpm-store \
     pnpm install --frozen-lockfile --prod --filter @myli/api... --store-dir /root/.cache/pnpm-store
 
 FROM ${NODE_IMAGE}
+# Shown on the image's page in GHCR, which `source` links to the repository.
+LABEL org.opencontainers.image.title="myli API" \
+      org.opencontainers.image.description="The API of myli, a self-hosted recipe app" \
+      org.opencontainers.image.source="https://github.com/jdoiron94/myli" \
+      org.opencontainers.image.url="https://github.com/jdoiron94/myli" \
+      org.opencontainers.image.documentation="https://github.com/jdoiron94/myli" \
+      org.opencontainers.image.licenses="PolyForm-Noncommercial-1.0.0"
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
