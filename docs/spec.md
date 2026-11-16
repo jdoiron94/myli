@@ -440,11 +440,12 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 - **Configuration** comes from environment variables, validated with Zod at startup and documented in `.env.example`. An invalid config stops startup with a clear error.
   - Each secret can be read from a file instead, such as a Docker secret, by setting `NAME_FILE` to its path: `BETTER_AUTH_SECRET`, `MEILI_MASTER_KEY`, `ADMIN_PASSWORD` and `SMTP_PASSWORD`.
 - **Compose services:**
-  - `caddy`
+  - `caddy`, the only service that publishes ports (80 and 443)
   - `api` (the job worker runs inside it)
-  - `meilisearch`
+  - `meilisearch`, which Caddy can't reach
   - the `dev` profile adds `mailpit`
   - the `s3` profile adds `garage` and an init container that sets it up
+- **In Compose,** secrets reach the containers as files, never in their environment, and the API trusts `X-Forwarded-For` only from Caddy's network. No service has Linux capabilities.
 - **Images:** multi-stage builds, non-root user, healthchecks, pinned versions.
 - **Backups:** a scheduled `VACUUM INTO` snapshot of SQLite plus an archive of the uploads volume, with a documented restore procedure. Meilisearch isn't backed up (§4).
 - **Demo data:** a seed script creates about 20 recipes and one account per role.

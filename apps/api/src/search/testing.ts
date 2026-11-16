@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 
-/** The Meilisearch the container tests run against. Compose must run the same version. */
-export const MEILISEARCH_IMAGE = 'getmeili/meilisearch:v1.56.1';
+/** The Meilisearch the container tests run against: the one compose.yaml runs (a test checks). */
+export const MEILISEARCH_IMAGE =
+  'getmeili/meilisearch:v1.56.1@sha256:b7ba431bf6f9b26cc86132798f3640964147a699cf23f026b74c6c05dbb1d60d';
 
 /** The master key every test Meilisearch starts with. */
 export const MEILI_MASTER_KEY = randomBytes(24).toString('base64url');

@@ -13,9 +13,9 @@ const stacks = BROWSERS.map((browser, index) => ({
 
 export default defineConfig({
   ...COMMON_CONFIG,
-  // The web server's headers and Content Security Policy come from Caddy, which only the images
-  // run (playwright.containers.config.ts).
-  testIgnore: 'web-server.spec.ts',
+  // The web server's headers and Content Security Policy come from Caddy, which only the run
+  // against the Compose stack has (playwright.containers.config.ts).
+  testIgnore: ['web-server.spec.ts', 'compose.spec.ts'],
   projects: stacks.map(({ name, device, webUrl }) => ({
     name,
     use: { ...device, baseURL: webUrl },

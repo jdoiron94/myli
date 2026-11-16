@@ -389,11 +389,29 @@ describe('secrets from files', () => {
 
 describe('.env.example', () => {
   const example = parseEnv(readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8'));
+  // Every variable compose.yaml reads, with the default it gives it, if any: `${NAME:-default}`.
+  const compose = readFileSync(new URL('../../../compose.yaml', import.meta.url), 'utf8');
+  const composeDefaults = new Map(
+    [...compose.matchAll(/\$\{([A-Z][A-Z0-9_]*)(?::-([^}]*))?/g)].map(([, name, value]) => [
+      name ?? '',
+      value,
+    ]),
+  );
+  const composeOnly = [...composeDefaults.keys()].filter((name) => !(name in envSchema.shape));
 
-  it('documents exactly the variables in the schema, and the files secrets can come from', () => {
+  it("documents exactly the variables in the schema, the files secrets can come from, and Compose's", () => {
+    expect(composeOnly).toContain('MYLI_PROXY_SUBNET');
     expect(Object.keys(example).sort()).toEqual(
-      [...Object.keys(envSchema.shape), ...FILE_VARIABLES.map((name) => `${name}_FILE`)].sort(),
+      [
+        ...Object.keys(envSchema.shape),
+        ...FILE_VARIABLES.map((name) => `${name}_FILE`),
+        ...composeOnly,
+      ].sort(),
     );
+  });
+
+  it('shows the default compose.yaml gives each of its own variables', () => {
+    for (const name of composeOnly) expect(example[name], name).toBe(composeDefaults.get(name));
   });
 
   it('leaves the required variables empty', () => {

@@ -28,6 +28,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
   page,
   newContext,
   baseURL,
+  clientAddress,
 }) => {
   test.setTimeout(180_000);
 
@@ -56,6 +57,14 @@ test('an admin sets up myli, invites someone and manages their account', async (
     await expect(page.getByRole('menu')).toBeVisible();
     await checkPage(page, { popup: true });
     await page.keyboard.press('Escape');
+  });
+
+  await test.step('the audit log records the address they signed in from', async () => {
+    const response = await page.request.get('/api/v1/audit-events?action=sign_in.succeeded');
+
+    expect(response.status()).toBe(200);
+    const { events } = (await response.json()) as { events: { ip: string | null }[] };
+    expect(events.map(({ ip }) => ip)).toEqual([clientAddress]);
   });
 
   let link = '';

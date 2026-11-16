@@ -1,0 +1,7 @@
+# What the end-to-end tests change in compose.yaml (start-compose.ts). The rest comes from
+# variables: ports, the proxy subnet, the images' tag and the secrets.
+services:
+  api:
+    environment:
+      # Turns off Better Auth's rate limiter: the journey signs in more often than it allows.
+      NODE_ENV: development
