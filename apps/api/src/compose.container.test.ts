@@ -102,7 +102,8 @@ describe("the API's configuration", () => {
       expect(api.environment?.[name], name).toBeUndefined();
     }
 
-    // Empty, Compose doesn't mount the file, and an empty NAME_FILE counts as unset.
+    // Empty: so is NAME_FILE, which counts as unset, whether Compose leaves the file out (Compose 5)
+    // or mounts it empty (older versions).
     const none = Object.fromEntries(FILE_VARIABLES.map((name) => [name, '']));
     const { environment = {} } = service(composeConfig(none), 'api');
     for (const name of FILE_VARIABLES) expect(environment[`${name}_FILE`], name).toBe('');

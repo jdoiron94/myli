@@ -94,10 +94,27 @@ test('gives the API its secrets as files, never in its environment', ({ browserN
   );
   const secrets = /^(BETTER_AUTH_SECRET|MEILI_MASTER_KEY|ADMIN_PASSWORD|SMTP_PASSWORD)=/;
   expect(environment.filter((line) => secrets.test(line))).toEqual([]);
-  expect(docker(['exec', api, 'ls', '/run/secrets']).split('\n')).toEqual([
-    'better_auth_secret',
-    'meili_master_key',
-  ]);
+
+  // Each secret file's name and size. The image has Node, and not necessarily a shell.
+  const files = Object.fromEntries(
+    docker([
+      'exec',
+      api,
+      'node',
+      '-e',
+      "for (const f of require('fs').readdirSync('/run/secrets')) console.log(f, require('fs').statSync('/run/secrets/' + f).size)",
+    ])
+      .split('\n')
+      .map((line) => line.split(' '))
+      .map(([name = '', size]) => [name, Number(size)]),
+  );
+  const read = ['better_auth_secret', 'meili_master_key'];
+  for (const name of read) expect(files[name], name).toBeGreaterThan(0);
+  // The others are empty. Compose 5 doesn't mount an empty secret; older versions, like the 2.38 on
+  // GitHub's runners, mount an empty file. Either way, the API never reads it: its NAME_FILE is empty.
+  const unread = Object.keys(files).filter((name) => !read.includes(name));
+  expect(['admin_password', 'smtp_password']).toEqual(expect.arrayContaining(unread));
+  for (const name of unread) expect(files[name], name).toBe(0);
 
   // Meilisearch reads its key from the file as it starts, so it isn't in its configuration either.
   const meilisearch = docker([
