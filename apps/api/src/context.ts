@@ -15,5 +15,10 @@ export interface AppEnv {
     user: CurrentUser | null;
     /** The current session, or `null`. Set together with `user`. */
     session: CurrentSession | null;
+    /**
+     * The client's address, trusting `X-Forwarded-For` only from `TRUSTED_PROXIES` (client-ip.ts).
+     * `null` when it's unknown, as in tests that don't pass a socket.
+     */
+    clientIp: string | null;
   };
 }
