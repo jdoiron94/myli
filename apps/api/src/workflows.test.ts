@@ -158,6 +158,19 @@ describe('the release workflow', () => {
     ]);
   });
 
+  it('makes the first release 0.1.0, and keeps breaking changes below 1.0', () => {
+    const config = z
+      .object({
+        'bump-minor-pre-major': z.boolean(),
+        packages: z.object({ '.': z.looseObject({ 'initial-version': z.string().optional() }) }),
+      })
+      .parse(JSON.parse(read('release-please-config.json')));
+
+    // Without it, release-please makes the first release 1.0.0, whatever the manifest says.
+    expect(config.packages['.']['initial-version']).toBe('0.1.0');
+    expect(config['bump-minor-pre-major']).toBe(true);
+  });
+
   it('publishes the images only for a release, and only once it has tested them', () => {
     const publish = workflow('release.yml').jobs.publish;
     const steps = publish?.steps ?? [];
