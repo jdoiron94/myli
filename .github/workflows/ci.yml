@@ -1,0 +1,106 @@
+# The checks that run locally (CLAUDE.md, "Commands"), on every push to a branch. Tags aren't
+# checked again: a tag points at a commit its branch already checked.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# The token can read the repository and nothing else.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push to a branch cancels its run in progress. Every run on main finishes.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    name: Format, lint, typecheck and unit tests
+    # A pull request from a branch of this repository was already checked when it was pushed.
+    # Only pull requests from forks run here.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # Includes the checks that the OpenAPI document, the web app's API types and the
+      # migrations match the code.
+      - run: pnpm test
+      # Advisories never fail CI. They're listed in the run's summary, with a warning.
+      - name: Report known vulnerabilities
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          set +e
+          pnpm audit > "$RUNNER_TEMP/audit.txt" 2>&1
+          status=$?
+          set -e
+          verdict=$(tail -n 2 "$RUNNER_TEMP/audit.txt" | paste -sd ' ')
+          {
+            echo '### pnpm audit'
+            echo
+            echo "<details><summary>$verdict</summary>"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/audit.txt"
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning title=pnpm audit::$verdict See the run's summary."
+          fi
+
+  e2e:
+    name: End-to-end tests against the dev servers
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+        with:
+          playwright: 'true'
+      - run: pnpm test:e2e
+      - name: Keep the failed tests' traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-dev-servers
+          path: e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  containers:
+    name: Container tests and end-to-end tests against the Compose stack
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+        with:
+          playwright: 'true'
+      # Builds the images, so it needs no registry.
+      - run: pnpm test:containers
+      - name: Keep the failed tests' traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-compose-stack
+          path: e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
