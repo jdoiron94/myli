@@ -1,0 +1,95 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices", ":semanticCommits"],
+  "schedule": ["* 0-11 * * 1"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-11 * * 1"]
+  },
+  "prHourlyLimit": 0,
+  "automerge": false,
+  "rangeStrategy": "pin",
+  "postUpdateOptions": ["pnpmDedupe"],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "vulnerabilityAlerts": {
+    "minimumReleaseAge": "7 days"
+  },
+  "customManagers": [
+    {
+      "description": "The Meilisearch image the container tests use, which must match compose.yaml's.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^apps/api/src/search/testing\\.ts$/"],
+      "matchStrings": [
+        "'(?<depName>getmeili/meilisearch):(?<currentValue>[^@']+)@(?<currentDigest>sha256:[0-9a-f]{64})'"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "description": "The pnpm the Dockerfiles install, which must match packageManager in package.json.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^apps/(api|web)/Dockerfile$/"],
+      "matchStrings": ["npm install --global (?<depName>pnpm)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "TypeScript 7 ships no JS API, which vue-tsc and typescript-eslint depend on. Stay on 6.x until they support 7 (pnpm-workspace.yaml).",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "@types/node follows the Node major in .node-version. Raise this with it.",
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<27"
+    },
+    {
+      "description": "Node's version: .node-version and both Dockerfiles' base image.",
+      "matchDepNames": ["node"],
+      "groupName": "Node.js"
+    },
+    {
+      "description": "engines is a range, raised by hand with a new Node major: until then, pnpm refuses to install, so CI fails.",
+      "matchDepTypes": ["engines"],
+      "enabled": false
+    },
+    {
+      "description": "pnpm: packageManager in package.json, and the Dockerfiles. A test fails if they differ.",
+      "matchPackageNames": ["pnpm"],
+      "groupName": "pnpm"
+    },
+    {
+      "description": "zod and @hono/zod-openapi upgrade together (ADR 0001).",
+      "matchPackageNames": ["zod", "@hono/zod-openapi"],
+      "groupName": "zod"
+    },
+    {
+      "description": "The Meilisearch image, in compose.yaml and search/testing.ts. A test fails if the two differ.",
+      "matchDepNames": ["getmeili/meilisearch"],
+      "groupName": "Meilisearch"
+    },
+    {
+      "description": "ESLint and its plugins and configs.",
+      "matchPackageNames": [
+        "eslint",
+        "@eslint/*",
+        "typescript-eslint",
+        "@typescript-eslint/*",
+        "eslint-plugin-vue",
+        "@vue/eslint-config-typescript"
+      ],
+      "groupName": "ESLint"
+    },
+    {
+      "description": "The actions the CI workflow uses.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Only releases at least a week old (CLAUDE.md, Dependencies). Last, so it overrides config:best-practices' 3 days for npm.",
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "minimumReleaseAge": "7 days"
+    }
+  ]
+}

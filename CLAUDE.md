@@ -183,6 +183,13 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Don't use MinIO: its Community Edition is archived and no longer ships official images.
 - Don't add Redis. Background jobs use the SQLite `job` table.
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base images by tag and digest. Third-party images in `compose.yaml` are pinned the same way.
+- **Renovate** (`renovate.json`) opens dependency PRs on Mondays (before noon UTC), lockfile maintenance included, and only for releases at least a week old. It never merges one: every PR waits for review. `renovate.test.ts` (in `apps/api/src`) checks each of these.
+  - Renovate reads its configuration only from the default branch, `main`.
+  - Security fixes skip the schedule, which Renovate doesn't allow otherwise, but still wait a week. They need the repository's Dependabot alerts turned on.
+  - `config:best-practices` sets 3 days for npm packages in a package rule, so the week-old rule is the last package rule. Keep it last.
+  - A version Renovate can't find on its own gets a custom pattern (`customManagers`), and the test checks that the pattern still finds it: the Meilisearch image in `search/testing.ts`, and the pnpm the Dockerfiles install. Each is grouped with the copy it must match (`compose.yaml`, `packageManager`).
+  - Renovate can't edit prose, so docs and comments point to where a version is pinned (`.node-version`, `packageManager`) instead of repeating it.
+  - Holds: TypeScript stays below 7 (see `pnpm-workspace.yaml`), and `@types/node` below the next Node major. `engines` is raised by hand with a Node major; until then, pnpm refuses to install.
 - Images build from the repo root. `.dockerignore` keeps `.env`, local databases (`apps/api/data`, `*.db`), `node_modules` and tests out of the build context; a test checks it.
 - **The API image** (`apps/api/Dockerfile`) runs `node src/main.ts` as the `node` user (uid 1000), with the database at `/data/myli.db`.
   - It keeps pnpm's workspace layout, so Node finds `@myli/shared` outside `node_modules` (ADR 0008). Don't switch it to `pnpm deploy`.

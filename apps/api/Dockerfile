@@ -5,7 +5,7 @@
 # pnpm's workspace layout instead of using `pnpm deploy`: Node only strips types from files outside
 # node_modules, and @myli/shared is a symlink to packages/shared.
 
-# Node 26.13.1 (as in .node-version) on Debian 13, pinned to one build. better-sqlite3 ships
+# Node, at the version in .node-version, on Debian 13, pinned to one build. better-sqlite3 ships
 # prebuilt binaries for glibc on x64 and arm64, so no compiler is needed.
 ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
 
