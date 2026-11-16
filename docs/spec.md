@@ -448,7 +448,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 - **In Compose,** secrets reach the containers as files, never in their environment, and the API trusts `X-Forwarded-For` only from Caddy's network. No service has Linux capabilities.
 - **Images:** multi-stage builds, non-root user, healthchecks, pinned versions.
 - **Backups:** a scheduled `VACUUM INTO` snapshot of SQLite plus an archive of the uploads volume, with a documented restore procedure. Meilisearch isn't backed up (§4).
-- **Demo data:** a seed script creates about 20 recipes and one account per role.
+- **Demo data:** a seed script, for a new instance only, creates one account per role, with random passwords it prints once, and about 20 recipes.
 
 ## 7. Out of scope
 

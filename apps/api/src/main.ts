@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createAuth } from './auth/auth.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
-import { EnvError, loadEnv } from './env.ts';
+import { loadEnvOrExit } from './env.ts';
 import { allJobs } from './jobs/all.ts';
 import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
@@ -15,22 +15,7 @@ import { seedFirstAdmin } from './setup/seed.ts';
 /** How long in-flight requests get to finish after SIGTERM before the process exits anyway. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
-function readEnv() {
-  try {
-    return loadEnv();
-  } catch (error) {
-    if (error instanceof EnvError) {
-      // The logger's level comes from the env, so it can't exist yet. Print plainly, without a
-      // stack trace: a config problem is the operator's to fix.
-      // eslint-disable-next-line no-console -- see above
-      console.error(error.message);
-      process.exit(1);
-    }
-    throw error;
-  }
-}
-
-const env = readEnv();
+const env = loadEnvOrExit();
 const logger = createLogger(env.LOG_LEVEL);
 
 // Migrations run before the server listens, so no request ever sees an old schema (ADR 0002).

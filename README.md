@@ -103,6 +103,12 @@ myli runs with Docker Compose: Caddy serves it over HTTPS and passes `/api` to t
 
 4. Open `PUBLIC_URL` and create the first admin. For an install where no one will open the setup screen, set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` before starting instead: the admin is created at startup if no user exists yet. Empty `ADMIN_PASSWORD` once it has been.
 
+   To try myli out instead, create demo accounts, one per role, before anyone signs up. The script prints their passwords, once, and refuses on an instance that already has users:
+
+   ```sh
+   docker compose exec api node src/seed-demo.ts
+   ```
+
 Caddy takes ports 80 (which only redirects) and 443, on TCP and UDP. To use others, set `MYLI_HTTP_PORT` and `MYLI_HTTPS_PORT`, and put the HTTPS port in `PUBLIC_URL` too.
 
 With images from a registry, set `MYLI_IMAGE_PREFIX` and `MYLI_VERSION`, and leave out `--build`. Then all you need is `compose.yaml` and the variables, which a Compose management tool can hold in place of `.env`.
@@ -165,6 +171,7 @@ pnpm lint        # ESLint; --fix also formats Vue templates
 pnpm format      # Biome
 pnpm openapi:generate   # refresh apps/api/openapi.json and the web app's API types after changing the API
 pnpm db:generate        # create a migration after changing the database schema
+pnpm seed               # demo accounts, one per role, on a database with no users yet; prints their passwords
 ```
 
 The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.

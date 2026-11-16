@@ -217,3 +217,21 @@ export function loadEnv(source: Readonly<Record<string, string | undefined>> = p
   ];
   throw new EnvError(['Invalid environment configuration:', ...problems].join('\n'));
 }
+
+/**
+ * For entry points (`main.ts`, `seed-demo.ts`): the validated env, or else the problems, printed
+ * plainly without a stack trace, and exit code 1. A config problem is the operator's to fix, and
+ * the logger's level comes from the env, so it can't exist yet.
+ */
+export function loadEnvOrExit(): Env {
+  try {
+    return loadEnv();
+  } catch (error) {
+    if (error instanceof EnvError) {
+      // eslint-disable-next-line no-console -- see above
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
