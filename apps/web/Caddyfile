@@ -1,11 +1,17 @@
 # myli's web server. The web image (apps/web/Dockerfile) runs it with the built app in /srv. It
-# serves the app and the API docs page, and sends the rest of /api to the API.
+# serves the app and the API docs page at PUBLIC_URL, and sends the rest of /api to the API.
+#
+# HTTPS only: port 80 just redirects. Certificates come from Caddy's own local CA, which it creates
+# in /data on first start, and which each device that opens myli trusts once (ADR 0013).
 #
 # Each page has a Content Security Policy (ADR 0012). The app's allows no inline scripts or styles
 # and no eval. The API docs page has its own, because Scalar adds styles at runtime (ADR 0011).
 {
 	# No admin endpoint: the configuration is part of the image, and nothing changes it at runtime.
 	admin off
+	# The local CA's root goes onto people's devices. Caddy would otherwise try to add it to the
+	# container's own trust store, which it can't and shouldn't change.
+	skip_install_trust
 }
 
 # Docker's healthcheck (see the Dockerfile). Reachable only from inside the container.
@@ -14,9 +20,16 @@ http://127.0.0.1:2020 {
 	respond /healthz 200
 }
 
-:80 {
+# PUBLIC_URL, like https://myli.home.arpa. The image checks it before Caddy starts
+# (docker-entrypoint.sh). HTTP/2 and HTTP/3 are on, as Caddy's defaults over HTTPS.
+{$PUBLIC_URL} {
+	tls internal
+
 	# On every response, the API's included.
 	header {
+		# Browsers come back over HTTPS only, for a year. Not includeSubDomains: other services on the
+		# same domain may have no HTTPS. Browsers ignore this until they trust the local CA.
+		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
 		# Links to other sites, such as a recipe's source, don't tell them this instance's address.
 		Referrer-Policy same-origin
@@ -45,7 +58,7 @@ http://127.0.0.1:2020 {
 	@docs path /api/docs /api/docs/*
 	handle @docs {
 		header {
-			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 			Cache-Control no-cache
 		}
 		encode zstd gzip
@@ -65,7 +78,7 @@ http://127.0.0.1:2020 {
 	# over. Browsers check with the server on every load, so a new release shows up straight away.
 	handle {
 		header {
-			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 			Cache-Control no-cache
 		}
 		encode zstd gzip

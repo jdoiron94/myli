@@ -58,7 +58,7 @@ Chosen option: **allow inline styles on the docs page**, with everything else as
 - `Referrer-Policy: same-origin`, so links to other sites, such as a recipe's source, don't send them this instance's address
 - `Cross-Origin-Opener-Policy: same-origin`
 - `Permissions-Policy: camera=(), geolocation=(), microphone=(), screen-wake-lock=(self)`
-- HSTS and `upgrade-insecure-requests` come with HTTPS in increment 18c.
+- HSTS and `upgrade-insecure-requests` come with HTTPS in increment 18e (ADR 0013).
 
 **Caching:** files under `/assets` have a content hash in their names, so browsers keep them for a year (`immutable`). Pages and `theme.js` are `no-cache`, so a new release shows on the next load. A missing file under `/assets` is a 404 with no caching header, since it may exist after a deploy.
 

@@ -16,6 +16,7 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0010](./0010-role-changes-and-deactivation-in-one-transaction.md) | Role changes and deactivation are written directly, in one transaction | Accepted |
 | [0011](./0011-api-docs-as-a-separate-page.md) | The API docs are a separate page of the web app | Accepted, amended by 0012 |
 | [0012](./0012-content-security-policy.md) | A strict Content Security Policy, with inline styles allowed on the API docs page | Accepted |
+| [0013](./0013-https-with-caddys-local-ca.md) | HTTPS with Caddy's local certificate authority | Accepted |
 
 ## Adding an ADR
 

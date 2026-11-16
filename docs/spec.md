@@ -323,7 +323,7 @@ Search is served by Meilisearch through the API (§4).
   - scaled ingredients
   - **all steps on one page**
 - **Screen stays awake** while cook mode is open, using the Screen Wake Lock API, and releases when cook mode closes.
-  - The API only works in a secure context: HTTPS or `localhost`. Caddy serves HTTPS so this works on phones over the LAN.
+  - The API only works in a secure context: HTTPS or `localhost`. Caddy serves HTTPS so this works on phones over the LAN, with certificates from its own local CA, which each device trusts once (ADR 0013).
   - If wake lock isn't available, the UI says so plainly; nothing else is affected.
 - **Out of scope:** timers, voice control, saved progress, a one-step-at-a-time view (§7).
 
@@ -421,6 +421,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 
 **Security**
 - Content Security Policy and the other standard security headers, sent by Caddy. The app's pages allow no inline scripts or styles and no eval (ADR 0012).
+- HTTPS only: HTTP redirects to it, and HSTS tells browsers to come back over HTTPS (ADR 0013).
 - Session cookies are `HttpOnly`, `Secure` and `SameSite`; Better Auth checks the request origin.
 - Every API request that changes data must be sent as JSON, even without a body, so no other origin can make one with a user's cookie.
 - All input is validated with Zod at the API boundary.
