@@ -2,6 +2,11 @@
 # the repo root:
 #   docker build -f apps/web/Dockerfile -t myli-web .
 #
+# It needs PUBLIC_URL, the address people open myli at, like https://myli.home.arpa: the same as
+# the API's. It serves HTTPS there, with certificates from Caddy's own local CA (ADR 0013), on port
+# 443 (TCP, and UDP for HTTP/3) unless PUBLIC_URL names another, and redirects port 80 to it.
+# Mount a volume at /data: the CA lives there, and devices trust its root.
+#
 # The API's address is API_UPSTREAM (host:port), `api:3000` unless set.
 
 # Node 26.13.1 (as in .node-version) on Debian 13, pinned to one build. It only builds the static
@@ -38,8 +43,13 @@ RUN addgroup -S -g 1000 caddy \
  && adduser -S -D -H -u 1000 -G caddy -h /data caddy \
  && chown -R caddy:caddy /data /config
 COPY apps/web/Caddyfile /etc/caddy/Caddyfile
-# Fails the build if the Caddyfile is invalid.
-RUN caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+# Fails the build if the Caddyfile is invalid. Validating also creates the local CA, so it uses
+# storage that's thrown away: the image must never hold a CA, or every installation would share
+# its key. Each one creates its own in /data on first start.
+RUN PUBLIC_URL=https://myli.example XDG_DATA_HOME=/tmp/validate XDG_CONFIG_HOME=/tmp/validate \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile \
+ && rm -rf /tmp/validate
+COPY --chmod=755 apps/web/docker-entrypoint.sh /usr/local/bin/
 COPY --from=build /app/apps/web/dist /srv
 USER caddy
 
@@ -48,4 +58,8 @@ USER caddy
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --start-interval=1s --retries=3 \
   CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2020/healthz"]
 
-# The base image's CMD, in exec form: Caddy finishes open requests when Docker stops it.
+# Checks PUBLIC_URL, then runs the CMD in its place, so Caddy gets Docker's stop signal and
+# finishes open requests.
+ENTRYPOINT ["docker-entrypoint.sh"]
+# The base image's CMD, which setting ENTRYPOINT clears.
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

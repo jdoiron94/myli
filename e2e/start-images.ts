@@ -1,7 +1,7 @@
 /**
  * Starts the images for one browser's run against them (playwright.containers.config.ts): the API,
- * on an empty database inside its container, and the web server in front of it on WEB_PORT.
- * build-images.ts builds them first.
+ * on an empty database inside its container, and the web server in front of it at PUBLIC_URL, with
+ * its redirect from HTTP on HTTP_PORT. build-images.ts builds them first.
  *
  * The API gets only the variables below, as with start-api.ts: no first admin, no SMTP, and no
  * Meilisearch, so it logs one warning that search is unavailable. When Playwright stops this
@@ -11,8 +11,10 @@ import { randomBytes } from 'node:crypto';
 import { GenericContainer, Network, Wait } from 'testcontainers';
 import { API_IMAGE, WEB_IMAGE } from './images.ts';
 
-const { WEB_PORT, PUBLIC_URL } = process.env;
-if (!WEB_PORT || !PUBLIC_URL) throw new Error('WEB_PORT and PUBLIC_URL must be set');
+const { PUBLIC_URL, HTTP_PORT } = process.env;
+if (!PUBLIC_URL || !HTTP_PORT) throw new Error('PUBLIC_URL and HTTP_PORT must be set');
+// Caddy serves HTTPS on PUBLIC_URL's port, inside the container as outside.
+const httpsPort = Number(new URL(PUBLIC_URL).port);
 
 const network = await new Network().start();
 const api = await new GenericContainer(API_IMAGE)
@@ -34,7 +36,11 @@ const api = await new GenericContainer(API_IMAGE)
   .start();
 const web = await new GenericContainer(WEB_IMAGE)
   .withNetwork(network)
-  .withExposedPorts({ container: 80, host: Number(WEB_PORT) })
+  .withEnvironment({ PUBLIC_URL })
+  .withExposedPorts(
+    { container: httpsPort, host: httpsPort },
+    { container: 80, host: Number(HTTP_PORT) },
+  )
   .withWaitStrategy(Wait.forHealthCheck())
   .start();
 
