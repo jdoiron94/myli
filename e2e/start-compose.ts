@@ -8,8 +8,9 @@
  * otherwise read: no first admin, so the run starts at first-run setup, and no SMTP, so invitation
  * links are shown. The API's log goes to Playwright's output.
  *
- * When Playwright stops this launcher, it removes the stack, volumes included. A stack left behind
- * by a launcher that was killed is removed the next time it starts.
+ * When Playwright stops this launcher, it removes the stack, volumes included. If it's killed, or
+ * stopped while still starting the stack, the stack is left running; build-images.ts removes it
+ * before the next run, and this launcher before starting its own.
  */
 import { type SpawnSyncOptions, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
