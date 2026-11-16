@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { emailSchema, passwordSchema, userNameSchema } from '@myli/shared';
 import { z } from 'zod';
+import { type ProxyRange, parseProxyRange } from './client-ip.ts';
 
 /** For variables without a default: says "is required" instead of Zod's type message. */
 const required = {
@@ -61,6 +62,26 @@ export const envSchema = z
     MEILI_MASTER_KEY: z
       .string(required)
       .min(16, 'must be at least 16 characters; generate one with: openssl rand -base64 32'),
+    // Optional: the reverse proxies whose X-Forwarded-For says who the client is, as addresses or
+    // CIDR ranges, comma-separated. Anyone else's X-Forwarded-For is ignored.
+    TRUSTED_PROXIES: z
+      .string()
+      .default('')
+      .transform((value, ctx) => {
+        const ranges: ProxyRange[] = [];
+        const entries = value.split(',').map((entry) => entry.trim());
+        for (const [index, entry] of entries.entries()) {
+          if (entry === '') continue;
+          const range = parseProxyRange(entry);
+          if (range) ranges.push(range);
+          else
+            ctx.addIssue({
+              code: 'custom',
+              message: `entry ${String(index + 1)} is not an IP address or CIDR range, like 172.18.0.2 or 172.18.0.0/16`,
+            });
+        }
+        return ranges;
+      }),
     // How long an invitation link works.
     INVITATION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
     // Optional: email. Off unless SMTP_HOST is set. The default port depends on SMTP_SECURITY.

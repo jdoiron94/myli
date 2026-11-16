@@ -1,4 +1,3 @@
-import type { HttpBindings } from '@hono/node-server';
 import type { AuditAction, AuditTargetType } from '@myli/shared';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import type { Db, Tx } from '../db/database.ts';
@@ -26,32 +25,19 @@ export interface AuditEventInput {
  * guard has narrowed fits too.
  */
 export interface AuditRequest {
-  env: unknown;
   req: { header(name: string): string | undefined };
-  var: { user: { id: string } | null };
-}
-
-/**
- * The client's address: the TCP peer, for now. Behind Caddy that's Caddy itself, until increment
- * 18 makes this trust `X-Forwarded-For` from it (and configures Better Auth the same way).
- */
-export function clientIp(c: Pick<AuditRequest, 'env'>): string | null {
-  // Set by @hono/node-server. Requests made with `app.request()` in tests have no socket, unless
-  // the test passes one.
-  const bindings = c.env as Partial<HttpBindings> | undefined;
-  const address = bindings?.incoming?.socket.remoteAddress;
-  if (address === undefined) return null;
-  // A dual-stack socket reports IPv4 clients as IPv4-mapped IPv6 addresses.
-  return address.startsWith('::ffff:') && address.includes('.') ? address.slice(7) : address;
+  var: { user: { id: string } | null; clientIp: string | null };
 }
 
 export function userAgent(c: Pick<AuditRequest, 'req'>): string | null {
   return c.req.header('user-agent')?.slice(0, USER_AGENT_MAX_LENGTH) ?? null;
 }
 
-/** The signed-in user (on `/api/v1` routes), the client's address and its user agent. */
+/**
+ * The signed-in user (on `/api/v1` routes), the client's address (client-ip.ts) and its user agent.
+ */
 export function auditOrigin(c: AuditRequest): AuditOrigin {
-  return { actorId: c.var.user?.id ?? null, ip: clientIp(c), userAgent: userAgent(c) };
+  return { actorId: c.var.user?.id ?? null, ip: c.var.clientIp, userAgent: userAgent(c) };
 }
 
 /**

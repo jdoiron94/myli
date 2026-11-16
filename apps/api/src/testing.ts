@@ -13,7 +13,12 @@ import type { SearchService } from './search/service.ts';
 
 type TestEnv = Pick<
   Env,
-  'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET' | 'INVITATION_TTL_DAYS' | 'SMTP_HOST'
+  | 'NODE_ENV'
+  | 'PUBLIC_URL'
+  | 'BETTER_AUTH_SECRET'
+  | 'INVITATION_TTL_DAYS'
+  | 'SMTP_HOST'
+  | 'TRUSTED_PROXIES'
 >;
 
 /**
@@ -25,6 +30,7 @@ export const TEST_ENV = {
   PUBLIC_URL: 'https://myli.test',
   BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret',
   INVITATION_TTL_DAYS: 7,
+  TRUSTED_PROXIES: [],
 } as const satisfies TestEnv;
 
 export interface TestAppOptions {

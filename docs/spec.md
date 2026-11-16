@@ -151,7 +151,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - A sign-out is recorded only when it ended a session.
   - Every failed sign-in is recorded and kept (open question 5). Rate limiting bounds how fast they accumulate. Pruning old ones can come with the scheduled purge job in Phase 2.
 - An event and the change it records are saved together, in one transaction. Setup, sign-ins, sign-outs and accepted invitations are the exception, because Better Auth makes those changes itself: their events are written right after, and if that write fails, the error is logged and the request still succeeds.
-- **IP address:** the address the connection came from. Behind Caddy, it's read from `X-Forwarded-For`, trusted only from Caddy.
+- **IP address:** the address the connection came from. Behind a reverse proxy such as Caddy, it's read from `X-Forwarded-For`, trusted only from the proxies listed in `TRUSTED_PROXIES`. Sessions and sign-in rate limiting use the same address.
 - The audit log is separate from revision history (§3.3), which records recipe content.
 
 ### 3.2 Recipes

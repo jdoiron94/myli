@@ -6,7 +6,7 @@ import type { Auth } from '../auth/auth.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
 import { user } from '../db/schema.ts';
-import { clientIp, recordAuditEvent, recordAuditEventAfterwards, userAgent } from './audit.ts';
+import { recordAuditEvent, recordAuditEventAfterwards, userAgent } from './audit.ts';
 
 /** Better Auth's error codes for a sign-in it checked and refused, and how the log names them. */
 const FAILURE_REASONS = {
@@ -56,7 +56,7 @@ export function auditSignIns(db: Db): MiddlewareHandler<AppEnv> {
     const outcome = await outcomeOf(c.res);
     if (!outcome) return;
 
-    const origin = { ip: clientIp(c), userAgent: userAgent(c) };
+    const origin = { ip: c.var.clientIp, userAgent: userAgent(c) };
     if (outcome.succeeded) {
       recordAuditEventAfterwards(c.var.logger, 'sign_in.succeeded', () => {
         recordAuditEvent(
@@ -114,7 +114,7 @@ export function auditSignOuts(db: Db, auth: Auth): MiddlewareHandler<AppEnv> {
     recordAuditEventAfterwards(c.var.logger, 'sign_out.succeeded', () => {
       recordAuditEvent(
         db,
-        { actorId, ip: clientIp(c), userAgent: userAgent(c) },
+        { actorId, ip: c.var.clientIp, userAgent: userAgent(c) },
         { action: 'sign_out.succeeded', target: { type: 'user', id: actorId } },
       );
     });

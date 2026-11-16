@@ -116,6 +116,11 @@ export function createAuth({ db, env, logger }: AuthDeps) {
       // TEST variable is set. Keep it on everywhere, so tests exercise it and a stray variable in
       // production can't disable it.
       disableOriginCheck: false,
+      // The client's address, for sessions and rate limiting. The app sets this header to the
+      // address it trusts before every request reaches Better Auth (withClientIp in client-ip.ts).
+      // Not Better Auth's own trustedProxies: it reads only the header, so it can't tell whether a
+      // trusted proxy sent it or the client did.
+      ipAddress: { ipAddressHeaders: ['x-forwarded-for'] },
     },
     // Errors Better Auth didn't produce itself (database failures, bugs) are rethrown, so the
     // app's onError logs them with the request ID and answers with a generic problem. Better

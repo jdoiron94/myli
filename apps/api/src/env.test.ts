@@ -31,6 +31,7 @@ describe('loadEnv', () => {
       LOG_LEVEL: 'info',
       DATABASE_PATH: './data/myli.db',
       MEILI_URL: 'http://localhost:7700',
+      TRUSTED_PROXIES: [],
       INVITATION_TTL_DAYS: 7,
       SMTP_SECURITY: 'starttls',
       ...REQUIRED,
@@ -49,6 +50,7 @@ describe('loadEnv', () => {
         BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
         MEILI_URL: 'http://meilisearch:7700',
         MEILI_MASTER_KEY: REQUIRED.MEILI_MASTER_KEY,
+        TRUSTED_PROXIES: '172.18.0.2, 10.0.0.0/8,,fd00::/8 ',
         INVITATION_TTL_DAYS: '14',
       }),
     ).toEqual({
@@ -61,6 +63,11 @@ describe('loadEnv', () => {
       BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
       MEILI_URL: 'http://meilisearch:7700',
       MEILI_MASTER_KEY: REQUIRED.MEILI_MASTER_KEY,
+      TRUSTED_PROXIES: [
+        { address: '172.18.0.2', prefix: 32, family: 'ipv4' },
+        { address: '10.0.0.0', prefix: 8, family: 'ipv4' },
+        { address: 'fd00::', prefix: 8, family: 'ipv6' },
+      ],
       INVITATION_TTL_DAYS: 14,
       SMTP_SECURITY: 'starttls',
     });
@@ -75,6 +82,21 @@ describe('loadEnv', () => {
 
   it('drops variables it does not know about', () => {
     expect(loadEnv({ ...REQUIRED, PATH: '/usr/bin', HOME: '/root' })).not.toHaveProperty('PATH');
+  });
+
+  it('names each TRUSTED_PROXIES entry that is not an address or range, without echoing it', () => {
+    const error = loadEnvError({
+      ...REQUIRED,
+      TRUSTED_PROXIES: '172.18.0.2,caddy,10.0.0.0/33,::1/129,1.2.3.4/8/8,172.18.0.0/ 16',
+    });
+
+    expect(error.message.split('\n').slice(1)).toEqual(
+      [2, 3, 4, 5, 6].map(
+        (entry) =>
+          `  TRUSTED_PROXIES: entry ${String(entry)} is not an IP address or CIDR range, like 172.18.0.2 or 172.18.0.0/16`,
+      ),
+    );
+    expect(error.message).not.toContain('caddy');
   });
 
   it.each(['0', '91', '1.5', 'week'])('rejects INVITATION_TTL_DAYS=%s', (days) => {

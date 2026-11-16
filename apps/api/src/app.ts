@@ -4,8 +4,10 @@ import { requestId } from 'hono/request-id';
 import { auditSignIns, auditSignOuts } from './audit/auth-events.ts';
 import type { Auth } from './auth/auth.ts';
 import { sessionMiddleware } from './auth/session.ts';
+import { clientAddress, trustedProxies, withClientIp } from './client-ip.ts';
 import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
+import type { Env } from './env.ts';
 import type { Logger } from './logger.ts';
 import { onError, onNotFound, problemResponse } from './problems.ts';
 import { requestLogging } from './request-logging.ts';
@@ -16,7 +18,7 @@ export interface AppDeps {
   logger: Logger;
   auth: Auth;
   db: Db;
-  env: AppSettings;
+  env: AppSettings & Pick<Env, 'TRUSTED_PROXIES'>;
   search: Pick<SearchService, 'isReady'>;
 }
 
@@ -51,12 +53,15 @@ export function createApp({ logger, auth, db, env, search }: AppDeps) {
 
   app.use(requestId());
   app.use(requestLogging(logger));
+  app.use(clientAddress(trustedProxies(env.TRUSTED_PROXIES)));
 
   // Better Auth answers its own routes, in its own format rather than problem details (ADR 0005).
   // Sign-ins and sign-outs pass through the audit log on the way.
   app.post(`${AUTH_BASE_PATH}/sign-in/email`, auditSignIns(db));
   app.post(`${AUTH_BASE_PATH}/sign-out`, auditSignOuts(db, auth));
-  app.on(['GET', 'POST'], `${AUTH_BASE_PATH}/*`, (c) => auth.handler(c.req.raw));
+  app.on(['GET', 'POST'], `${AUTH_BASE_PATH}/*`, (c) =>
+    auth.handler(withClientIp(c.req.raw, c.var.clientIp)),
+  );
   app.use(`${API_BASE_PATH}/*`, sessionMiddleware(auth));
   app.route(API_BASE_PATH, createV1Router({ db, auth, env }));
 
