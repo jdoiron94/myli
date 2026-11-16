@@ -177,15 +177,22 @@ test('sets the security headers on every response, the API included', async ({
 test.describe('the image', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'No browser involved: runs once.');
 
+  /**
+   * `docker run` of the web image, without a network: none of these checks needs one. A container
+   * on Docker's default bridge changes the host's network as it starts and stops, which makes
+   * Chromium abort the requests other tests have in flight (net::ERR_NETWORK_CHANGED).
+   */
+  const RUN = ['run', '--rm', '--network', 'none'];
+
   test('runs as an unprivileged user', () => {
     expect(docker(['image', 'inspect', '--format', '{{.Config.User}}', WEB_IMAGE])).toBe('caddy');
-    expect(docker(['run', '--rm', '--entrypoint', 'id', WEB_IMAGE, '-u'])).toBe('1000');
+    expect(docker([...RUN, '--entrypoint', 'id', WEB_IMAGE, '-u'])).toBe('1000');
   });
 
   test('holds no certificate authority: each installation creates its own on first start', () => {
     // As root, so no directory is out of reach.
     const find = (...args: string[]) =>
-      docker(['run', '--rm', '--user', 'root', '--entrypoint', 'find', WEB_IMAGE, ...args]);
+      docker([...RUN, '--user', 'root', '--entrypoint', 'find', WEB_IMAGE, ...args]);
 
     // The base image's empty caddy directories are there, and nothing else.
     expect(find('/data', '/config', '-type', 'f')).toBe('');
@@ -196,7 +203,7 @@ test.describe('the image', () => {
     /** Runs the image's check of PUBLIC_URL, with `true` in place of Caddy, so it never waits. */
     const check = (publicUrl: string | undefined) => {
       const env = publicUrl === undefined ? [] : ['-e', `PUBLIC_URL=${publicUrl}`];
-      return spawnSync('docker', ['run', '--rm', ...env, WEB_IMAGE, 'true'], {
+      return spawnSync('docker', [...RUN, ...env, WEB_IMAGE, 'true'], {
         encoding: 'utf8',
         timeout: 20_000,
       });
@@ -246,7 +253,7 @@ test.describe('the image', () => {
         'caddyfile',
       ];
       const config = JSON.parse(
-        docker(['run', '--rm', '-e', `PUBLIC_URL=${publicUrl}`, WEB_IMAGE, ...adapt]),
+        docker([...RUN, '-e', `PUBLIC_URL=${publicUrl}`, WEB_IMAGE, ...adapt]),
       ) as CaddyConfig;
       const site = Object.values(config.apps.http.servers).find(({ listen }) =>
         listen.includes(':443'),
