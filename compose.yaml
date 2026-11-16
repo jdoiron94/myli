@@ -134,7 +134,8 @@ volumes:
   caddy-data:
   meilisearch-data:
 
-# Each from the variable of the same name. An empty one isn't mounted.
+# Each from the variable of the same name. Compose 5 doesn't mount an empty one, and older versions
+# mount an empty file. Either way, the API's NAME_FILE is empty then, so it doesn't read it.
 secrets:
   better_auth_secret:
     environment: BETTER_AUTH_SECRET

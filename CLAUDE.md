@@ -198,7 +198,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Compose** (`compose.yaml`, at the repo root) runs `caddy` (the web image), `api` and `meilisearch`, and `mailpit` in the `dev` profile. It reads `.env`, as `pnpm dev` does; its own variables (`MYLI_*`) are in the last section of `.env.example`, and a test fails if `.env.example` misses one or shows another default.
   - Only `caddy` publishes ports (Mailpit's are on 127.0.0.1). Images are `${MYLI_IMAGE_PREFIX}myli-api:${MYLI_VERSION}` and `…myli-web…`, with `build:` for local use.
   - **Networks:** `proxy` holds only Caddy and the API, on a fixed subnet (`MYLI_PROXY_SUBNET`) that is also the API's `TRUSTED_PROXIES`. Never add another service to it: the API believes what anything there says about the client. `backend` holds the API, Meilisearch and Mailpit, so Caddy can't reach Meilisearch.
-  - **Secrets** are Compose secrets taken from the variable of the same name, which the API reads through `NAME_FILE`. Its `NAME_FILE` is `${NAME:+/run/secrets/name}`, so an empty secret counts as unset: Compose doesn't mount an empty one. A secret's variable must be listed, even empty, or Compose refuses to start. Meilisearch reads its key file through an `sh -c` wrapper, since it only takes the key from its environment.
+  - **Secrets** are Compose secrets taken from the variable of the same name, which the API reads through `NAME_FILE`. Its `NAME_FILE` is `${NAME:+/run/secrets/name}`, so an empty secret counts as unset, whether Compose leaves its file out (Compose 5) or mounts it empty (older versions, like the 2.38 on GitHub's runners). A secret's variable must be listed, even empty, or Compose refuses to start. Meilisearch reads its key file through an `sh -c` wrapper, since it only takes the key from its environment.
   - Every API variable must be passed through (`NAME: ${NAME:-}`), come from a secret, or be set by the image or `compose.yaml`; `apps/api/src/compose.container.test.ts` fails otherwise, and checks the networks, ports, images and hardening below.
   - **Hardening:** every service drops all capabilities and sets `no-new-privileges`. Caddy and Mailpit are read-only. The API can't be: Compose copies secrets into the container, which it refuses for a read-only one.
   - Meilisearch is the image the container tests use, `MEILISEARCH_IMAGE` (tag and digest), with analytics off.
@@ -215,6 +215,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - format, lint, typecheck, `pnpm test` and `pnpm audit`
   - `pnpm test:e2e`
   - `pnpm test:containers`
+- The runner's tools aren't yours: `ubuntu-24.04` has Docker Compose 2.38, for one. Don't make a test depend on behavior only a newer version has.
 - It runs the same commands as here, nothing CI-only. Every root script that's a check must run in it, and `ci-workflow.test.ts` (in `apps/api/src`) fails otherwise; the scripts that aren't checks are listed there, with why.
 - A failed end-to-end run keeps `e2e/test-results/` as an artifact for 7 days.
 - The jobs share their setup, `.github/actions/setup`: pnpm from `packageManager`, Node from `.node-version`, `pnpm install --frozen-lockfile`, and Playwright's browsers when asked.
