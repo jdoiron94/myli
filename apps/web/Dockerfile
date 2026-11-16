@@ -36,6 +36,16 @@ COPY apps/web apps/web
 RUN pnpm --filter @myli/web build
 
 FROM ${CADDY_IMAGE}
+# Shown on the image's page in GHCR, which `source` links to the repository. They replace each of
+# the Caddy image's own, which describe Caddy. The image's tag is its version.
+LABEL org.opencontainers.image.title="myli web" \
+      org.opencontainers.image.description="The web app of myli, a self-hosted recipe app, served over HTTPS by Caddy" \
+      org.opencontainers.image.source="https://github.com/jdoiron94/myli" \
+      org.opencontainers.image.url="https://github.com/jdoiron94/myli" \
+      org.opencontainers.image.documentation="https://github.com/jdoiron94/myli" \
+      org.opencontainers.image.licenses="PolyForm-Noncommercial-1.0.0" \
+      org.opencontainers.image.vendor="" \
+      org.opencontainers.image.version=""
 # Caddy runs as an unprivileged user (uid 1000), which owns its data (certificates) and config
 # directories. It can still listen on ports 80 and 443: since Docker 20.10, any user in a
 # container can (net.ipv4.ip_unprivileged_port_start=0), except with host networking.

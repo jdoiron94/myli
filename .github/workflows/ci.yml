@@ -9,7 +9,7 @@ on:
 
 # The token can read the repository and nothing else.
 permissions:
-  contents: read
+  contents: read # checking out
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

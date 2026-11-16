@@ -1,6 +1,7 @@
 // Caddy, in the web image (apps/web/Caddyfile). Only the run against the images has it: the dev
 // servers' run skips this file (playwright.config.ts).
 import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { connect, type PeerCertificate } from 'node:tls';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { redirectPortFor, WEB_IMAGE } from '../images.ts';
@@ -183,6 +184,31 @@ test.describe('the image', () => {
    * Chromium abort the requests other tests have in flight (net::ERR_NETWORK_CHANGED).
    */
   const RUN = ['run', '--rm', '--network', 'none'];
+
+  test('describes itself for its page in GHCR, in place of the Caddy image it builds on', () => {
+    const labels = JSON.parse(
+      docker(['image', 'inspect', '--format', '{{json .Config.Labels}}', WEB_IMAGE]),
+    ) as Record<string, string>;
+    const { license } = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { license: string };
+
+    // Compose adds its own labels when it builds the image.
+    const own = Object.fromEntries(
+      Object.entries(labels).filter(([name]) => !name.startsWith('com.docker.compose.')),
+    );
+    expect(own).toEqual({
+      'org.opencontainers.image.title': 'myli web',
+      'org.opencontainers.image.description':
+        'The web app of myli, a self-hosted recipe app, served over HTTPS by Caddy',
+      'org.opencontainers.image.source': 'https://github.com/jdoiron94/myli',
+      'org.opencontainers.image.url': 'https://github.com/jdoiron94/myli',
+      'org.opencontainers.image.documentation': 'https://github.com/jdoiron94/myli',
+      'org.opencontainers.image.licenses': license,
+      'org.opencontainers.image.vendor': '',
+      'org.opencontainers.image.version': '',
+    });
+  });
 
   test('runs as an unprivileged user', () => {
     expect(docker(['image', 'inspect', '--format', '{{.Config.User}}', WEB_IMAGE])).toBe('caddy');

@@ -6,7 +6,7 @@
 # SMTP_PASSWORD must be listed even when unused, empty if so: every secret goes to the containers as
 # a file, and Compose refuses to start when a secret's variable isn't there at all.
 #
-# Images come from MYLI_IMAGE_PREFIX (a registry, like registry.example.com/myli/) at MYLI_VERSION.
+# Images come from MYLI_IMAGE_PREFIX (a registry, like ghcr.io/jdoiron94/ for releases) at MYLI_VERSION.
 # Without them, Compose builds them here from the repo: `docker compose up --build`.
 
 name: myli

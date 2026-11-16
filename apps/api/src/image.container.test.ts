@@ -1,7 +1,7 @@
 // Builds the API's Docker image and runs it: `pnpm test:containers`, with Docker running.
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -84,6 +84,24 @@ describe('the API image', () => {
     await meilisearch.stop();
     await network.stop();
     docker(['image', 'rm', IMAGE]);
+  });
+
+  it('describes itself for its page in GHCR, which it links to the repository', () => {
+    const labels = JSON.parse(
+      docker(['image', 'inspect', '--format', '{{json .Config.Labels}}', IMAGE]),
+    ) as Record<string, string>;
+    const { license } = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8')) as {
+      license: string;
+    };
+
+    expect(labels).toEqual({
+      'org.opencontainers.image.title': 'myli API',
+      'org.opencontainers.image.description': 'The API of myli, a self-hosted recipe app',
+      'org.opencontainers.image.source': 'https://github.com/jdoiron94/myli',
+      'org.opencontainers.image.url': 'https://github.com/jdoiron94/myli',
+      'org.opencontainers.image.documentation': 'https://github.com/jdoiron94/myli',
+      'org.opencontainers.image.licenses': license,
+    });
   });
 
   it('runs as the unprivileged node user', async () => {
