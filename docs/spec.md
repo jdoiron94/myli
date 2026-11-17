@@ -337,7 +337,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - The full search state (query, filters, sort, page) lives in the URL, so searches can be bookmarked and shared.
 - Results are paginated, 24 to a page, and show a count for each filter value. A filter that takes any of its values (cuisine, meal type, difficulty) is counted without its own choices, so each of its other values shows what adding it would give.
 - Results include only recipes the caller may see (§2). Drafts are never searchable.
-- Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should.
+- Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should. Nor is it counted, so the count matches what's shown.
 
 ### 3.5 Shopping lists (editors and admins)
 
