@@ -153,6 +153,21 @@ export const createRecipeRequestSchema = z
 
 export type CreateRecipeRequest = z.output<typeof createRecipeRequestSchema>;
 
+/**
+ * Saving an existing recipe replaces all of it, lines, steps and tags included. Its visibility is
+ * changed on its own, by its owner only.
+ */
+export const updateRecipeRequestSchema = z
+  .object(recipeContentShape)
+  .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
+  .meta({ id: 'UpdateRecipeRequest' });
+
+export type UpdateRecipeRequest = z.output<typeof updateRecipeRequestSchema>;
+
+export const changeVisibilityRequestSchema = z
+  .object({ visibility: visibilitySchema })
+  .meta({ id: 'ChangeVisibilityRequest' });
+
 /** One ingredient line of a saved recipe. */
 export const ingredientLineSchema = z
   .object({

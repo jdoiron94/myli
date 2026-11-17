@@ -4,6 +4,8 @@ import {
   type PolicyRecipe,
   type Recipe,
   TAG_TYPES,
+  type UpdateRecipeRequest,
+  type Visibility,
 } from '@myli/shared';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db, Tx } from '../db/database.ts';
@@ -14,8 +16,8 @@ import { recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../d
  * the last save wins. A deleted recipe is hidden everywhere, exactly as if it didn't exist.
  */
 
-/** Everything about a recipe that editing it sets: the request bodies without the visibility. */
-export type RecipeContent = Omit<CreateRecipeRequest, 'visibility'>;
+/** Everything about a recipe that editing it sets. */
+export type RecipeContent = UpdateRecipeRequest;
 
 /** Optional text is stored as `null` when it's empty. */
 const orNull = (text: string | null) => (text === null || text === '' ? null : text);
@@ -87,13 +89,19 @@ function missingTagIndexes(tx: Tx, tagIds: readonly number[]): number[] {
   return tagIds.flatMap((id, index) => (found.has(id) ? [] : [index]));
 }
 
-export type SaveResult = { ok: true; id: string } | { ok: false; missingTags: number[] };
+export type SaveResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: 'missing-tags'; missingTags: number[] }
+  | { ok: false; reason: 'not-found' };
+
+/** A live (not deleted) recipe's row. */
+const live = (id: string) => and(eq(recipe.id, id), isNull(recipe.deletedAt));
 
 /** Creates a recipe owned by `ownerId`, unless one of its tags doesn't exist. */
 export function createRecipe(db: Db, ownerId: string, request: CreateRecipeRequest): SaveResult {
   return db.transaction((tx): SaveResult => {
     const missingTags = missingTagIndexes(tx, request.tagIds);
-    if (missingTags.length > 0) return { ok: false, missingTags };
+    if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
 
     const { id } = tx
       .insert(recipe)
@@ -105,12 +113,48 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
   });
 }
 
+/**
+ * Saves a recipe's content over what it had, lines, steps and tags included. Its owner and
+ * visibility stay. The last save wins until Phase 2's concurrency check.
+ */
+export function updateRecipe(db: Db, id: string, content: RecipeContent): SaveResult {
+  return db.transaction((tx): SaveResult => {
+    const missingTags = missingTagIndexes(tx, content.tagIds);
+    if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
+
+    const [updated] = tx
+      .update(recipe)
+      .set(contentColumns(content))
+      .where(live(id))
+      .returning({ id: recipe.id })
+      .all();
+    if (!updated) return { ok: false, reason: 'not-found' };
+
+    tx.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run();
+    tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
+    tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
+    writeParts(tx, id, content);
+    return { ok: true, id };
+  });
+}
+
+/** Makes a recipe private or shared. False if it doesn't exist or was deleted. */
+export function setRecipeVisibility(db: Db, id: string, visibility: Visibility): boolean {
+  const [updated] = db
+    .update(recipe)
+    .set({ visibility })
+    .where(live(id))
+    .returning({ id: recipe.id })
+    .all();
+  return updated !== undefined;
+}
+
 /** What authorizing an action on a recipe needs. `undefined` if it doesn't exist or was deleted. */
 export function findRecipeAccess(db: Db | Tx, id: string): PolicyRecipe | undefined {
   return db
     .select({ ownerId: recipe.ownerId, visibility: recipe.visibility })
     .from(recipe)
-    .where(and(eq(recipe.id, id), isNull(recipe.deletedAt)))
+    .where(live(id))
     .get();
 }
 
@@ -120,7 +164,7 @@ export function loadRecipe(db: Db | Tx, id: string): Recipe | undefined {
     .select({ row: recipe, ownerName: user.name })
     .from(recipe)
     .innerJoin(user, eq(user.id, recipe.ownerId))
-    .where(and(eq(recipe.id, id), isNull(recipe.deletedAt)))
+    .where(live(id))
     .get();
   if (!found) return undefined;
   const { row, ownerName } = found;

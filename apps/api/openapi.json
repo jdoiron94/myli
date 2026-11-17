@@ -1088,6 +1088,155 @@
           "scalable"
         ]
       },
+      "UpdateRecipeRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "Markdown."
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecipeSource"
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 50
+          },
+          "yield": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "qty": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1000000
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 50
+              }
+            },
+            "required": [
+              "qty",
+              "unit"
+            ],
+            "description": "\"24 cookies\", separate from the servings."
+          },
+          "servings": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "The baseline scaling starts from."
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Only when it differs from prep plus cook: `null` means their sum."
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "nutrition": {
+            "$ref": "#/components/schemas/Nutrition"
+          },
+          "ingredientGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientGroupInput"
+            },
+            "maxItems": 20
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "body"
+              ]
+            },
+            "maxItems": 100,
+            "description": "In order. Each body is markdown."
+          },
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "source",
+          "equipment",
+          "yield",
+          "servings",
+          "prepMinutes",
+          "cookMinutes",
+          "totalMinutes",
+          "difficulty",
+          "nutrition",
+          "ingredientGroups",
+          "steps",
+          "tagIds"
+        ]
+      },
+      "ChangeVisibilityRequest": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          }
+        },
+        "required": [
+          "visibility"
+        ]
+      },
       "InvitationList": {
         "type": "object",
         "properties": {
@@ -1795,6 +1944,170 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Save a recipe",
+        "description": "Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included; its owner and visibility stay. Until drafts arrive, the last save wins.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecipeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recipe as saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not edit it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/visibility": {
+      "put": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Change a recipe's visibility",
+        "description": "The recipe's owner only, admins included: a private recipe is seen by its owner alone, a shared one by everyone signed in. Setting the visibility it already has changes nothing.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeVisibilityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recipe, with its visibility now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but isn't its owner.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

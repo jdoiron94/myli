@@ -16,7 +16,7 @@ import {
 } from '@myli/shared';
 import { createUserWithPassword } from './auth/users.ts';
 import { createInvitation } from './invitations/invitations.ts';
-import { insertRecipe, sampleRecipeRequest } from './recipes/testing.ts';
+import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './recipes/testing.ts';
 import { signedInAs, type TestApp } from './testing.ts';
 
 export const CALLERS = ['anonymous', ...ROLES] as const;
@@ -218,6 +218,20 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/recipes/{id}',
     access: { recipe: 'recipe.read' },
     send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}`, cookie),
+  },
+  {
+    method: 'put',
+    path: '/recipes/{id}',
+    access: { recipe: 'recipe.edit' },
+    send: (t, cookie, recipeId) =>
+      request(t, 'PUT', `/recipes/${recipeId}`, cookie, sampleRecipeContent()),
+  },
+  {
+    method: 'put',
+    path: '/recipes/{id}/visibility',
+    access: { recipe: 'recipe.setVisibility' },
+    send: (t, cookie, recipeId) =>
+      request(t, 'PUT', `/recipes/${recipeId}/visibility`, cookie, { visibility: 'shared' }),
   },
 ];
 

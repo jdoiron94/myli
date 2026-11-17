@@ -76,6 +76,7 @@ export {
 } from './quantities.ts';
 export {
   type CreateRecipeRequest,
+  changeVisibilityRequestSchema,
   createRecipeRequestSchema,
   DIFFICULTIES,
   type Difficulty,
@@ -89,6 +90,8 @@ export {
   recipeResultSchema,
   recipeSchema,
   recipeTotalMinutes,
+  type UpdateRecipeRequest,
+  updateRecipeRequestSchema,
 } from './recipe.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {

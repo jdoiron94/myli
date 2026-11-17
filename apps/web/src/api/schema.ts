@@ -581,7 +581,153 @@ export interface paths {
                 };
             };
         };
-        put?: never;
+        /**
+         * Save a recipe
+         * @description Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included; its owner and visibility stay. Until drafts arrive, the last save wins.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRecipeRequest"];
+                };
+            };
+            responses: {
+                /** @description The recipe as saved. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeResult"];
+                    };
+                };
+                /** @description The caller may see the recipe but not edit it. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a recipe's visibility
+         * @description The recipe's owner only, admins included: a private recipe is seen by its owner alone, a shared one by everyone signed in. Setting the visibility it already has changes nothing.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeVisibilityRequest"];
+                };
+            };
+            responses: {
+                /** @description The recipe, with its visibility now. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeResult"];
+                    };
+                };
+                /** @description The caller may see the recipe but isn't its owner. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -1244,6 +1390,35 @@ export interface components {
             note: string | null;
             /** @description False for lines like "salt to taste", which never scale. */
             scalable: boolean;
+        };
+        UpdateRecipeRequest: {
+            title: string;
+            /** @description Markdown. */
+            description: string;
+            source: components["schemas"]["RecipeSource"];
+            equipment: string[];
+            /** @description "24 cookies", separate from the servings. */
+            yield: {
+                qty: number;
+                unit: string | null;
+            } | null;
+            /** @description The baseline scaling starts from. */
+            servings: number;
+            prepMinutes: number | null;
+            cookMinutes: number | null;
+            /** @description Only when it differs from prep plus cook: `null` means their sum. */
+            totalMinutes: number | null;
+            difficulty: components["schemas"]["Difficulty"];
+            nutrition: components["schemas"]["Nutrition"];
+            ingredientGroups: components["schemas"]["IngredientGroupInput"][];
+            /** @description In order. Each body is markdown. */
+            steps: {
+                body: string;
+            }[];
+            tagIds: number[];
+        };
+        ChangeVisibilityRequest: {
+            visibility: components["schemas"]["Visibility"];
         };
         InvitationList: {
             /** @description Open invitations, newest first. */
