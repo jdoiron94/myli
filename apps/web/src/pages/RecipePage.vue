@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LockIcon } from '@lucide/vue';
 import { recipeTotalMinutes, scaleFactor } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { computed, nextTick, ref, useTemplateRef, watch, watchEffect } from 'vue';
@@ -9,7 +10,6 @@ import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import MarkdownContent from '@/components/MarkdownContent.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
 import {
@@ -124,63 +124,48 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
 
 <template>
   <article>
-    <h1 class="text-3xl font-semibold break-words">
-      {{ heading }}
-    </h1>
+    <!-- The actions sit beside the title while there's room, and go below it when there isn't. -->
+    <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+      <div class="min-w-0 flex-[1_1_20rem]">
+        <h1 class="text-3xl font-semibold break-words">
+          {{ heading }}
+        </h1>
+        <p
+          v-if="recipe"
+          class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground"
+        >
+          <span>Added by {{ recipe.owner.name }}</span>
+          <span aria-hidden="true">·</span>
+          <span>Updated {{ updatedFormat.format(new Date(recipe.updatedAt)) }}</span>
+          <template v-if="recipe.visibility === 'private'">
+            <span aria-hidden="true">·</span>
+            <span class="inline-flex items-center gap-1">
+              <LockIcon
+                class="size-3.5"
+                aria-hidden="true"
+              />
+              Private
+            </span>
+          </template>
+        </p>
+      </div>
+      <RecipeActions
+        v-if="recipe"
+        :recipe="recipe"
+      />
+    </div>
 
     <template v-if="recipe">
-      <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span>Added by {{ recipe.owner.name }}</span>
-        <span aria-hidden="true">·</span>
-        <span>Updated {{ updatedFormat.format(new Date(recipe.updatedAt)) }}</span>
-        <Badge
-          v-if="recipe.visibility === 'private'"
-          variant="outline"
-        >
-          Private: only you can see it
-        </Badge>
-      </p>
-
-      <RecipeActions :recipe="recipe" />
-
-      <dl class="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-        <div
-          v-for="fact in facts"
-          :key="fact.label"
-        >
-          <dt class="text-sm text-muted-foreground">
-            {{ fact.label }}
-          </dt>
-          <dd class="font-medium">
-            {{ fact.value }}
-          </dd>
-        </div>
-      </dl>
-
-      <ul
-        v-if="tags.tags.length > 0"
-        aria-label="Tags"
-        class="mt-4 flex flex-wrap gap-2"
-      >
-        <li
-          v-for="tag in tags.tags"
-          :key="tag.id"
-          class="rounded-full bg-secondary px-2.5 py-0.5 text-sm break-words text-secondary-foreground"
-        >
-          {{ tag.name }}
-        </li>
-      </ul>
-
       <MarkdownContent
         v-if="recipe.description"
-        class="mt-6"
+        class="mt-6 max-w-prose"
         :source="recipe.description"
       />
 
       <!-- "From" names where it was published; with only an author, there's nowhere to name. -->
       <p
         v-if="source"
-        class="mt-4 text-sm break-words"
+        class="mt-3 text-sm break-words text-muted-foreground"
       >
         <template v-if="source.linkText">
           From
@@ -202,8 +187,40 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         </template>
       </p>
 
-      <div class="mt-8 grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <div class="space-y-8">
+      <ul
+        v-if="tags.tags.length > 0"
+        aria-label="Tags"
+        class="mt-4 flex flex-wrap gap-2"
+      >
+        <li
+          v-for="tag in tags.tags"
+          :key="tag.id"
+          class="rounded-full bg-secondary px-2.5 py-0.5 text-sm break-words text-secondary-foreground"
+        >
+          {{ tag.name }}
+        </li>
+      </ul>
+
+      <dl class="mt-6 flex flex-wrap gap-x-8 gap-y-3 border-y py-4">
+        <div
+          v-for="fact in facts"
+          :key="fact.label"
+        >
+          <dt class="text-sm text-muted-foreground">
+            {{ fact.label }}
+          </dt>
+          <dd class="font-medium">
+            {{ fact.value }}
+          </dd>
+        </div>
+      </dl>
+
+      <!-- On wide screens, nutrition goes under the ingredients, beside the steps. Narrow, it stays
+           after the steps, where it is in the page's order. -->
+      <div
+        class="mt-8 grid gap-x-12 gap-y-10 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:grid-rows-[auto_1fr]"
+      >
+        <div class="space-y-10">
           <section aria-labelledby="ingredients-heading">
             <h2
               id="ingredients-heading"
@@ -284,7 +301,7 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
             >
               Equipment
             </h2>
-            <ul class="list-disc space-y-1 ps-6">
+            <ul class="space-y-2">
               <li
                 v-for="(item, index) in recipe.equipment"
                 :key="index"
@@ -295,62 +312,64 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
           </section>
         </div>
 
-        <div class="space-y-8">
-          <section aria-labelledby="steps-heading">
-            <h2
-              id="steps-heading"
-              class="mb-3 text-xl font-semibold"
-            >
-              Steps
-            </h2>
-            <ol
-              v-if="recipe.steps.length > 0"
-              class="list-decimal space-y-4 ps-6 marker:font-semibold"
-            >
-              <li
-                v-for="(step, index) in recipe.steps"
-                :key="index"
-                class="ps-1"
-              >
-                <MarkdownContent
-                  :source="step.body"
-                />
-              </li>
-            </ol>
-            <p
-              v-else
-              class="text-muted-foreground"
-            >
-              No steps yet.
-            </p>
-          </section>
-
-          <section
-            v-if="nutrition.length > 0"
-            aria-labelledby="nutrition-heading"
+        <section
+          aria-labelledby="steps-heading"
+          class="md:row-span-2"
+        >
+          <h2
+            id="steps-heading"
+            class="mb-3 text-xl font-semibold"
           >
-            <h2
-              id="nutrition-heading"
-              class="text-xl font-semibold"
+            Steps
+          </h2>
+          <ol
+            v-if="recipe.steps.length > 0"
+            class="list-decimal space-y-4 ps-6 marker:font-semibold"
+          >
+            <li
+              v-for="(step, index) in recipe.steps"
+              :key="index"
+              class="ps-1"
             >
-              Nutrition
-            </h2>
-            <p class="mb-3 text-sm text-muted-foreground">
-              Per serving, as entered by hand.
-            </p>
-            <dl class="grid max-w-sm grid-cols-[1fr_auto] gap-x-6 gap-y-1">
-              <template
-                v-for="fact in nutrition"
-                :key="fact.label"
-              >
-                <dt>{{ fact.label }}</dt>
-                <dd class="text-end font-medium">
-                  {{ fact.value }}
-                </dd>
-              </template>
-            </dl>
-          </section>
-        </div>
+              <MarkdownContent
+                :source="step.body"
+              />
+            </li>
+          </ol>
+          <p
+            v-else
+            class="text-muted-foreground"
+          >
+            No steps yet.
+          </p>
+        </section>
+
+        <section
+          v-if="nutrition.length > 0"
+          aria-labelledby="nutrition-heading"
+          class="md:col-start-1"
+        >
+          <h2
+            id="nutrition-heading"
+            class="text-xl font-semibold"
+          >
+            Nutrition
+          </h2>
+          <p class="mb-3 text-sm text-muted-foreground">
+            Per serving
+          </p>
+          <dl class="grid max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
+            <template
+              v-for="fact in nutrition"
+              :key="fact.label"
+            >
+              <dt>{{ fact.label }}</dt>
+              <dd class="text-end font-medium">
+                {{ fact.value }}
+              </dd>
+            </template>
+          </dl>
+        </section>
       </div>
     </template>
 

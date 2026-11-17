@@ -305,7 +305,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
   });
 
   await test.step('the recipe is shared once asked', async () => {
-    await expect(page.getByText('Private: only you can see it')).toBeVisible();
+    await expect(page.getByText('Private', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Share with everyone' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Share “Weeknight Bread”?' });
     await expect(dialog).toBeVisible();
@@ -315,7 +315,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('status').filter({ hasText: 'Shared' })).toHaveText(
       'Shared: everyone on myli can see it now.',
     );
-    await expect(page.getByText('Private: only you can see it')).toBeHidden();
+    await expect(page.getByText('Private', { exact: true })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Make private' })).toBeFocused();
   });
 

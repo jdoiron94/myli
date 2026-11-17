@@ -79,10 +79,7 @@ async function remove() {
 </script>
 
 <template>
-  <div
-    v-if="canEdit || canSetVisibility || canDelete"
-    class="mt-4"
-  >
+  <div v-if="canEdit || canSetVisibility || canDelete">
     <div class="flex flex-wrap gap-2">
       <Button
         v-if="canEdit"
@@ -167,7 +164,7 @@ async function remove() {
     <!-- Always there, so screen readers announce what it says as it changes. -->
     <p
       role="status"
-      class="mt-2 text-sm"
+      class="text-sm not-empty:mt-2"
     >
       {{ notice }}
     </p>

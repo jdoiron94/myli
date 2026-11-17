@@ -143,7 +143,7 @@ describe('what a reader can do with a recipe', () => {
   it('shares a private recipe once asked, and makes it private again', async () => {
     const sent = storeRecipe(sampleRecipe({ visibility: 'private' }));
     const { user } = await openRecipe();
-    expect(screen.getByText('Private: only you can see it')).toBeDefined();
+    expect(screen.getByText('Private')).toBeDefined();
 
     await user.click(button('Share with everyone'));
     const sharing = screen.getByRole('alertdialog', { name: 'Share “Weeknight Bread”?' });
@@ -163,7 +163,7 @@ describe('what a reader can do with a recipe', () => {
     await waitFor(() => {
       expect(status()).toEqual(['Shared: everyone on myli can see it now.']);
     });
-    expect(screen.queryByText('Private: only you can see it')).toBeNull();
+    expect(screen.queryByText('Private')).toBeNull();
     expect(document.activeElement).toBe(button('Make private'));
 
     await user.click(button('Make private'));
@@ -178,7 +178,7 @@ describe('what a reader can do with a recipe', () => {
     await waitFor(() => {
       expect(status()).toEqual(['Private: only you can see it now.']);
     });
-    expect(screen.getByText('Private: only you can see it')).toBeDefined();
+    expect(screen.getByText('Private')).toBeDefined();
     expect(sent).toEqual([
       { method: 'PUT', visibility: 'shared' },
       { method: 'PUT', visibility: 'private' },
@@ -203,7 +203,7 @@ describe('what a reader can do with a recipe', () => {
       'Only the recipe’s owner can change who sees it.',
     );
     expect(status()).toEqual([]);
-    expect(screen.getByText('Private: only you can see it')).toBeDefined();
+    expect(screen.getByText('Private')).toBeDefined();
 
     refusing = false;
     await user.click(button('Share with everyone'));

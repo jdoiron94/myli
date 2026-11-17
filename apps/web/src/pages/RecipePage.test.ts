@@ -298,7 +298,9 @@ describe('the recipe page', () => {
     await renderApp('/recipes/recipe-bread');
 
     await heading();
-    expect(screen.getByText('Private: only you can see it')).toBeDefined();
+    const label = screen.getByText('Private');
+    expect(label.textContent.trim()).toBe('Private');
+    expect(label.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it.each([
