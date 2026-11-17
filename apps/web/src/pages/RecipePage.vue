@@ -17,8 +17,7 @@ import {
   formatMinutes,
   formatNumber,
   nutritionFacts,
-  TAG_TYPE_LABELS,
-  tagsByType,
+  shownTags,
 } from '@/recipes/format.ts';
 import IngredientList from '@/recipes/IngredientList.vue';
 import RecipeActions from '@/recipes/RecipeActions.vue';
@@ -111,11 +110,7 @@ const facts = computed(() => {
   return list;
 });
 
-const tagGroups = computed(() => tagsByType(recipe.value?.tags ?? []));
-/** Allergen and diet tags are set by hand (spec §3.2), which the page says next to them. */
-const hasUnverifiedTags = computed(() =>
-  tagGroups.value.some(({ type }) => type === 'allergen' || type === 'diet'),
-);
+const tags = computed(() => shownTags(recipe.value?.tags ?? []));
 
 const source = computed(() => {
   const value = recipe.value?.source;
@@ -162,36 +157,19 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         </div>
       </dl>
 
-      <div
-        v-if="tagGroups.length > 0"
-        class="mt-4"
+      <ul
+        v-if="tags.tags.length > 0"
+        aria-label="Tags"
+        class="mt-4 flex flex-wrap gap-2"
       >
-        <dl class="space-y-2">
-          <div
-            v-for="group in tagGroups"
-            :key="group.type"
-            class="flex flex-wrap items-baseline gap-2"
-          >
-            <dt class="text-sm text-muted-foreground">
-              {{ TAG_TYPE_LABELS[group.type] }}
-            </dt>
-            <dd
-              v-for="tag in group.tags"
-              :key="tag.id"
-              class="rounded-full bg-secondary px-2.5 py-0.5 text-sm break-words text-secondary-foreground"
-            >
-              {{ tag.name }}
-            </dd>
-          </div>
-        </dl>
-        <p
-          v-if="hasUnverifiedTags"
-          class="mt-2 text-sm text-muted-foreground"
+        <li
+          v-for="tag in tags.tags"
+          :key="tag.id"
+          class="rounded-full bg-secondary px-2.5 py-0.5 text-sm break-words text-secondary-foreground"
         >
-          Allergen and diet tags are added by the people who use myli, and nobody checks them.
-          Read the ingredients too.
-        </p>
-      </div>
+          {{ tag.name }}
+        </li>
+      </ul>
 
       <MarkdownContent
         v-if="recipe.description"
@@ -285,6 +263,14 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
               class="text-muted-foreground"
             >
               No ingredients yet.
+            </p>
+            <!-- As on a food label: what the ingredients contain, after them. -->
+            <p
+              v-if="tags.allergens.length > 0"
+              class="mt-4 text-sm"
+            >
+              <span class="font-semibold">Contains:</span>
+              {{ tags.allergens.map(({ name }) => name).join(', ') }}
             </p>
           </section>
 

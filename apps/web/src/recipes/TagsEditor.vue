@@ -7,14 +7,7 @@ import { useRetry } from '@/api/retry.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field';
+import { Field, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import NewTagField from './NewTagField.vue';
 import type { Tag } from './recipe.ts';
 import { tagsQuery } from './tags.ts';
@@ -76,9 +69,6 @@ async function added(tag: Tag) {
   <div ref="root">
     <FieldSet>
       <FieldLegend>Tags</FieldLegend>
-      <FieldDescription>
-        Allergen and diet tags are added by the people who use myli, and nobody checks them.
-      </FieldDescription>
       <!-- Tags already loaded stay, should loading them again fail. -->
       <template v-if="tags.data.value">
         <FieldSet
