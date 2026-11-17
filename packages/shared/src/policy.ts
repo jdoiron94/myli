@@ -18,6 +18,8 @@ export const ROLE_ACTIONS = [
   'user.manage',
   'auditLog.read',
   'instance.export',
+  /** Rebuild the search index, and see how the latest rebuild went. */
+  'search.reindex',
 ] as const;
 
 /** Actions on one recipe. They depend on its owner and visibility too. */
@@ -70,6 +72,7 @@ const ROLE_RULES = {
   'user.manage': ['admin'],
   'auditLog.read': ['admin'],
   'instance.export': ['admin'],
+  'search.reindex': ['admin'],
 } as const satisfies Record<RoleAction, readonly Role[]>;
 
 /** Viewers are strictly read-only: every rule that changes anything requires this. */

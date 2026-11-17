@@ -168,6 +168,18 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/search/index',
+    access: 'search.reindex',
+    send: (t, cookie) => request(t, 'GET', '/search/index', cookie),
+  },
+  {
+    method: 'post',
+    path: '/search/index/rebuild',
+    access: 'search.reindex',
+    send: (t, cookie) => request(t, 'POST', '/search/index/rebuild', cookie),
+  },
+  {
+    method: 'get',
     path: '/users',
     access: 'user.manage',
     send: (t, cookie) => request(t, 'GET', '/users', cookie),

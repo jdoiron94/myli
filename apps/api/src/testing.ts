@@ -37,7 +37,7 @@ export interface TestAppOptions {
   db?: Db;
   logger?: Logger;
   env?: Partial<TestEnv>;
-  /** What `/readyz` asks about search. Ready unless given; the search tests use real Meilisearch. */
+  /** What `/readyz` and the search routes ask about search. Ready unless given; the search tests use real Meilisearch. */
   search?: Pick<SearchService, 'isReady'>;
 }
 
@@ -52,7 +52,7 @@ export function createTestApp(options: TestAppOptions = {}) {
   const auth = createAuth({ db, logger, env });
   const search = options.search ?? { isReady: () => Promise.resolve(true) };
   const app = createApp({ logger, auth, db, env, search });
-  return { app, db, auth, logger, env, publicUrl: env.PUBLIC_URL };
+  return { app, db, auth, logger, env, search, publicUrl: env.PUBLIC_URL };
 }
 
 export type TestApp = ReturnType<typeof createTestApp>;

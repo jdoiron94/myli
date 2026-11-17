@@ -44,6 +44,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 | Delete others' comments | ✓ | – | – |
 | Invite users, change roles, deactivate users | ✓ | – | – |
 | View audit log; full-instance export | ✓ | – | – |
+| Rebuild the search index | ✓ | – | – |
 
 ¹ Viewers can't create recipes. This covers the private recipes of an editor who was demoted to viewer: they can still read them, but no longer change them.
 

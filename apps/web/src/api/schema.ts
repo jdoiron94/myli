@@ -1010,6 +1010,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the search index
+         * @description Admins only. Whether search works, and how the latest rebuild of its index went.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The search index. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchIndexStatus"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/index/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rebuild the search index
+         * @description Admins only. Rebuilds the index from the database in the background, then swaps it in; search keeps working meanwhile. If a rebuild is already waiting or under way, that one stands. While search is unavailable, the rebuild waits for it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The search index, with the rebuild asked for. */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchIndexStatus"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invitations": {
         parameters: {
             query?: never;
@@ -1719,6 +1833,20 @@ export interface components {
              * @enum {string}
              */
             unitSystem: "imperial" | "metric";
+        };
+        SearchIndexStatus: {
+            /** @description Whether search works right now. */
+            available: boolean;
+            /** @description The latest rebuild, or null if there has been none. */
+            rebuild: {
+                /** @enum {string} */
+                state: "queued" | "running" | "retrying" | "succeeded" | "failed";
+                /**
+                 * Format: date-time
+                 * @description When the rebuild was asked for.
+                 */
+                queuedAt: string;
+            } | null;
         };
         InvitationList: {
             /** @description Open invitations, newest first. */

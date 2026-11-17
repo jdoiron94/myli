@@ -10,6 +10,8 @@ import { jsonOnly } from './json-only.ts';
 import { registerPreferenceRoutes } from './preferences/routes.ts';
 import { validationHook } from './problems.ts';
 import { registerRecipeRoutes } from './recipes/routes.ts';
+import { registerSearchRoutes } from './search/routes.ts';
+import type { SearchService } from './search/service.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
 import { registerTagRoutes } from './tags/routes.ts';
 import { registerUserRoutes } from './users/routes.ts';
@@ -24,6 +26,7 @@ export interface V1Deps {
   db: Db;
   auth: Auth;
   env: AppSettings;
+  search: Pick<SearchService, 'isReady'>;
 }
 
 /** The settings route handlers need from the environment. */
@@ -50,6 +53,7 @@ export function createV1Router(deps: V1Deps) {
   registerRecipeRoutes(v1, { db: deps.db });
   registerTagRoutes(v1, { db: deps.db });
   registerPreferenceRoutes(v1, { db: deps.db });
+  registerSearchRoutes(v1, { db: deps.db, search: deps.search });
   registerInvitationRoutes(v1, {
     db: deps.db,
     auth: deps.auth,
