@@ -5,68 +5,50 @@ import MarkdownIt from 'markdown-it';
  * Renders what users write in markdown (descriptions, steps, later comments and notes) as HTML that
  * is safe to put in the page with `v-html`.
  *
- * markdown-it never passes raw HTML through (`html: false`), so `<script>` is shown as text.
- * DOMPurify then keeps only the elements and attributes below, as a second line of defense:
+ * Only a deliberately small subset is markdown here, the same one the editor offers (ADR 0006):
+ * paragraphs and line breaks, bold and italic, lists, links and inline code. Anything else, like a
+ * heading, a quote, a table, an image or raw HTML, is shown as the text that was typed.
+ *
+ * markdown-it starts from its `zero` preset, with only the rules for that subset turned on, so a new
+ * version can't add syntax unnoticed. DOMPurify then keeps only the elements and attributes the
+ * subset produces, as a second line of defense:
  * - no `style` attributes or `<style>` elements, which the Content Security Policy refuses
- * - no images: the CSP only loads images from this site, and a step's photo is uploaded instead
- * - no tables, which would scroll sideways on a phone
  * - links only to http(s), mailto and paths on this site
  */
 
-const md = new MarkdownIt({
-  html: false,
+const md = new MarkdownIt('zero', {
   // Bare addresses ("example.com/bread") become links.
   linkify: true,
   // A line break in what someone typed is one in the recipe, as they'd expect from a text box.
   breaks: true,
-});
-md.disable(['image', 'table']);
+}).enable([
+  'list',
+  // "[the rolls][1]" with "[1]: /recipes/…" further down: a link written another way.
+  'reference',
+  'emphasis',
+  'link',
+  'autolink',
+  'linkify',
+  'backticks',
+  'newline',
+  'escape',
+  'entity',
+]);
 
 /** markdown-it's renderer rule signature, which its types only give as a union member. */
 type Rule = NonNullable<MarkdownIt['renderer']['rules']['link_open']>;
 
-/** How far down to move headings, read from the `env` each render passes. */
-interface RenderEnv {
-  headingOffset: number;
-}
-
-// The page's own headings come first: a `#` in a step must not become a second <h1> (every page has
-// exactly one), or outrank the section it sits in.
-const shiftHeading: Rule = (tokens, index, options, env: RenderEnv, renderer) => {
-  const token = tokens[index];
-  if (token) token.tag = `h${String(Math.min(6, Number(token.tag.slice(1)) + env.headingOffset))}`;
-  return renderer.renderToken(tokens, index, options);
-};
-md.renderer.rules.heading_open = shiftHeading;
-md.renderer.rules.heading_close = shiftHeading;
-
 // Links lead away from someone else's writing: search engines shouldn't credit them to this site,
 // and the site they lead to isn't told which recipe (or which private instance) they came from.
-md.renderer.rules.link_open = (tokens, index, options, _env, renderer) => {
-  tokens[index]?.attrSet('rel', 'ugc nofollow noreferrer');
+export const USER_LINK_REL = 'ugc nofollow noopener noreferrer';
+
+const markLink: Rule = (tokens, index, options, _env, renderer) => {
+  tokens[index]?.attrSet('rel', USER_LINK_REL);
   return renderer.renderToken(tokens, index, options);
 };
+md.renderer.rules.link_open = markLink;
 
-const ALLOWED_TAGS = [
-  'p',
-  'br',
-  'strong',
-  'em',
-  's',
-  'code',
-  'pre',
-  'blockquote',
-  'ul',
-  'ol',
-  'li',
-  'a',
-  'hr',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-];
+const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'code', 'ul', 'ol', 'li', 'a'];
 const ALLOWED_ATTR = ['href', 'title', 'rel', 'start'];
 // http(s) and mailto, or a path on this site. Not `//host` or `/\host`, which browsers read as
 // another site.
@@ -75,15 +57,9 @@ const ALLOWED_URI_REGEXP = /^(?:(?:https?|mailto):|\/(?![/\\]))/i;
 // own, like `title`), so a list's `start="3"` would be dropped without them.
 const ADD_URI_SAFE_ATTR = ['rel', 'start'];
 
-export interface MarkdownOptions {
-  /** The level a `#` heading becomes: one below the heading of the section it's shown in. */
-  headingLevel: 2 | 3 | 4 | 5 | 6;
-}
-
 /** Sanitized HTML for markdown that someone wrote. */
-export function renderMarkdown(source: string, { headingLevel }: MarkdownOptions): string {
-  const env: RenderEnv = { headingOffset: headingLevel - 1 };
-  return DOMPurify.sanitize(md.render(source, env), {
+export function renderMarkdown(source: string): string {
+  return DOMPurify.sanitize(md.render(source), {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOWED_URI_REGEXP,

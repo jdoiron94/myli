@@ -139,7 +139,7 @@
 
 /*
  * Markdown that users wrote (MarkdownContent.vue). Tailwind's reset takes away the browser's
- * spacing, list markers and heading sizes, so they're put back here, from the theme's colors.
+ * spacing and list markers, so they're put back here, from the theme's colors.
  */
 @layer components {
   .markdown {
@@ -147,15 +147,6 @@
   }
   .markdown > * + * {
     @apply mt-3;
-  }
-  .markdown :is(h2, h3, h4, h5, h6) {
-    @apply mt-5 font-semibold;
-  }
-  .markdown h2 {
-    @apply text-xl;
-  }
-  .markdown h3 {
-    @apply text-lg;
   }
   .markdown ul {
     @apply list-disc ps-6;
@@ -170,21 +161,7 @@
   .markdown a {
     @apply underline underline-offset-2 hover:decoration-2;
   }
-  .markdown blockquote {
-    @apply border-s-4 ps-4 text-muted-foreground;
-  }
   .markdown code {
     @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em];
-  }
-  /* Wrapped rather than scrolled sideways: a scrolling block is one more thing for a keyboard to
-     reach, and a phone would scroll the whole page. */
-  .markdown pre {
-    @apply rounded-md bg-muted p-3 whitespace-pre-wrap;
-  }
-  .markdown pre code {
-    @apply bg-transparent p-0;
-  }
-  .markdown hr {
-    @apply my-6;
   }
 }

@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { renderMarkdown } from './markdown.ts';
-
-const render = (source: string, headingLevel: 2 | 3 | 4 | 5 | 6 = 3) =>
-  renderMarkdown(source, { headingLevel });
+import { renderMarkdown, USER_LINK_REL } from './markdown.ts';
 
 /** The rendered HTML as elements, to query. */
 function rendered(source: string) {
   const root = document.createElement('div');
-  root.innerHTML = render(source);
+  root.innerHTML = renderMarkdown(source);
   return root;
 }
 
@@ -21,15 +18,15 @@ function safeHref(href: string | null) {
 }
 
 describe('renderMarkdown', () => {
-  it('renders emphasis, strikethrough and code', () => {
-    expect(render('**Bold**, _soft_, ~~gone~~ and `code`')).toBe(
-      '<p><strong>Bold</strong>, <em>soft</em>, <s>gone</s> and <code>code</code></p>\n',
+  it('renders bold, italic and inline code', () => {
+    expect(renderMarkdown('**Bold**, _soft_ and `code`')).toBe(
+      '<p><strong>Bold</strong>, <em>soft</em> and <code>code</code></p>\n',
     );
   });
 
-  it('keeps line breaks as they were typed', () => {
-    expect(render('Mix the flour.\nAdd the water.')).toBe(
-      '<p>Mix the flour.<br>\nAdd the water.</p>\n',
+  it('keeps line breaks as they were typed, and paragraphs apart', () => {
+    expect(renderMarkdown('Mix the flour.\nAdd the water.\n\nRest it.')).toBe(
+      '<p>Mix the flour.<br>\nAdd the water.</p>\n<p>Rest it.</p>\n',
     );
   });
 
@@ -42,22 +39,24 @@ describe('renderMarkdown', () => {
     expect(root.querySelector('ol')?.getAttribute('start')).toBe('3');
   });
 
-  it('renders quotes, rules and code blocks, with no class from the code block’s language', () => {
-    const root = rendered('> Grandma’s note\n\n---\n\n```js\nlet x = 1;\n```');
-    expect(root.querySelector('blockquote')?.textContent.trim()).toBe('Grandma’s note');
-    expect(root.querySelector('hr')).not.toBeNull();
-    expect(root.querySelector('pre')?.outerHTML).toBe('<pre><code>let x = 1;\n</code></pre>');
-  });
-
-  it('moves headings down below the section they’re shown in, never past h6', () => {
-    const levels = (source: string, headingLevel: 2 | 3 | 4 | 5 | 6) =>
-      [...new DOMParser().parseFromString(render(source, headingLevel), 'text/html').body.children]
-        .map((element) => element.tagName)
-        .filter((tag) => tag.startsWith('H'));
-
-    expect(levels('# Dough\n## Filling\n###### Note', 3)).toEqual(['H3', 'H4', 'H6']);
-    expect(levels('# Dough\n## Filling', 2)).toEqual(['H2', 'H3']);
-    expect(levels('# Dough\n## Filling', 6)).toEqual(['H6', 'H6']);
+  // ADR 0006: the subset the editor offers, and nothing else. What's outside it stays as typed,
+  // though a fenced block's backticks still make inline code, and an image's brackets a link.
+  it.each([
+    ['a heading', '# Before you start', '# Before you start'],
+    ['an underlined heading', 'Before you start\n====', '===='],
+    ['a quote', '> Grandma’s note', '> Grandma’s note'],
+    ['a rule', 'Rest it.\n\n---', '---'],
+    ['a fenced code block', '```\nlet x = 1;\n```', 'let x = 1;'],
+    ['an indented code block', '    let x = 1;', 'let x = 1;'],
+    ['strikethrough', '~~gone~~', '~~gone~~'],
+    ['a table', '| Flour | Water |\n|---|---:|\n| 500 g | 350 g |', '| Flour | Water |'],
+    ['an image', '![The loaf](https://example.com/loaf.jpg)', '!The loaf'],
+  ])('shows %s as text', (_, source, shown) => {
+    const root = rendered(source);
+    expect(
+      root.querySelector('h1, h2, h3, h4, h5, h6, blockquote, hr, pre, s, table, img'),
+    ).toBeNull();
+    expect(root.textContent).toContain(shown);
   });
 
   it('shows raw HTML as the text that was typed', () => {
@@ -73,15 +72,21 @@ describe('renderMarkdown', () => {
     ).querySelector('a');
     expect(link?.getAttribute('href')).toBe('https://example.com/bread');
     expect(link?.getAttribute('title')).toBe('Where it came from');
-    expect(link?.getAttribute('rel')).toBe('ugc nofollow noreferrer');
+    expect(link?.getAttribute('rel')).toBe(USER_LINK_REL);
+    expect(USER_LINK_REL.split(' ')).toEqual(
+      expect.arrayContaining(['noopener', 'noreferrer', 'nofollow']),
+    );
   });
 
-  it('links bare addresses, email addresses and paths on this site', () => {
+  it('links bare addresses, email addresses, references and paths on this site', () => {
     const hrefs = (source: string) =>
       [...rendered(source).querySelectorAll('a')].map((a) => a.getAttribute('href'));
     expect(hrefs('From example.com/bread')).toEqual(['http://example.com/bread']);
     expect(hrefs('Ask cook@example.com')).toEqual(['mailto:cook@example.com']);
+    expect(hrefs('<https://example.com/a>')).toEqual(['https://example.com/a']);
+    expect(rendered('<https://example.com/a>').textContent.trim()).toBe('https://example.com/a');
     expect(hrefs('[The rolls](/recipes/abc)')).toEqual(['/recipes/abc']);
+    expect(hrefs('See [the rolls][1].\n\n[1]: /recipes/abc')).toEqual(['/recipes/abc']);
   });
 
   it.each([
@@ -96,6 +101,7 @@ describe('renderMarkdown', () => {
     '[a](/\\evil.example/)',
     '[a](\\\\evil.example)',
     '[a]( //evil.example)',
+    '[a][1]\n\n[1]: //evil.example/',
   ])('never links where it shouldn’t: %s', (source) => {
     const root = rendered(source);
     for (const link of root.querySelectorAll('a')) {
@@ -104,19 +110,7 @@ describe('renderMarkdown', () => {
     expect(root.textContent).not.toBe('');
   });
 
-  it('shows no images, which only uploads provide', () => {
-    const root = rendered('![The loaf](https://example.com/loaf.jpg) ![Here](/uploads/loaf.jpg)');
-    expect(root.querySelector('img')).toBeNull();
-    expect(root.textContent).toContain('The loaf');
-  });
-
-  it('shows no tables, keeping their text', () => {
-    const root = rendered('| Flour | Water |\n|---|---:|\n| 500 g | 350 g |');
-    expect(root.querySelector('table, [style]')).toBeNull();
-    expect(root.textContent).toContain('500 g');
-  });
-
   it('renders nothing for nothing', () => {
-    expect(render('')).toBe('');
+    expect(renderMarkdown('')).toBe('');
   });
 });
