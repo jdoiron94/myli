@@ -39,6 +39,11 @@ export interface Options {
    * it's the loopback address, the default. Through Caddy, the API takes it from X-Forwarded-For.
    */
   clientAddress: string;
+  /**
+   * Whether the API has Meilisearch. The dev servers' API runs without it (`start-api.ts`), as in
+   * degraded mode; the Compose stack has it.
+   */
+  searchAvailable: boolean;
 }
 
 interface Fixtures {
@@ -51,6 +56,7 @@ interface Fixtures {
 /** Playwright's `test`, failing when a page it opens breaks the Content Security Policy. */
 export const test = base.extend<Fixtures & Options>({
   clientAddress: ['127.0.0.1', { option: true }],
+  searchAvailable: [false, { option: true }],
   cspViolations: [
     // eslint-disable-next-line no-empty-pattern -- Playwright requires a destructuring pattern.
     async ({}, use) => {

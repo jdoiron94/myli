@@ -158,6 +158,7 @@ describe('the main navigation', () => {
     expect(items.map((item) => [item.textContent.trim(), iconOf(item)])).toEqual([
       ['Invitations', 'mail'],
       ['Users', 'user-cog'],
+      ['Search index', 'search-check'],
     ]);
     // See the theme menu's test for `region`.
     expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);

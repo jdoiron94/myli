@@ -41,6 +41,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
   newContext,
   baseURL,
   clientAddress,
+  searchAvailable,
 }) => {
   test.setTimeout(180_000);
 
@@ -199,6 +200,24 @@ test('an admin sets up myli, invites someone and manages their account', async (
     ]);
     await expect(adminMenuButton(member)).toHaveCount(0);
     await checkPage(member);
+  });
+
+  await test.step('the admin rebuilds the search index', async () => {
+    await openAdminPage(page, 'Search index');
+    await expect(heading(page, 'Search index')).toBeVisible();
+    const status = page.getByRole('status');
+    await expect(status).toContainText(
+      searchAvailable ? 'Search is working.' : 'Search is unavailable right now.',
+    );
+    await checkPage(page);
+
+    await page.getByRole('button', { name: 'Rebuild index' }).click();
+
+    // With Meilisearch, the rebuild finishes. Without it, it waits for search to come back.
+    await expect(status).toContainText(
+      searchAvailable ? /The last rebuild, asked for .+, finished\./ : /is waiting for search/,
+      { timeout: 30_000 },
+    );
   });
 
   await test.step('the admin signs out', async () => {

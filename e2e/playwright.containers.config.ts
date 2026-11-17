@@ -28,7 +28,13 @@ export default defineConfig<Options>({
   ...COMMON_CONFIG,
   projects: stacks.map(({ name, device, webUrl, clientAddress }) => ({
     name,
-    use: { ...device, baseURL: webUrl, ignoreHTTPSErrors: true, clientAddress },
+    use: {
+      ...device,
+      baseURL: webUrl,
+      ignoreHTTPSErrors: true,
+      clientAddress,
+      searchAvailable: true,
+    },
   })),
   webServer: stacks.map(
     ({ name, webUrl, proxySubnet }): WebServer => ({
