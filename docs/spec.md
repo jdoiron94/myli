@@ -386,7 +386,7 @@ Search is served by Meilisearch through the API (§4).
 - **Sync through a transactional outbox.**
   - Every write that changes a recipe's search document inserts a `job` row in the same SQLite transaction. That includes publishing, rating changes, tag renames and merges, visibility changes, deleting, restoring and purging.
   - An in-process worker reads pending jobs and sends the full document to Meilisearch as an upsert or delete.
-  - Jobs are idempotent, retried with backoff, and dead-lettered after a maximum number of attempts.
+  - Jobs are idempotent, retried with backoff, and dead-lettered after a maximum number of attempts. Index updates keep trying for about thirteen hours, so a Meilisearch outage doesn't leave the index behind; other jobs give up after a few minutes.
   - Recipe writes succeed even while Meilisearch is down.
 - **Index document.** One document per recipe, built from the **published** version only:
   - `id`, `title`, `description`, `stepText`

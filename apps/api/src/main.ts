@@ -52,8 +52,15 @@ if (smtp) {
   logger.info('email is off because SMTP_HOST is not set');
 }
 
+// Search is set up in the background: everything else works while Meilisearch is unavailable.
+const search = createSearchService({
+  setUp: () => setUpSearch({ url: env.MEILI_URL, masterKey: env.MEILI_MASTER_KEY }),
+  logger,
+});
+search.start();
+
 const worker = createWorker({
-  services: { db, mailer, publicUrl: env.PUBLIC_URL },
+  services: { db, mailer, publicUrl: env.PUBLIC_URL, search },
   logger,
   jobs: allJobs,
 });
@@ -63,13 +70,6 @@ if (requeued > 0) {
 }
 worker.start();
 logger.info('job worker started');
-
-// Search is set up in the background: everything else works while Meilisearch is unavailable.
-const search = createSearchService({
-  setUp: () => setUpSearch({ url: env.MEILI_URL, masterKey: env.MEILI_MASTER_KEY }),
-  logger,
-});
-search.start();
 
 const app = createApp({ logger, auth, db, env, search });
 

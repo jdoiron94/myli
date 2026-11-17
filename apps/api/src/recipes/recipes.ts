@@ -10,11 +10,16 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
+import { enqueueJob } from '../jobs/queue.ts';
+import { indexRecipeJob } from '../search/indexing.ts';
 import { byTypeThenName } from '../tags/tags.ts';
 
 /**
  * Recipes (spec §3.2). Until Phase 2 adds drafts, saving writes the one live version directly, and
  * the last save wins. A deleted recipe is hidden everywhere, exactly as if it didn't exist.
+ *
+ * Every write that changes a recipe's search document queues `indexRecipeJob` in its transaction,
+ * so the index follows whether or not Meilisearch is up (spec §4).
  */
 
 /** Everything about a recipe that editing it sets. */
@@ -110,6 +115,7 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
       .returning({ id: recipe.id })
       .get();
     writeParts(tx, id, request);
+    enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
 }
@@ -135,19 +141,24 @@ export function updateRecipe(db: Db, id: string, content: RecipeContent): SaveRe
     tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
     tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
     writeParts(tx, id, content);
+    enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
 }
 
 /** Makes a recipe private or shared. False if it doesn't exist or was deleted. */
 export function setRecipeVisibility(db: Db, id: string, visibility: Visibility): boolean {
-  const [updated] = db
-    .update(recipe)
-    .set({ visibility })
-    .where(live(id))
-    .returning({ id: recipe.id })
-    .all();
-  return updated !== undefined;
+  return db.transaction((tx) => {
+    const [updated] = tx
+      .update(recipe)
+      .set({ visibility })
+      .where(live(id))
+      .returning({ id: recipe.id })
+      .all();
+    if (!updated) return false;
+    enqueueJob(tx, indexRecipeJob, { recipeId: id });
+    return true;
+  });
 }
 
 /**
@@ -164,6 +175,7 @@ export function deleteRecipe(db: Db, origin: AuditOrigin, id: string): boolean {
       .returning({ title: recipe.title, visibility: recipe.visibility })
       .all();
     if (!deleted) return false;
+    enqueueJob(tx, indexRecipeJob, { recipeId: id });
     recordAuditEvent(tx, origin, {
       action: 'recipe.deleted',
       target: { type: 'recipe', id },
