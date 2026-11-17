@@ -336,6 +336,8 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 **Results**
 - Home is the search page. Until something is searched, it lists every recipe the reader may see, newest first.
 - The full search state (query, filters, sort, page) lives in the URL, so searches can be bookmarked and shared.
+- The filters are beside the results, behind a Filters button on a phone. Each value shows how many results it would give, most common first; a long list shows the six most common, and every one chosen, until asked for all. A tag value can be checked to include it, or left out with the button beside it.
+- Total time is offered as a few ranges: 15 minutes or less, 30, an hour, two hours, or over two hours. A link can hold any range, which is then shown with them.
 - Sorting by rating is offered once there are ratings (Phase 2). The best match is offered only for a search with words; without them, the newest come first.
 - Results are paginated, 24 to a page, and show a count for each filter value. A filter that takes any of its values (cuisine, meal type, difficulty) is counted without its own choices, so each of its other values shows what adding it would give.
 - Results include only recipes the caller may see (§2). Drafts are never searchable.
