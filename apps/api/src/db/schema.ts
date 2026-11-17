@@ -1,6 +1,23 @@
-import { AUDIT_ACTIONS, AUDIT_TARGET_TYPES, DEFAULT_ROLE, ROLES } from '@myli/shared';
+import {
+  AUDIT_ACTIONS,
+  AUDIT_TARGET_TYPES,
+  DEFAULT_ROLE,
+  DIFFICULTIES,
+  ROLES,
+  TAG_TYPES,
+  VISIBILITIES,
+} from '@myli/shared';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 export const JOB_STATUSES = ['pending', 'running', 'succeeded', 'dead'] as const;
 
@@ -212,5 +229,182 @@ export const auditEvent = sqliteTable(
       sql`(${table.targetType} is null) = (${table.targetId} is null)`,
     ),
     index('audit_event_action_idx').on(table.action, table.id),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Recipes (spec §3.2). Until Phase 2 adds drafts and revisions, these tables hold the one version
+// of each recipe, and saving changes it directly.
+// ---------------------------------------------------------------------------------------------
+
+/** Nutrition per serving, entered by hand. Every column is optional and never negative. */
+const NUTRITION_COLUMNS = {
+  calories: 'nutrition_calories',
+  proteinGrams: 'nutrition_protein_g',
+  carbsGrams: 'nutrition_carbs_g',
+  fatGrams: 'nutrition_fat_g',
+  fiberGrams: 'nutrition_fiber_g',
+  sugarGrams: 'nutrition_sugar_g',
+  sodiumMilligrams: 'nutrition_sodium_mg',
+} as const;
+
+export const recipe = sqliteTable(
+  'recipe',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    /** Users are never deleted: deactivating one keeps their recipes, private ones private. */
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => user.id),
+    visibility: text('visibility', { enum: VISIBILITIES }).notNull(),
+    title: text('title').notNull(),
+    descriptionMd: text('description_md').notNull().default(''),
+    sourceUrl: text('source_url'),
+    sourceTitle: text('source_title'),
+    sourceAuthor: text('source_author'),
+    equipment: text('equipment', { mode: 'json' }).$type<string[]>().notNull().default([]),
+    /** "24 cookies": a quantity and an optional unit, separate from the servings. */
+    yieldQty: real('yield_qty'),
+    yieldUnit: text('yield_unit'),
+    /** The baseline scaling starts from. */
+    servings: integer('servings').notNull(),
+    prepMin: integer('prep_min'),
+    cookMin: integer('cook_min'),
+    /** Set only when someone overrides the total; otherwise it's prep + cook. */
+    totalMin: integer('total_min'),
+    difficulty: text('difficulty', { enum: DIFFICULTIES }),
+    nutritionCalories: real(NUTRITION_COLUMNS.calories),
+    nutritionProteinG: real(NUTRITION_COLUMNS.proteinGrams),
+    nutritionCarbsG: real(NUTRITION_COLUMNS.carbsGrams),
+    nutritionFatG: real(NUTRITION_COLUMNS.fatGrams),
+    nutritionFiberG: real(NUTRITION_COLUMNS.fiberGrams),
+    nutritionSugarG: real(NUTRITION_COLUMNS.sugarGrams),
+    nutritionSodiumMg: real(NUTRITION_COLUMNS.sodiumMilligrams),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    /** Set when the recipe is deleted, which hides it everywhere (the trash comes in Phase 2). */
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    check('recipe_visibility_check', sql`${table.visibility} in ${sqlList(VISIBILITIES)}`),
+    check(
+      'recipe_difficulty_check',
+      sql`${table.difficulty} is null or ${table.difficulty} in ${sqlList(DIFFICULTIES)}`,
+    ),
+    check('recipe_servings_check', sql`${table.servings} >= 1`),
+    check(
+      'recipe_yield_check',
+      // Spelled out: with no quantity, `yield_qty > 0` is NULL, and a NULL check passes.
+      sql`(${table.yieldQty} is null and ${table.yieldUnit} is null) or (${table.yieldQty} is not null and ${table.yieldQty} > 0)`,
+    ),
+    check(
+      'recipe_minutes_check',
+      sql`coalesce(${table.prepMin}, 0) >= 0 and coalesce(${table.cookMin}, 0) >= 0 and coalesce(${table.totalMin}, 0) >= 0`,
+    ),
+    check(
+      'recipe_nutrition_check',
+      sql.raw(
+        Object.values(NUTRITION_COLUMNS)
+          .map((column) => `coalesce(\`${column}\`, 0) >= 0`)
+          .join(' and '),
+      ),
+    ),
+    index('recipe_owner_id_idx').on(table.ownerId),
+  ],
+);
+
+/**
+ * One ingredient line. Lines sit in ordered groups ("For the dough"), stored on each line as the
+ * group's position and label. Saving a recipe replaces all of its lines.
+ */
+export const recipeIngredient = sqliteTable(
+  'recipe_ingredient',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    groupPosition: integer('group_position').notNull(),
+    /** `null` for a group without a heading, as a recipe with one group usually has. */
+    groupLabel: text('group_label'),
+    position: integer('position').notNull(),
+    /** Exactly what the user typed. */
+    rawText: text('raw_text').notNull(),
+    qty: real('qty'),
+    /** The top of a range ("2–3 cloves"). */
+    qtyMax: real('qty_max'),
+    /** A unit's name from the unit table, or one typed by hand. */
+    unit: text('unit'),
+    name: text('name').notNull(),
+    /** `normalizeIngredientName(name)`, for search and shopping lists. */
+    normalizedName: text('normalized_name').notNull(),
+    note: text('note'),
+    scalable: integer('scalable', { mode: 'boolean' }).notNull().default(true),
+  },
+  (table) => [
+    check('recipe_ingredient_qty_check', sql`${table.qty} is null or ${table.qty} > 0`),
+    check(
+      'recipe_ingredient_qty_max_check',
+      sql`${table.qtyMax} is null or (${table.qty} is not null and ${table.qtyMax} > ${table.qty})`,
+    ),
+    uniqueIndex('recipe_ingredient_position_idx').on(
+      table.recipeId,
+      table.groupPosition,
+      table.position,
+    ),
+  ],
+);
+
+/** One step, with a markdown body. Saving a recipe replaces all of its steps. */
+export const recipeStep = sqliteTable(
+  'recipe_step',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    bodyMd: text('body_md').notNull(),
+  },
+  (table) => [uniqueIndex('recipe_step_position_idx').on(table.recipeId, table.position)],
+);
+
+/**
+ * Tags of every type. The allergen tags are seeded by migration 0007 and never change; the others
+ * are created by editors.
+ */
+export const tag = sqliteTable(
+  'tag',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    type: text('type', { enum: TAG_TYPES }).notNull(),
+    /** As its creator wrote it: "Italian". */
+    name: text('name').notNull(),
+    /** `tagNameKey(name)`: names that differ only in case or spacing are one tag. */
+    nameKey: text('name_key').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    check('tag_type_check', sql`${table.type} in ${sqlList(TAG_TYPES)}`),
+    uniqueIndex('tag_type_name_key_idx').on(table.type, table.nameKey),
+  ],
+);
+
+export const recipeTag = sqliteTable(
+  'recipe_tag',
+  {
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => tag.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.recipeId, table.tagId] }),
+    index('recipe_tag_tag_id_idx').on(table.tagId),
   ],
 );

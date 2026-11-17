@@ -74,6 +74,7 @@ export {
   scaleAmount,
   scaleFactor,
 } from './quantities.ts';
+export { DIFFICULTIES, type Difficulty, difficultySchema } from './recipe.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
   type SetupRequest,
@@ -81,6 +82,14 @@ export {
   setupResultSchema,
   setupStatusSchema,
 } from './setup.ts';
+export {
+  ALLERGENS,
+  TAG_TYPES,
+  type TagType,
+  tagNameKey,
+  tagTypeSchema,
+  USER_TAG_TYPES,
+} from './tags.ts';
 export {
   convert,
   DEFAULT_UNIT_SYSTEM,
