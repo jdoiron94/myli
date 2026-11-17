@@ -229,7 +229,7 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
       <!-- On wide screens, nutrition goes under the ingredients, beside the steps. Narrow, it stays
            after the steps, where it is in the page's order. -->
       <div
-        class="mt-8 grid gap-x-12 gap-y-10 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:grid-rows-[auto_1fr]"
+        class="mt-8 grid gap-x-12 gap-y-10 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-[auto_1fr]"
       >
         <div class="space-y-10">
           <section aria-labelledby="ingredients-heading">
@@ -241,16 +241,17 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
             </h2>
             <template v-if="recipe.ingredientGroups.length > 0">
               <div class="mb-4">
-                <ServingsControl
-                  ref="servingsControl"
-                  v-model="servings"
-                />
-                <UnitSystemChoice
-                  v-if="units.ready.value"
-                  class="mt-3"
-                  :model-value="units.system.value"
-                  @update:model-value="units.choose"
-                />
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+                  <ServingsControl
+                    ref="servingsControl"
+                    v-model="servings"
+                  />
+                  <UnitSystemChoice
+                    v-if="units.ready.value"
+                    :model-value="units.system.value"
+                    @update:model-value="units.choose"
+                  />
+                </div>
                 <!-- Always there, so screen readers announce what it says as it changes: hiding it while
                      empty would stop that, so it only loses its margin. -->
                 <p

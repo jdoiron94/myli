@@ -574,6 +574,43 @@ describe('the reader’s units', () => {
     expect(ingredients()[0]).toBe(`${inMetric} all-purpose flour`);
   });
 
+  it('offers the units as one switch, short names shown and full ones read, moved with arrows', async () => {
+    answerRecipe(sampleRecipe());
+    const saved: unknown[] = [];
+    apiServer.use(
+      http.put('/api/v1/me/preferences', async ({ request }) => {
+        const body = await request.json();
+        saved.push(body);
+        return HttpResponse.json({ preferences: body });
+      }),
+    );
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    const units = await screen.findByRole('radiogroup', { name: 'Units' });
+    const radios = within(units).getAllByRole('radio');
+    expect(radios.map((radio) => radio.textContent.trim())).toEqual(['US', 'Metric']);
+    expect(radios.map((radio) => radio.getAttribute('aria-label'))).toEqual([
+      'US customary',
+      'Metric',
+    ]);
+    // Tab goes to the chosen one, after the servings; the arrows move between them, choosing.
+    screen.getByRole('button', { name: 'More servings' }).focus();
+    await user.tab();
+    expect(document.activeElement).toBe(radios[0]);
+    // Held, then let go: reka-ui chooses the radio it moved focus to only if the arrow key is still
+    // down a moment later, as it is when a person presses it, not after an instant press.
+    await user.keyboard('{ArrowRight>}');
+    await user.keyboard('{/ArrowRight}');
+
+    await waitFor(() => {
+      expect(saved).toEqual([{ unitSystem: 'metric' }]);
+    });
+    expect(document.activeElement).toBe(radios[1]);
+    expect(radios[1]?.getAttribute('aria-checked')).toBe('true');
+    expect(ingredients()[0]).toBe(`${inMetric} all-purpose flour`);
+  });
+
   it('goes back to the saved choice, and says why, when saving fails', async () => {
     answerRecipe(sampleRecipe());
     apiServer.use(
