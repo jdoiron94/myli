@@ -124,7 +124,7 @@ describe('when the API refuses something (403)', () => {
     await screen.findByRole('heading', { level: 1, name: "You don't have access to this page" });
     expect(router.currentRoute.value.fullPath).toBe('/admin/invitations?sort=email#top');
     expect(queryClient.getQueryData(['session'])).toEqual(demoted);
-    expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Invitations' })).toBeNull();
     expect(asked.count).toBe(2);
   });
 

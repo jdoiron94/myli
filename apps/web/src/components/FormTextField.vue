@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useField } from 'vee-validate';
-import { useId, watch } from 'vue';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { computed, useId, watch } from 'vue';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 /** A labelled text input for a field of the VeeValidate form around it, with its error message. */
 const props = defineProps<{
@@ -11,6 +12,12 @@ const props = defineProps<{
   label: string;
   type?: 'text' | 'email' | 'password';
   autocomplete?: string;
+  /** The keyboard phones show: `numeric` for whole numbers, `decimal` for others. */
+  inputmode?: 'numeric' | 'decimal' | 'url';
+  /** A hint under the label, such as the format it takes. */
+  description?: string;
+  /** Several lines, in a box that grows as they're typed. */
+  multiline?: boolean;
 }>();
 
 // Not checked while someone first fills it in, only when the form is submitted, and from then on as
@@ -28,6 +35,14 @@ function update(input: string | number) {
 
 const id = useId();
 const errorId = `${id}-error`;
+const descriptionId = `${id}-description`;
+/** The error first: it's what needs reading when there is one. */
+const describedBy = computed(
+  () =>
+    [errorMessage.value ? errorId : null, props.description ? descriptionId : null]
+      .filter((part) => part !== null)
+      .join(' ') || undefined,
+);
 </script>
 
 <template>
@@ -35,14 +50,31 @@ const errorId = `${id}-error`;
     <FieldLabel :for="id">
       {{ label }}
     </FieldLabel>
+    <FieldDescription
+      v-if="description"
+      :id="descriptionId"
+    >
+      {{ description }}
+    </FieldDescription>
+    <Textarea
+      v-if="multiline"
+      :id="id"
+      :model-value="value"
+      :name="name"
+      :aria-invalid="errorMessage ? true : undefined"
+      :aria-describedby="describedBy"
+      @update:model-value="update"
+    />
     <Input
+      v-else
       :id="id"
       :model-value="value"
       :name="name"
       :type="type ?? 'text'"
       :autocomplete="autocomplete"
+      :inputmode="inputmode"
       :aria-invalid="errorMessage ? true : undefined"
-      :aria-describedby="errorMessage ? errorId : undefined"
+      :aria-describedby="describedBy"
       @update:model-value="update"
     />
     <!-- Given [undefined], FieldError would still render an empty alert. -->

@@ -186,7 +186,10 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
     await expect(heading(member, "You don't have access to this page")).toBeVisible();
     await expect(member).toHaveURL('/admin/users');
-    await expect(member.getByRole('navigation', { name: 'Main' })).toBeHidden();
+    // An editor's header links only to a new recipe.
+    await expect(member.getByRole('navigation', { name: 'Main' }).getByRole('link')).toHaveText([
+      'New recipe',
+    ]);
     await checkPage(member);
   });
 

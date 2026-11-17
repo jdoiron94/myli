@@ -1,4 +1,6 @@
-import { testUsers } from '@/testing.ts';
+import { HttpResponse, http } from 'msw';
+import { answerPreferences } from '@/account/testing.ts';
+import { apiServer, problemResponse, testUsers } from '@/testing.ts';
 import type { Recipe } from './recipe.ts';
 
 /** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
@@ -59,4 +61,22 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
     updatedAt: '2026-11-12T09:00:00.000Z',
     ...overrides,
   };
+}
+
+/**
+ * Answers GET /recipes/{id} with this recipe, and 404 for any other, and counts the requests. Also
+ * answers the reader's preferences with imperial, unless the test answers them itself afterwards.
+ */
+export function answerRecipe(recipe: Recipe) {
+  answerPreferences();
+  const requests: string[] = [];
+  apiServer.use(
+    http.get('/api/v1/recipes/:id', ({ params }) => {
+      requests.push(String(params.id));
+      return params.id === recipe.id
+        ? HttpResponse.json({ recipe })
+        : problemResponse(404, 'There is no recipe with this ID.');
+    }),
+  );
+  return requests;
 }

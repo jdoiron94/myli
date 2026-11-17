@@ -134,6 +134,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - The owner or an admin can revoke it at any time.
 - Only the owner can change a recipe's visibility. Making someone else's shared recipe private would hide it from everyone but its owner.
 - A recipe's visibility is chosen when it's created and changed on its own afterwards: saving the recipe's content never changes it, so editors can edit any shared recipe without being able to hide it.
+- A new recipe starts private in the editor, so nothing is shared by accident: sharing is a choice.
 - Making a recipe private revokes its public link.
 
 **Audit log**

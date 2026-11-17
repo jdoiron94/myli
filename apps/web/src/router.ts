@@ -71,6 +71,21 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Users', permission: 'user.manage' },
   },
   {
+    // Ahead of `/recipes/:id` whatever the order: the router ranks fixed segments first.
+    path: '/recipes/new',
+    name: 'new-recipe',
+    component: () => import('./pages/NewRecipePage.vue'),
+    meta: { title: 'New recipe', permission: 'recipe.create' },
+  },
+  {
+    // Who may edit depends on the recipe, so the page checks once it's loaded.
+    path: '/recipes/:id/edit',
+    name: 'edit-recipe',
+    component: () => import('./pages/EditRecipePage.vue'),
+    props: true,
+    meta: { title: 'Edit recipe' },
+  },
+  {
     // The page sets the tab's title to the recipe's once it's loaded.
     path: '/recipes/:id',
     name: 'recipe',

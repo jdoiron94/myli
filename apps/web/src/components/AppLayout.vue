@@ -12,7 +12,7 @@ const router = useRouter();
 const { data: signedInUser } = useQuery(sessionQuery);
 const signOut = useSignOut();
 /** The pages in the header, each linked only for someone whose role allows it. */
-const NAV_PAGES = ['invitations', 'users'] as const;
+const NAV_PAGES = ['new-recipe', 'invitations', 'users'] as const;
 const navLinks = computed(() =>
   NAV_PAGES.map((name) => router.resolve({ name })).filter(
     ({ meta }) => !meta.permission || can(signedInUser.value ?? null, meta.permission),
