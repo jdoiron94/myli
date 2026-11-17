@@ -113,6 +113,33 @@ describe('what a reader can do with a recipe', () => {
     },
   );
 
+  it.each([
+    [
+      'private',
+      { 'Edit recipe': 'pencil', 'Share with everyone': 'users', 'Delete recipe': 'trash' },
+    ],
+    ['shared', { 'Edit recipe': 'pencil', 'Make private': 'lock', 'Delete recipe': 'trash' }],
+  ] as const)(
+    'marks each action on a %s recipe with an icon, hidden from screen readers',
+    async (visibility, icons) => {
+      storeRecipe(sampleRecipe({ visibility }));
+      await openRecipe();
+
+      const shown = Object.fromEntries(
+        actions().map((name) => {
+          const action = screen.queryByRole('link', { name }) ?? button(name);
+          const icon = action.querySelector('svg');
+          expect(icon?.getAttribute('aria-hidden')).toBe('true');
+          return [
+            name,
+            icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1],
+          ];
+        }),
+      );
+      expect(shown).toEqual(icons);
+    },
+  );
+
   it('shares a private recipe once asked, and makes it private again', async () => {
     const sent = storeRecipe(sampleRecipe({ visibility: 'private' }));
     const { user } = await openRecipe();
