@@ -8,6 +8,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
 
@@ -147,6 +148,32 @@ export function setRecipeVisibility(db: Db, id: string, visibility: Visibility):
     .returning({ id: recipe.id })
     .all();
   return updated !== undefined;
+}
+
+/**
+ * Deletes a recipe: it's hidden everywhere from now on, but its rows stay for the trash in Phase 2.
+ * The audit event shows admins a shared recipe's title, but never a private one's: admins may not
+ * see private recipes, so their titles stay out of the log. False if the recipe is already gone.
+ */
+export function deleteRecipe(db: Db, origin: AuditOrigin, id: string): boolean {
+  return db.transaction((tx) => {
+    const [deleted] = tx
+      .update(recipe)
+      .set({ deletedAt: new Date() })
+      .where(live(id))
+      .returning({ title: recipe.title, visibility: recipe.visibility })
+      .all();
+    if (!deleted) return false;
+    recordAuditEvent(tx, origin, {
+      action: 'recipe.deleted',
+      target: { type: 'recipe', id },
+      metadata:
+        deleted.visibility === 'shared'
+          ? { title: deleted.title, visibility: 'shared' }
+          : { visibility: 'private' },
+    });
+    return true;
+  });
 }
 
 /** What authorizing an action on a recipe needs. `undefined` if it doesn't exist or was deleted. */
