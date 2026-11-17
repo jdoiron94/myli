@@ -14,6 +14,7 @@ import type { App as VueApp } from 'vue';
 import { createMemoryHistory } from 'vue-router';
 import App from './App.vue';
 import { createAppQueryClient } from './api/query.ts';
+import type { components } from './api/schema.ts';
 import { installApp } from './app.ts';
 import { apiServer } from './fake-api.ts';
 
@@ -75,6 +76,22 @@ export function answerSetup(needed: boolean) {
   apiServer.use(http.get(SETUP_PATH, () => HttpResponse.json({ needed })));
 }
 
+const SEARCH_PATH = `${API_BASE_PATH}/search/recipes`;
+
+/** What recipe search finds when there are no recipes. */
+export const NO_SEARCH_RESULTS: components['schemas']['RecipeSearchResult'] = {
+  hits: [],
+  totalHits: 0,
+  page: 1,
+  totalPages: 0,
+  facets: { cuisine: {}, mealType: {}, diet: {}, tag: {}, allergen: {}, difficulty: {} },
+};
+
+/** Answers recipe search with `result`, whatever it's asked: no recipes, unless given. */
+export function answerSearch(result = NO_SEARCH_RESULTS) {
+  apiServer.use(http.get(SEARCH_PATH, () => HttpResponse.json(result)));
+}
+
 /** Whether the current test already answers `method path` itself. */
 function answered(method: string, path: string) {
   return apiServer
@@ -97,8 +114,9 @@ export interface RenderAppOptions {
 /**
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
  * while the router is still making its first navigation, which waits for the session and, when no
- * one is signed in, for whether setup is needed. It answers both from the options, unless the test
- * already answers them itself. Queries retry without waiting in between.
+ * one is signed in, for whether setup is needed. It answers both from the options, and recipe
+ * search with no recipes, unless the test already answers them itself. Queries retry without
+ * waiting in between.
  */
 export async function renderApp(
   path: string,
@@ -106,6 +124,8 @@ export async function renderApp(
 ) {
   if (!answered('GET', SESSION_PATH)) answerSession(signedInAs ? testUsers[signedInAs] : null);
   if (!answered('GET', SETUP_PATH)) answerSetup(setupNeeded);
+  // Home searches for recipes.
+  if (!answered('GET', SEARCH_PATH)) answerSearch();
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();

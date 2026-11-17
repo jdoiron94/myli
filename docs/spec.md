@@ -334,7 +334,9 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 | Total time | Ascending or descending. Recipes without a total time come last either way. |
 
 **Results**
+- Home is the search page. Until something is searched, it lists every recipe the reader may see, newest first.
 - The full search state (query, filters, sort, page) lives in the URL, so searches can be bookmarked and shared.
+- Sorting by rating is offered once there are ratings (Phase 2). The best match is offered only for a search with words; without them, the newest come first.
 - Results are paginated, 24 to a page, and show a count for each filter value. A filter that takes any of its values (cuisine, meal type, difficulty) is counted without its own choices, so each of its other values shows what adding it would give.
 - Results include only recipes the caller may see (§2). Drafts are never searchable.
 - Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should. Nor is it counted, so the count matches what's shown.
