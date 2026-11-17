@@ -194,7 +194,8 @@ There are three roles: **admin**, **editor** and **viewer**.
   - round to sensible precision for the unit
   - convert up to larger units within the same system (48 tsp → 1 cup)
 - Lines that aren't scalable never change.
-- Each user picks metric or imperial as a display preference, imperial until they choose. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
+- Each user picks metric or imperial as a display preference, imperial until they choose. Imperial means the US customary measures American recipes use: a cup is 236.6 ml. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
+- Named units, like a clove or a can, scale but never convert.
 - Scaling changes only the display. It never changes the stored recipe.
 
 **Tags**
