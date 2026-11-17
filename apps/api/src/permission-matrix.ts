@@ -233,6 +233,12 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     send: (t, cookie, recipeId) =>
       request(t, 'PUT', `/recipes/${recipeId}/visibility`, cookie, { visibility: 'shared' }),
   },
+  {
+    method: 'delete',
+    path: '/recipes/{id}',
+    access: { recipe: 'recipe.trash' },
+    send: (t, cookie, recipeId) => request(t, 'DELETE', `/recipes/${recipeId}`, cookie),
+  },
 ];
 
 export type Outcome = 'allowed' | 401 | 403 | 404;

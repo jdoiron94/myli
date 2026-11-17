@@ -7,9 +7,10 @@ import {
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { recipe as recipeTable, tag } from '../db/schema.ts';
+import { auditEvent, recipeIngredient, recipe as recipeTable, tag } from '../db/schema.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { deactivateUser } from '../users/manage.ts';
+import { deleteRecipe } from './recipes.ts';
 import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
 
 afterEach(() => {
@@ -525,5 +526,103 @@ describe('PUT /recipes/{id}/visibility', () => {
     ]);
     t.db.update(recipeTable).set({ deletedAt: new Date() }).where(eq(recipeTable.id, id)).run();
     expect((await setVisibility(t, id, cookie, 'private')).status).toBe(404);
+  });
+});
+
+describe('DELETE /recipes/{id}', () => {
+  const remove = (t: TestApp, id: string, cookie: string) =>
+    send(t, 'DELETE', `/recipes/${id}`, cookie);
+  const deletions = (t: TestApp) =>
+    t.db.select().from(auditEvent).where(eq(auditEvent.action, 'recipe.deleted')).all();
+
+  it('hides the recipe everywhere, keeping its rows for the trash', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+
+    const res = await remove(t, id, cookie);
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe('');
+
+    expect((await send(t, 'GET', `/recipes/${id}`, cookie)).status).toBe(404);
+    expect((await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent())).status).toBe(
+      404,
+    );
+    expect(
+      (await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' })).status,
+    ).toBe(404);
+    expect((await remove(t, id, cookie)).status).toBe(404);
+
+    const row = t.db.select().from(recipeTable).where(eq(recipeTable.id, id)).get();
+    expect(row?.deletedAt).toBeInstanceOf(Date);
+    expect(
+      t.db.select().from(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).all(),
+    ).toHaveLength(2);
+  });
+
+  it('records who deleted it, and a shared recipe’s title', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    await t.app.request(`/api/v1/recipes/${id}`, {
+      method: 'DELETE',
+      headers: { cookie, 'content-type': 'application/json', 'user-agent': 'Recipe Tests' },
+    });
+
+    expect(deletions(t)).toEqual([
+      expect.objectContaining({
+        actorId: user.id,
+        targetType: 'recipe',
+        targetId: id,
+        metadata: { title: 'Weeknight Bread', visibility: 'shared' },
+        userAgent: 'Recipe Tests',
+      }),
+    ]);
+  });
+
+  it('keeps a private recipe’s title out of the log, which admins read', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'private');
+    expect((await remove(t, id, cookie)).status).toBe(204);
+
+    const [event] = deletions(t);
+    expect(event?.metadata).toEqual({ visibility: 'private' });
+    expect(JSON.stringify(event)).not.toContain('Weeknight Bread');
+  });
+
+  it('lets an admin delete someone else’s shared recipe, but not an editor', async () => {
+    const { t, user } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const editor = await signedInAs(t, 'editor');
+    const admin = await signedInAs(t, 'admin');
+
+    expect((await remove(t, id, editor.cookie)).status).toBe(403);
+    expect((await remove(t, id, admin.cookie)).status).toBe(204);
+    expect(deletions(t).map(({ actorId }) => actorId)).toEqual([admin.user.id]);
+  });
+
+  it('deletes once: a recipe already deleted is left alone, and recorded once', async () => {
+    const { t, user } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const origin = { actorId: user.id, ip: null, userAgent: null };
+
+    expect(deleteRecipe(t.db, origin, id)).toBe(true);
+    const { deletedAt } = t.db.select().from(recipeTable).where(eq(recipeTable.id, id)).get() ?? {};
+    expect(deleteRecipe(t.db, origin, id)).toBe(false);
+    expect(deleteRecipe(t.db, origin, 'no-such-recipe')).toBe(false);
+    expect(deletions(t)).toHaveLength(1);
+    expect(t.db.select().from(recipeTable).where(eq(recipeTable.id, id)).get()?.deletedAt).toEqual(
+      deletedAt,
+    );
+  });
+
+  it('hides someone else’s private recipe from admins, and refuses viewers', async () => {
+    const { t, user } = await setUp('editor');
+    const hidden = insertRecipe(t.db, user.id, 'private');
+    const admin = await signedInAs(t, 'admin');
+    const viewer = await signedInAs(t, 'viewer');
+    const viewersOwn = insertRecipe(t.db, viewer.user.id, 'private');
+
+    expect((await remove(t, hidden, admin.cookie)).status).toBe(404);
+    expect((await remove(t, viewersOwn, viewer.cookie)).status).toBe(403);
+    expect(deletions(t)).toEqual([]);
   });
 });

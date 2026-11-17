@@ -10,6 +10,7 @@ import {
   recipeResultSchema,
   updateRecipeRequestSchema,
 } from '@myli/shared';
+import { auditOrigin } from '../audit/audit.ts';
 import { authorize, notFound, requirePermission } from '../auth/authorize.ts';
 import { requireSession } from '../auth/session.ts';
 import type { AppEnv } from '../context.ts';
@@ -17,6 +18,7 @@ import type { Db } from '../db/database.ts';
 import { errorResponses, InvalidFields } from '../problems.ts';
 import {
   createRecipe,
+  deleteRecipe,
   findRecipeAccess,
   loadRecipe,
   type SaveResult,
@@ -125,6 +127,25 @@ const putVisibility = createRoute({
   },
 });
 
+const deleteRecipeRoute = createRoute({
+  method: 'delete',
+  path: '/recipes/{id}',
+  tags: ['Recipes'],
+  summary: 'Delete a recipe',
+  description:
+    'Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, ' +
+    'and the deletion is recorded in the audit log. (Restoring it from the trash comes with ' +
+    'Phase 2.) Send `Content-Type: application/json` even though there is no body.',
+  middleware: [requireSession] as const,
+  request: { params: recipeIdParamsSchema },
+  responses: {
+    204: { description: 'Deleted.' },
+    403: problem('The caller may see the recipe but not delete it.'),
+    404: problem('No recipe has this ID, or the caller may not see it.'),
+    ...errorResponses,
+  },
+});
+
 /**
  * The saved recipe's ID, or the problem that stopped the save: 404 if the recipe is gone, or the
  * 422 naming the tags in `tagIds` that don't exist.
@@ -171,6 +192,14 @@ export function registerRecipeRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) 
     if (!setRecipeVisibility(deps.db, id, visibility)) throw notFound('Recipe');
     c.var.logger.info({ recipeId: id, visibility }, 'recipe visibility set');
     return c.json({ recipe: found(id) }, 200);
+  });
+
+  v1.openapi(deleteRecipeRoute, (c) => {
+    const { id } = c.req.valid('param');
+    authorizeOn(c, 'recipe.trash', id);
+    if (!deleteRecipe(deps.db, auditOrigin(c), id)) throw notFound('Recipe');
+    c.var.logger.info({ recipeId: id }, 'recipe deleted');
+    return c.body(null, 204);
   });
 
   /** Throws unless the caller may do `action` to the recipe: 401, 404 if hidden or gone, 403. */

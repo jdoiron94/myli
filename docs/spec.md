@@ -149,6 +149,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - public link created or revoked
   - full-instance export
 - Each event stores actor, action, target, timestamp, IP address and user agent.
+- **Recipe events** name the recipe by its title only while it's shared. Admins may not see private recipes (§2), so a private recipe's title never enters the log.
 - **Sign-ins:**
   - Only email-and-password sign-ins whose credentials were checked are recorded. Requests refused for coming from another origin, being malformed or being rate limited are not.
   - A failed sign-in has no actor. It keeps the email that was tried and the reason (wrong email or password, or a deactivated account), and targets the account when that email has one.
