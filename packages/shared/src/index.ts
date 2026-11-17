@@ -58,6 +58,12 @@ export {
   type RoleAction,
 } from './policy.ts';
 export {
+  DEFAULT_PREFERENCES,
+  preferencesResultSchema,
+  type UserPreferences,
+  userPreferencesSchema,
+} from './preferences.ts';
+export {
   PROBLEM_CONTENT_TYPE,
   type ProblemDetails,
   problemDetailsSchema,

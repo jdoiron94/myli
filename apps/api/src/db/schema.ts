@@ -5,6 +5,7 @@ import {
   DIFFICULTIES,
   ROLES,
   TAG_TYPES,
+  UNIT_SYSTEMS,
   VISIBILITIES,
 } from '@myli/shared';
 import { sql } from 'drizzle-orm';
@@ -406,5 +407,23 @@ export const recipeTag = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.recipeId, table.tagId] }),
     index('recipe_tag_tag_id_idx').on(table.tagId),
+  ],
+);
+
+/** A user's display preferences (`@myli/shared`'s `userPreferencesSchema`). No row means the defaults. */
+export const userPreference = sqliteTable(
+  'user_preference',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    unitSystem: text('unit_system', { enum: UNIT_SYSTEMS }).notNull(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    check(
+      'user_preference_unit_system_check',
+      sql`${table.unitSystem} in ${sqlList(UNIT_SYSTEMS)}`,
+    ),
   ],
 );
