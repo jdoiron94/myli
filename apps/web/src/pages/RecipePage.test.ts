@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
+import { USER_LINK_REL } from '@/lib/markdown.ts';
 import type { Recipe } from '@/recipes/recipe.ts';
 import { sampleRecipe } from '@/recipes/testing.ts';
 import {
@@ -174,15 +175,18 @@ describe('the recipe page', () => {
     ).toEqual(['3 cups all-purpose flour', '1 cup water', '½ cup sugar']);
   });
 
-  it('numbers the steps, and puts headings written in them below the section’s', async () => {
-    answerRecipe(sampleRecipe({ steps: [{ body: '# Shape\nRoll it up.' }, { body: 'Bake.' }] }));
+  it('numbers the steps, rendering their markdown', async () => {
+    answerRecipe(
+      sampleRecipe({ steps: [{ body: 'Roll it up.\n# Not a heading' }, { body: 'Bake.' }] }),
+    );
     await renderApp('/recipes/recipe-bread');
 
     await heading();
     const steps = screen.getByRole('region', { name: 'Steps' });
     expect(within(steps).getByRole('list').tagName).toBe('OL');
     expect(within(steps).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(steps).getByRole('heading', { level: 3, name: 'Shape' })).toBeDefined();
+    expect(within(steps).queryByRole('heading', { level: 3 })).toBeNull();
+    expect(within(steps).getByText(/# Not a heading/)).toBeDefined();
   });
 
   it('shows the equipment, the source and the nutrition per serving', async () => {
@@ -199,7 +203,7 @@ describe('the recipe page', () => {
 
     const source = screen.getByRole('link', { name: 'Example Bakes' });
     expect(source.getAttribute('href')).toBe('https://example.com/bread');
-    expect(source.getAttribute('rel')).toBe('ugc nofollow noreferrer');
+    expect(source.getAttribute('rel')).toBe(USER_LINK_REL);
     expect(source.parentElement?.textContent.replace(/\s+/g, ' ').trim()).toBe(
       'From Example Bakes by A. Baker',
     );

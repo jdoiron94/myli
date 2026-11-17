@@ -11,6 +11,7 @@ import MarkdownContent from '@/components/MarkdownContent.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { USER_LINK_REL } from '@/lib/markdown.ts';
 import {
   DIFFICULTY_LABELS,
   formatMinutes,
@@ -193,7 +194,6 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         v-if="recipe.description"
         class="mt-6"
         :source="recipe.description"
-        :heading-level="2"
       />
 
       <p
@@ -204,7 +204,7 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         <a
           v-if="source.url"
           :href="source.url"
-          rel="ugc nofollow noreferrer"
+          :rel="USER_LINK_REL"
           class="underline underline-offset-2"
         >{{ source.linkText }}</a>
         <template v-else-if="source.linkText">
@@ -319,7 +319,6 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
               >
                 <MarkdownContent
                   :source="step.body"
-                  :heading-level="3"
                 />
               </li>
             </ol>

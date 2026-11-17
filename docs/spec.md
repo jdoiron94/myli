@@ -198,10 +198,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 - Steps can be reordered, inserted and removed.
 
 **Markdown**
-- Descriptions and steps (and later comments and notes) are markdown: emphasis, strikethrough, lists, links, quotes, code and headings. A line break is kept as typed.
-- Raw HTML is shown as typed, never run. Images come only from uploads (§3.2 Images), and tables aren't supported.
-- Links go only to web or email addresses, or to pages on the instance. They're marked as user-written (`rel="ugc nofollow noreferrer"`), so the sites they lead to aren't told which recipe sent the reader.
-- Headings in someone's markdown sit below the page's own: a `#` in a step never becomes the page's main heading.
+- Descriptions and steps (and later comments and notes) are markdown, in a deliberately small subset (ADR 0006): bold, italic, lists, links and inline code. A line break is kept as typed.
+- Anything else, like a heading, a quote, a table, an image or raw HTML, is shown as the text that was typed, never run. Images come only from uploads (§3.2 Images).
+- Links go only to web or email addresses, or to pages on the instance. They're marked as user-written (`rel="ugc nofollow noopener noreferrer"`), so the sites they lead to aren't told which recipe sent the reader.
 
 **Scaling**
 - Choosing a different serving count scales every scalable quantity by `new / baseline`. A recipe always opens at its own servings: the count chosen isn't saved.
