@@ -400,6 +400,694 @@
           "role"
         ]
       },
+      "RecipeResult": {
+        "type": "object",
+        "properties": {
+          "recipe": {
+            "$ref": "#/components/schemas/Recipe"
+          }
+        },
+        "required": [
+          "recipe"
+        ]
+      },
+      "Recipe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "author": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "url",
+              "title",
+              "author"
+            ]
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "yield": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "qty": {
+                "type": "number"
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "qty",
+              "unit"
+            ]
+          },
+          "servings": {
+            "type": "integer"
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Set only when it differs from prep plus cook. See `recipeTotalMinutes`."
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "nutrition": {
+            "type": "object",
+            "properties": {
+              "calories": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "proteinGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "carbsGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "fatGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "fiberGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "sugarGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "sodiumMilligrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "calories",
+              "proteinGrams",
+              "carbsGrams",
+              "fatGrams",
+              "fiberGrams",
+              "sugarGrams",
+              "sodiumMilligrams"
+            ]
+          },
+          "ingredientGroups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IngredientLine"
+                  }
+                }
+              },
+              "required": [
+                "label",
+                "ingredients"
+              ]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "body"
+              ]
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            },
+            "description": "By type, then name."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "visibility",
+          "title",
+          "description",
+          "source",
+          "equipment",
+          "yield",
+          "servings",
+          "prepMinutes",
+          "cookMinutes",
+          "totalMinutes",
+          "difficulty",
+          "nutrition",
+          "ingredientGroups",
+          "steps",
+          "tags",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Visibility": {
+        "type": "string",
+        "enum": [
+          "private",
+          "shared"
+        ]
+      },
+      "Difficulty": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "easy",
+          "medium",
+          "hard",
+          null
+        ]
+      },
+      "IngredientLine": {
+        "type": "object",
+        "properties": {
+          "rawText": {
+            "type": "string"
+          },
+          "qty": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "qtyMax": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "normalizedName": {
+            "type": "string",
+            "description": "The name lowercase and singular, without accents or punctuation."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scalable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rawText",
+          "qty",
+          "qtyMax",
+          "unit",
+          "name",
+          "normalizedName",
+          "note",
+          "scalable"
+        ]
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "type": {
+            "$ref": "#/components/schemas/TagType"
+          },
+          "name": {
+            "type": "string",
+            "description": "As its creator wrote it. Allergens are lowercase: \"tree nuts\"."
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name"
+        ]
+      },
+      "TagType": {
+        "type": "string",
+        "enum": [
+          "cuisine",
+          "meal_type",
+          "diet",
+          "allergen",
+          "custom"
+        ]
+      },
+      "CreateRecipeRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "Markdown."
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecipeSource"
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 50
+          },
+          "yield": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "qty": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1000000
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 50
+              }
+            },
+            "required": [
+              "qty",
+              "unit"
+            ],
+            "description": "\"24 cookies\", separate from the servings."
+          },
+          "servings": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "The baseline scaling starts from."
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Only when it differs from prep plus cook: `null` means their sum."
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "nutrition": {
+            "$ref": "#/components/schemas/Nutrition"
+          },
+          "ingredientGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientGroupInput"
+            },
+            "maxItems": 20
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "body"
+              ]
+            },
+            "maxItems": 100,
+            "description": "In order. Each body is markdown."
+          },
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maxItems": 50
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "source",
+          "equipment",
+          "yield",
+          "servings",
+          "prepMinutes",
+          "cookMinutes",
+          "totalMinutes",
+          "difficulty",
+          "nutrition",
+          "ingredientGroups",
+          "steps",
+          "tagIds",
+          "visibility"
+        ]
+      },
+      "RecipeSource": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "A book or site title."
+          },
+          "author": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "url",
+          "title",
+          "author"
+        ]
+      },
+      "Nutrition": {
+        "type": "object",
+        "properties": {
+          "calories": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "proteinGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "carbsGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "fatGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "fiberGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "sugarGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "sodiumMilligrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          }
+        },
+        "required": [
+          "calories",
+          "proteinGrams",
+          "carbsGrams",
+          "fatGrams",
+          "fiberGrams",
+          "sugarGrams",
+          "sodiumMilligrams"
+        ],
+        "description": "Per serving, entered by hand. `null` for each value nobody entered."
+      },
+      "IngredientGroupInput": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "\"For the dough\". A lone group needs none."
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientLineInput"
+            },
+            "minItems": 1,
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "label",
+          "ingredients"
+        ]
+      },
+      "IngredientLineInput": {
+        "type": "object",
+        "properties": {
+          "rawText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "qty": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 1000000,
+            "description": "`null` when the line has no quantity."
+          },
+          "qtyMax": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 1000000,
+            "description": "The top of a range (\"2–3 cloves\"): more than `qty`. Otherwise `null`."
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 30,
+            "description": "A unit from the unit table, by any of its names, or one typed by hand."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          },
+          "scalable": {
+            "type": "boolean",
+            "description": "False for lines like \"salt to taste\", which never scale."
+          }
+        },
+        "required": [
+          "rawText",
+          "qty",
+          "qtyMax",
+          "unit",
+          "name",
+          "note",
+          "scalable"
+        ]
+      },
       "InvitationList": {
         "type": "object",
         "properties": {
@@ -991,6 +1679,128 @@
           },
           "404": {
             "description": "No user has this ID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Create a recipe",
+        "description": "Editors and admins. The caller owns the new recipe. Ingredient lines are stored as sent: parse them with `parseIngredient` from `@myli/shared` and let the user confirm. A tag that no longer exists fails validation like any other field.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new recipe.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where it lives."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Get a recipe",
+        "description": "Any signed-in user, for shared recipes and their own private ones. Someone else's private recipe answers 404, exactly as one that never existed or was deleted.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recipe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
             "content": {
               "application/problem+json": {
                 "schema": {

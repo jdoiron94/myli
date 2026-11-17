@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { tagSchema } from './tags.ts';
+import { findUnit } from './units.ts';
+import { visibilitySchema } from './visibility.ts';
 
 /** How hard a recipe is (spec §3.2). Optional on each recipe. */
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
@@ -6,3 +9,222 @@ export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 export const difficultySchema = z.enum(DIFFICULTIES).meta({ id: 'Difficulty' });
 
 export type Difficulty = z.infer<typeof difficultySchema>;
+
+/** How long or how many of each part of a recipe can be, for forms to show and check. */
+export const RECIPE_LIMITS = {
+  title: 200,
+  description: 20_000,
+  sourceUrl: 2_000,
+  sourceText: 200,
+  equipment: 50,
+  equipmentItem: 100,
+  yieldUnit: 50,
+  servings: 1_000,
+  /** Ten weeks, for things that cure. */
+  minutes: 100_000,
+  ingredientGroups: 20,
+  groupLabel: 100,
+  /** Across every group. */
+  ingredients: 200,
+  rawText: 500,
+  ingredientName: 200,
+  ingredientNote: 500,
+  unit: 30,
+  quantity: 1_000_000,
+  steps: 100,
+  stepBody: 10_000,
+  tags: 50,
+  nutrition: 100_000,
+} as const;
+
+const L = RECIPE_LIMITS;
+
+/** Optional text: `null` or empty when there's none. The API stores an empty one as `null`. */
+const optionalText = (max: number) => z.string().trim().max(max).nullable();
+
+const quantitySchema = z.number().positive().max(L.quantity);
+
+const minutesSchema = z.int().min(0).max(L.minutes).nullable();
+
+const nutrientSchema = z.number().min(0).max(L.nutrition).nullable();
+
+/** One ingredient line as the user confirmed it (spec §3.2). */
+export const ingredientLineInputSchema = z
+  .object({
+    rawText: z.string().trim().min(1, 'Enter the ingredient.').max(L.rawText),
+    qty: quantitySchema.nullable().describe('`null` when the line has no quantity.'),
+    qtyMax: quantitySchema
+      .nullable()
+      .describe('The top of a range ("2–3 cloves"): more than `qty`. Otherwise `null`.'),
+    unit: z
+      .string()
+      .trim()
+      .min(1)
+      .max(L.unit)
+      // "Tablespoons" is stored as the unit table's "tbsp"; a unit typed by hand stays as it is.
+      .overwrite((unit) => findUnit(unit)?.name ?? unit)
+      .nullable()
+      .describe('A unit from the unit table, by any of its names, or one typed by hand.'),
+    name: z.string().trim().min(1, 'Name the ingredient.').max(L.ingredientName),
+    note: optionalText(L.ingredientNote),
+    scalable: z.boolean().describe('False for lines like "salt to taste", which never scale.'),
+  })
+  .refine(({ qty, qtyMax }) => qtyMax === null || (qty !== null && qtyMax > qty), {
+    path: ['qtyMax'],
+    message: 'The top of a range must be more than its bottom.',
+  })
+  .meta({ id: 'IngredientLineInput' });
+
+export const ingredientGroupInputSchema = z
+  .object({
+    label: optionalText(L.groupLabel).describe('"For the dough". A lone group needs none.'),
+    ingredients: z.array(ingredientLineInputSchema).min(1).max(L.ingredients),
+  })
+  .meta({ id: 'IngredientGroupInput' });
+
+const sourceSchema = z
+  .object({
+    url: z
+      .url({ protocol: /^https?$/, error: 'Enter a web address starting with http or https.' })
+      .max(L.sourceUrl)
+      .nullable(),
+    title: optionalText(L.sourceText).describe('A book or site title.'),
+    author: optionalText(L.sourceText),
+  })
+  .meta({ id: 'RecipeSource' });
+
+const yieldSchema = z
+  .object({ qty: quantitySchema, unit: optionalText(L.yieldUnit) })
+  .nullable()
+  .describe('"24 cookies", separate from the servings.');
+
+const nutritionSchema = z
+  .object({
+    calories: nutrientSchema,
+    proteinGrams: nutrientSchema,
+    carbsGrams: nutrientSchema,
+    fatGrams: nutrientSchema,
+    fiberGrams: nutrientSchema,
+    sugarGrams: nutrientSchema,
+    sodiumMilligrams: nutrientSchema,
+  })
+  .describe('Per serving, entered by hand. `null` for each value nobody entered.')
+  .meta({ id: 'Nutrition' });
+
+/** Everything about a recipe that editing it changes. Its visibility is changed on its own. */
+const recipeContentShape = {
+  title: z.string().trim().min(1, 'Give the recipe a title.').max(L.title),
+  description: z.string().trim().max(L.description).describe('Markdown.'),
+  source: sourceSchema,
+  equipment: z.array(z.string().trim().min(1).max(L.equipmentItem)).max(L.equipment),
+  yield: yieldSchema,
+  servings: z.int().min(1).max(L.servings).describe('The baseline scaling starts from.'),
+  prepMinutes: minutesSchema,
+  cookMinutes: minutesSchema,
+  totalMinutes: minutesSchema.describe(
+    'Only when it differs from prep plus cook: `null` means their sum.',
+  ),
+  difficulty: difficultySchema.nullable(),
+  nutrition: nutritionSchema,
+  ingredientGroups: z.array(ingredientGroupInputSchema).max(L.ingredientGroups),
+  steps: z
+    .array(z.object({ body: z.string().trim().min(1, 'Write the step.').max(L.stepBody) }))
+    .max(L.steps)
+    .describe('In order. Each body is markdown.'),
+  tagIds: z
+    .array(z.int().positive())
+    .max(L.tags)
+    .refine((ids) => new Set(ids).size === ids.length, 'Each tag can be added once.'),
+};
+
+/** The 200-line limit counts every group together. */
+const withinIngredientLimit = (recipe: { ingredientGroups: { ingredients: unknown[] }[] }) =>
+  recipe.ingredientGroups.flatMap((group) => group.ingredients).length <= L.ingredients;
+
+const INGREDIENT_LIMIT_ISSUE = {
+  path: ['ingredientGroups'],
+  message: `A recipe can have up to ${String(L.ingredients)} ingredients.`,
+};
+
+export const createRecipeRequestSchema = z
+  .object({ ...recipeContentShape, visibility: visibilitySchema })
+  .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
+  .meta({ id: 'CreateRecipeRequest' });
+
+export type CreateRecipeRequest = z.output<typeof createRecipeRequestSchema>;
+
+/** One ingredient line of a saved recipe. */
+export const ingredientLineSchema = z
+  .object({
+    rawText: z.string(),
+    qty: z.number().nullable(),
+    qtyMax: z.number().nullable(),
+    unit: z.string().nullable(),
+    name: z.string(),
+    normalizedName: z
+      .string()
+      .describe('The name lowercase and singular, without accents or punctuation.'),
+    note: z.string().nullable(),
+    scalable: z.boolean(),
+  })
+  .meta({ id: 'IngredientLine' });
+
+export const recipeSchema = z
+  .object({
+    id: z.string(),
+    owner: z.object({ id: z.string(), name: z.string() }),
+    visibility: visibilitySchema,
+    title: z.string(),
+    description: z.string(),
+    source: z.object({
+      url: z.string().nullable(),
+      title: z.string().nullable(),
+      author: z.string().nullable(),
+    }),
+    equipment: z.array(z.string()),
+    yield: z.object({ qty: z.number(), unit: z.string().nullable() }).nullable(),
+    servings: z.int(),
+    prepMinutes: z.int().nullable(),
+    cookMinutes: z.int().nullable(),
+    totalMinutes: z
+      .int()
+      .nullable()
+      .describe('Set only when it differs from prep plus cook. See `recipeTotalMinutes`.'),
+    difficulty: difficultySchema.nullable(),
+    nutrition: z.object({
+      calories: z.number().nullable(),
+      proteinGrams: z.number().nullable(),
+      carbsGrams: z.number().nullable(),
+      fatGrams: z.number().nullable(),
+      fiberGrams: z.number().nullable(),
+      sugarGrams: z.number().nullable(),
+      sodiumMilligrams: z.number().nullable(),
+    }),
+    ingredientGroups: z.array(
+      z.object({ label: z.string().nullable(), ingredients: z.array(ingredientLineSchema) }),
+    ),
+    steps: z.array(z.object({ body: z.string() })),
+    tags: z.array(tagSchema).describe('By type, then name.'),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .meta({ id: 'Recipe' });
+
+export type Recipe = z.infer<typeof recipeSchema>;
+
+export const recipeResultSchema = z.object({ recipe: recipeSchema }).meta({ id: 'RecipeResult' });
+
+/** The path parameter of one recipe. Unknown IDs get 404, so the format isn't checked. */
+export const recipeIdParamsSchema = z.object({ id: z.string().min(1).max(100) });
+
+/**
+ * How long a recipe takes in all: the total someone set by hand, or else prep plus cook. `null`
+ * when neither is known.
+ */
+export function recipeTotalMinutes(
+  recipe: Pick<Recipe, 'prepMinutes' | 'cookMinutes' | 'totalMinutes'>,
+): number | null {
+  if (recipe.totalMinutes !== null) return recipe.totalMinutes;
+  if (recipe.prepMinutes === null && recipe.cookMinutes === null) return null;
+  return (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0);
+}

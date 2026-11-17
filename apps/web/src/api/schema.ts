@@ -458,6 +458,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a recipe
+         * @description Editors and admins. The caller owns the new recipe. Ingredient lines are stored as sent: parse them with `parseIngredient` from `@myli/shared` and let the user confirm. A tag that no longer exists fails validation like any other field.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateRecipeRequest"];
+                };
+            };
+            responses: {
+                /** @description The new recipe. */
+                201: {
+                    headers: {
+                        /** @description Where it lives. */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a recipe
+         * @description Any signed-in user, for shared recipes and their own private ones. Someone else's private recipe answers 404, exactly as one that never existed or was deleted.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The recipe. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeResult"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invitations": {
         parameters: {
             query?: never;
@@ -977,6 +1108,142 @@ export interface components {
         };
         ChangeRoleRequest: {
             role: components["schemas"]["Role"];
+        };
+        RecipeResult: {
+            recipe: components["schemas"]["Recipe"];
+        };
+        Recipe: {
+            id: string;
+            owner: {
+                id: string;
+                name: string;
+            };
+            visibility: components["schemas"]["Visibility"];
+            title: string;
+            description: string;
+            source: {
+                url: string | null;
+                title: string | null;
+                author: string | null;
+            };
+            equipment: string[];
+            yield: {
+                qty: number;
+                unit: string | null;
+            } | null;
+            servings: number;
+            prepMinutes: number | null;
+            cookMinutes: number | null;
+            /** @description Set only when it differs from prep plus cook. See `recipeTotalMinutes`. */
+            totalMinutes: number | null;
+            difficulty: components["schemas"]["Difficulty"];
+            nutrition: {
+                calories: number | null;
+                proteinGrams: number | null;
+                carbsGrams: number | null;
+                fatGrams: number | null;
+                fiberGrams: number | null;
+                sugarGrams: number | null;
+                sodiumMilligrams: number | null;
+            };
+            ingredientGroups: {
+                label: string | null;
+                ingredients: components["schemas"]["IngredientLine"][];
+            }[];
+            steps: {
+                body: string;
+            }[];
+            /** @description By type, then name. */
+            tags: components["schemas"]["Tag"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @enum {string} */
+        Visibility: "private" | "shared";
+        /** @enum {string|null} */
+        Difficulty: "easy" | "medium" | "hard" | null;
+        IngredientLine: {
+            rawText: string;
+            qty: number | null;
+            qtyMax: number | null;
+            unit: string | null;
+            name: string;
+            /** @description The name lowercase and singular, without accents or punctuation. */
+            normalizedName: string;
+            note: string | null;
+            scalable: boolean;
+        };
+        Tag: {
+            id: number;
+            type: components["schemas"]["TagType"];
+            /** @description As its creator wrote it. Allergens are lowercase: "tree nuts". */
+            name: string;
+        };
+        /** @enum {string} */
+        TagType: "cuisine" | "meal_type" | "diet" | "allergen" | "custom";
+        CreateRecipeRequest: {
+            title: string;
+            /** @description Markdown. */
+            description: string;
+            source: components["schemas"]["RecipeSource"];
+            equipment: string[];
+            /** @description "24 cookies", separate from the servings. */
+            yield: {
+                qty: number;
+                unit: string | null;
+            } | null;
+            /** @description The baseline scaling starts from. */
+            servings: number;
+            prepMinutes: number | null;
+            cookMinutes: number | null;
+            /** @description Only when it differs from prep plus cook: `null` means their sum. */
+            totalMinutes: number | null;
+            difficulty: components["schemas"]["Difficulty"];
+            nutrition: components["schemas"]["Nutrition"];
+            ingredientGroups: components["schemas"]["IngredientGroupInput"][];
+            /** @description In order. Each body is markdown. */
+            steps: {
+                body: string;
+            }[];
+            tagIds: number[];
+            visibility: components["schemas"]["Visibility"];
+        };
+        RecipeSource: {
+            /** Format: uri */
+            url: string | null;
+            /** @description A book or site title. */
+            title: string | null;
+            author: string | null;
+        };
+        /** @description Per serving, entered by hand. `null` for each value nobody entered. */
+        Nutrition: {
+            calories: number | null;
+            proteinGrams: number | null;
+            carbsGrams: number | null;
+            fatGrams: number | null;
+            fiberGrams: number | null;
+            sugarGrams: number | null;
+            sodiumMilligrams: number | null;
+        };
+        IngredientGroupInput: {
+            /** @description "For the dough". A lone group needs none. */
+            label: string | null;
+            ingredients: components["schemas"]["IngredientLineInput"][];
+        };
+        IngredientLineInput: {
+            rawText: string;
+            /** @description `null` when the line has no quantity. */
+            qty: number | null;
+            /** @description The top of a range ("2–3 cloves"): more than `qty`. Otherwise `null`. */
+            qtyMax: number | null;
+            /** @description A unit from the unit table, by any of its names, or one typed by hand. */
+            unit: string | null;
+            name: string;
+            note: string | null;
+            /** @description False for lines like "salt to taste", which never scale. */
+            scalable: boolean;
         };
         InvitationList: {
             /** @description Open invitations, newest first. */
