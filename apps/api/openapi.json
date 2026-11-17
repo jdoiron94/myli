@@ -1482,6 +1482,34 @@
           "visibility"
         ]
       },
+      "IngredientSuggestions": {
+        "type": "object",
+        "properties": {
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "As recipes’ ingredient names are read, for the `ingredient` filter."
+                },
+                "recipes": {
+                  "type": "integer",
+                  "description": "How many recipes the caller may see use it."
+                }
+              },
+              "required": [
+                "name",
+                "recipes"
+              ]
+            }
+          }
+        },
+        "required": [
+          "ingredients"
+        ]
+      },
       "SearchIndexStatus": {
         "type": "object",
         "properties": {
@@ -2743,6 +2771,21 @@
               "type": "array",
               "items": {
                 "type": "string",
+                "maxLength": 200
+              },
+              "maxItems": 20,
+              "description": "Recipes with all of these ingredients, or a name that means the same (scallion, green onion). Names are read as recipes’ are: \"Scallions\" is \"scallion\"."
+            },
+            "required": false,
+            "description": "Recipes with all of these ingredients, or a name that means the same (scallion, green onion). Names are read as recipes’ are: \"Scallions\" is \"scallion\".",
+            "name": "ingredient",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
                 "minLength": 1,
                 "maxLength": 50
               },
@@ -2976,6 +3019,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecipeSearchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Search is unavailable. Everything else works.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/ingredients": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Suggest ingredients",
+        "description": "Any signed-in user. Ingredient names that recipes the caller may see use, starting like the query, the most used first: for the `ingredient` filter of recipe search.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "description": "The start of an ingredient name. Typos are forgiven. Empty for the most used."
+            },
+            "required": false,
+            "description": "The start of an ingredient name. Typos are forgiven. Empty for the most used.",
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to ten ingredient names.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientSuggestions"
                 }
               }
             }

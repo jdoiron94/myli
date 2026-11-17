@@ -1,15 +1,17 @@
 import {
+  ingredientSuggestionsSchema,
   PROBLEM_CONTENT_TYPE,
   recipeSearchResultSchema,
+  type Visibility,
   validationProblemSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import { MeilisearchApiError, MeilisearchRequestError, type MultiSearchQuery } from 'meilisearch';
 import { describe, expect, it } from 'vitest';
-import { recipe } from '../db/schema.ts';
+import { recipe, recipeIngredient } from '../db/schema.ts';
 import { createLogger } from '../logger.ts';
 import { insertRecipe } from '../recipes/testing.ts';
-import { createTestApp, signedInAs } from '../testing.ts';
+import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { fakeSearchClient } from './fake-client.ts';
 import type { SearchClient } from './query.ts';
 
@@ -25,10 +27,21 @@ async function setUp(options: { client?: SearchClient | undefined } = {}) {
   });
   const t = createTestApp({ logger, search: { isReady: () => Promise.resolve(true), client } });
   const { user, cookie } = await signedInAs(t, 'editor');
-  const search = (params: string) =>
-    t.app.request(`/api/v1/search/recipes${params}`, { headers: { cookie } });
-  return { t, user, search, logs: lines };
+  const get = (path: string) => t.app.request(`/api/v1${path}`, { headers: { cookie } });
+  const search = (params: string) => get(`/search/recipes${params}`);
+  return { t, user, get, search, logs: lines };
 }
+
+/** A Meilisearch client whose every request fails with `error`. */
+function failingClient(error: Error): SearchClient {
+  return {
+    multiSearch: () => Promise.reject(error),
+    index: () => ({ searchForFacetValues: () => Promise.reject(error) }),
+  };
+}
+
+const unreachable = () =>
+  new MeilisearchRequestError('http://meilisearch:7700/multi-search', new Error('ECONNREFUSED'));
 
 describe('GET /search/recipes', () => {
   it('asks for one page of the recipes the caller may see, with every filter’s counts', async () => {
@@ -73,22 +86,24 @@ describe('GET /search/recipes', () => {
   });
 
   it('counts an any-of filter’s values without its own choices, in a query of their own', async () => {
-    const { client, sent } = fakeSearchClient((query) => ({
-      indexUid: query.indexUid,
-      query: '',
-      processingTimeMs: 0,
-      hits: [],
-      totalHits: 3,
-      hitsPerPage: query.hitsPerPage ?? 0,
-      page: 1,
-      totalPages: 1,
-      facetDistribution: Object.fromEntries(
-        (query.facets ?? []).map((facet) => [
-          facet,
-          { [`${facet} counted ${query.facets?.length === 1 ? 'alone' : 'with the rest'}`]: 1 },
-        ]),
-      ),
-    }));
+    const { client, sent } = fakeSearchClient({
+      search: (query) => ({
+        indexUid: query.indexUid,
+        query: '',
+        processingTimeMs: 0,
+        hits: [],
+        totalHits: 3,
+        hitsPerPage: query.hitsPerPage ?? 0,
+        page: 1,
+        totalPages: 1,
+        facetDistribution: Object.fromEntries(
+          (query.facets ?? []).map((facet) => [
+            facet,
+            { [`${facet} counted ${query.facets?.length === 1 ? 'alone' : 'with the rest'}`]: 1 },
+          ]),
+        ),
+      }),
+    });
     const { search } = await setUp({ client });
 
     const res = await search('?cuisine=Thai&cuisine=Italian&difficulty=easy');
@@ -114,28 +129,30 @@ describe('GET /search/recipes', () => {
 
   it('shows only hits the caller may still see, as SQLite has them, should the index be behind', async () => {
     const hitsFor: string[] = [];
-    const { client } = fakeSearchClient((query) => ({
-      indexUid: query.indexUid,
-      query: '',
-      processingTimeMs: 0,
-      // Everything the stale index still has as shared.
-      hits: hitsFor.map((id) => ({
-        id,
-        title: `Recipe ${id}`,
-        difficulty: null,
-        totalMinutes: null,
-        cuisine: [],
-        mealType: [],
-        diet: [],
-        customTags: [],
-        allergens: [],
-      })),
-      totalHits: hitsFor.length,
-      hitsPerPage: 24,
-      page: 1,
-      totalPages: 1,
-      facetDistribution: {},
-    }));
+    const { client } = fakeSearchClient({
+      search: (query) => ({
+        indexUid: query.indexUid,
+        query: '',
+        processingTimeMs: 0,
+        // Everything the stale index still has as shared.
+        hits: hitsFor.map((id) => ({
+          id,
+          title: `Recipe ${id}`,
+          difficulty: null,
+          totalMinutes: null,
+          cuisine: [],
+          mealType: [],
+          diet: [],
+          customTags: [],
+          allergens: [],
+        })),
+        totalHits: hitsFor.length,
+        hitsPerPage: 24,
+        page: 1,
+        totalPages: 1,
+        facetDistribution: {},
+      }),
+    });
     const { t, user, search } = await setUp({ client });
     const { user: other } = await signedInAs(t, 'editor');
     const shared = insertRecipe(t.db, other.id, 'shared');
@@ -169,10 +186,7 @@ describe('GET /search/recipes', () => {
 
   it('answers 503 when Meilisearch can’t be reached or lost its index, and logs why', async () => {
     const failures = [
-      new MeilisearchRequestError(
-        'http://meilisearch:7700/multi-search',
-        new Error('ECONNREFUSED'),
-      ),
+      unreachable(),
       new MeilisearchApiError(new Response(null, { status: 404 }), {
         message: 'Index `recipes` not found.',
         code: 'index_not_found',
@@ -181,9 +195,7 @@ describe('GET /search/recipes', () => {
       }),
     ];
     for (const failure of failures) {
-      const { search, logs } = await setUp({
-        client: { multiSearch: () => Promise.reject(failure) },
-      });
+      const { search, logs } = await setUp({ client: failingClient(failure) });
 
       expect((await search('?q=soup')).status).toBe(503);
       expect(logs.find(({ msg }) => msg === 'search is unavailable')).toMatchObject({ level: 40 });
@@ -197,7 +209,7 @@ describe('GET /search/recipes', () => {
       type: 'invalid_request',
       link: '',
     });
-    const { search } = await setUp({ client: { multiSearch: () => Promise.reject(failure) } });
+    const { search } = await setUp({ client: failingClient(failure) });
 
     const res = await search('?q=soup');
 
@@ -226,5 +238,89 @@ describe('GET /search/recipes', () => {
       field,
       'query',
     ]);
+  });
+});
+
+describe('GET /search/ingredients', () => {
+  /** A recipe of `ownerId`'s that uses exactly these ingredients. */
+  function recipeUsing(t: TestApp, ownerId: string, visibility: Visibility, names: string[]) {
+    const id = insertRecipe(t.db, ownerId, visibility);
+    t.db.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run();
+    t.db
+      .insert(recipeIngredient)
+      .values(
+        names.map((name, position) => ({
+          recipeId: id,
+          groupPosition: 0,
+          position,
+          rawText: name,
+          name,
+          normalizedName: name,
+        })),
+      )
+      .run();
+    return id;
+  }
+
+  it('suggests names that recipes the caller may see use, starting like the query', async () => {
+    const { client, facetSearches } = fakeSearchClient({
+      facetSearch: () => [
+        { value: 'basil', count: 3 },
+        { value: 'bay leaf', count: 2 },
+        { value: 'secret basil', count: 1 },
+        { value: 'gone basil', count: 1 },
+        { value: 'never used', count: 1 },
+      ],
+    });
+    const { t, user, get } = await setUp({ client });
+    const { user: other } = await signedInAs(t, 'editor');
+    // What SQLite holds now. The index is behind on the last three.
+    recipeUsing(t, other.id, 'shared', ['basil']);
+    recipeUsing(t, user.id, 'private', ['bay leaf']);
+    recipeUsing(t, other.id, 'private', ['secret basil']);
+    const deleted = recipeUsing(t, other.id, 'shared', ['gone basil']);
+    t.db.update(recipe).set({ deletedAt: new Date() }).where(eq(recipe.id, deleted)).run();
+
+    const res = await get('/search/ingredients?q=ba');
+
+    expect(res.status).toBe(200);
+    expect(ingredientSuggestionsSchema.parse(await res.json())).toEqual({
+      ingredients: [
+        { name: 'basil', recipes: 3 },
+        { name: 'bay leaf', recipes: 2 },
+      ],
+    });
+    expect(facetSearches).toEqual([
+      {
+        facetName: 'normalizedIngredientNames',
+        facetQuery: 'ba',
+        filter: `deleted = false AND (visibility = "shared" OR ownerId = "${user.id}")`,
+      },
+    ]);
+  });
+
+  it('suggests ten at most, and the most used with no query', async () => {
+    const names = Array.from({ length: 12 }, (_, n) => `spice ${String(n)}`);
+    const { client, facetSearches } = fakeSearchClient({
+      facetSearch: () => names.map((value) => ({ value, count: 1 })),
+    });
+    const { t, user, get } = await setUp({ client });
+    recipeUsing(t, user.id, 'shared', names);
+
+    const { ingredients } = ingredientSuggestionsSchema.parse(
+      await (await get('/search/ingredients')).json(),
+    );
+
+    expect(ingredients.map(({ name }) => name)).toEqual(names.slice(0, 10));
+    expect(facetSearches[0]?.facetQuery).toBe('');
+  });
+
+  it('answers 503 while search is unavailable, or can’t be reached', async () => {
+    expect(
+      (await (await setUp({ client: undefined })).get('/search/ingredients?q=ba')).status,
+    ).toBe(503);
+    const { get, logs } = await setUp({ client: failingClient(unreachable()) });
+    expect((await get('/search/ingredients?q=ba')).status).toBe(503);
+    expect(logs.find(({ msg }) => msg === 'search is unavailable')).toMatchObject({ level: 40 });
   });
 });

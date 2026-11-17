@@ -174,6 +174,12 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/search/ingredients',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'GET', '/search/ingredients?q=bas', cookie),
+  },
+  {
+    method: 'get',
     path: '/search/index',
     access: 'search.reindex',
     send: (t, cookie) => request(t, 'GET', '/search/index', cookie),
