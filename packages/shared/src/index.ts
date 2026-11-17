@@ -18,6 +18,11 @@ export {
   auditEventSchema,
 } from './audit.ts';
 export {
+  normalizeIngredientName,
+  type ParsedIngredient,
+  parseIngredient,
+} from './ingredients.ts';
+export {
   type AcceptInvitationRequest,
   acceptInvitationRequestSchema,
   acceptInvitationResultSchema,
