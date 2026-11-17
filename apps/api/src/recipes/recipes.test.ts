@@ -7,7 +7,7 @@ import {
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { auditEvent, recipeIngredient, recipe as recipeTable, tag } from '../db/schema.ts';
+import { auditEvent, job, recipeIngredient, recipe as recipeTable, tag } from '../db/schema.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { deactivateUser } from '../users/manage.ts';
 import { deleteRecipe } from './recipes.ts';
@@ -624,5 +624,68 @@ describe('DELETE /recipes/{id}', () => {
     expect((await remove(t, hidden, admin.cookie)).status).toBe(404);
     expect((await remove(t, viewersOwn, viewer.cookie)).status).toBe(403);
     expect(deletions(t)).toEqual([]);
+  });
+});
+
+describe('the search index', () => {
+  /** The recipes the search index has been told to update, in the order it was told. */
+  const indexed = (t: TestApp) =>
+    t.db
+      .select({ type: job.type, payload: job.payload })
+      .from(job)
+      .all()
+      .filter(({ type }) => type === 'search.index-recipe')
+      .map(({ payload }) => payload);
+
+  it('is told of every change to a recipe: creating, saving, sharing and deleting it', async () => {
+    const { t, cookie } = await setUp();
+    const { id } = await recipeFrom(
+      await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest({ visibility: 'private' })),
+    );
+    expect(indexed(t)).toEqual([{ recipeId: id }]);
+
+    expect(
+      (await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent({ title: 'Rye' })))
+        .status,
+    ).toBe(200);
+    expect(
+      (await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'shared' })).status,
+    ).toBe(200);
+    expect((await send(t, 'DELETE', `/recipes/${id}`, cookie)).status).toBe(204);
+
+    expect(indexed(t)).toEqual([
+      { recipeId: id },
+      { recipeId: id },
+      { recipeId: id },
+      { recipeId: id },
+    ]);
+  });
+
+  it('isn’t told of changes that were refused, which change nothing', async () => {
+    const { t, cookie, user } = await setUp();
+    const viewer = await signedInAs(t, 'viewer');
+    const id = insertRecipe(t.db, user.id);
+    const before = indexed(t).length;
+    const missingTag = { tagIds: [987_654] };
+
+    const refused = [
+      await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest(missingTag)),
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(missingTag)),
+      await send(t, 'PUT', `/recipes/${id}`, viewer.cookie, sampleRecipeContent()),
+      await send(t, 'PUT', `/recipes/${id}/visibility`, viewer.cookie, { visibility: 'private' }),
+      await send(t, 'DELETE', `/recipes/${id}`, viewer.cookie),
+    ].map((res) => res.status);
+    expect(refused).toEqual([422, 422, 403, 403, 403]);
+    expect(indexed(t)).toHaveLength(before);
+
+    deleteRecipe(t.db, { actorId: user.id, ip: null, userAgent: null }, id);
+    const afterDelete = indexed(t).length;
+    const gone = [
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent()),
+      await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' }),
+      await send(t, 'DELETE', `/recipes/${id}`, cookie),
+    ].map((res) => res.status);
+    expect(gone).toEqual([404, 404, 404]);
+    expect(indexed(t)).toHaveLength(afterDelete);
   });
 });

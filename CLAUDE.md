@@ -96,10 +96,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Background jobs
 - Side effects that can fail or are slow (sending email, updating Meilisearch) run as jobs, never inline in a request.
 - Define a job type with `defineJob({ type, payload, handle })` from `jobs/define.ts`, in the feature module it belongs to (e.g. `invitationEmailJob` in `invitations/invitations.ts`), and add it to `allJobs` in `jobs/all.ts`. The worker dead-letters job types it doesn't know.
-- Handlers get the database, the mailer and `publicUrl` (for links in emails) from `context.services` (`JobServices` in `jobs/define.ts`). `main.ts` builds it; tests pass their own. Never import or create a database or mailer in a job module.
+- Handlers get the database, the mailer, `publicUrl` (for links in emails) and the search service from `context.services` (`JobServices` in `jobs/define.ts`). `main.ts` builds it; tests pass their own (`search: { client: undefined }` when search isn't involved). Never import or create a database, mailer or Meilisearch client in a job module.
 - Queue a job with `enqueueJob(tx, definition, payload)` **inside the transaction of the write it belongs to**, so the job and the change commit or roll back together.
 - Handlers must be idempotent. A job can run more than once: after a crash, or when it fails after its side effect happened.
 - A job whose handler throws is retried with exponential backoff, then dead-lettered (`status = 'dead'`, error in `last_error`). Throw to retry. A payload that no longer matches its schema is dead-lettered without running.
+  - The worker's default gives up after about four minutes. A job that waits on a service which can be down for long sets its own `maxAttempts`, as `indexRecipeJob` does (about thirteen hours).
 - Keep payloads small and stable: IDs, not whole records. Handlers read current state from SQLite. If a payload schema changes, jobs already queued still have to parse.
 
 ### Email
@@ -120,7 +121,9 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Search
 - The browser never talks to Meilisearch. All search goes through the API, which adds the authorization filter.
-- Any write that affects a recipe's search document queues a job with `enqueueJob` **in the same SQLite transaction**. Never call Meilisearch inline from a request handler.
+- Any write that affects a recipe's search document queues `indexRecipeJob` (`search/indexing.ts`) with `enqueueJob` **in the same SQLite transaction**, as `recipes/recipes.ts` does. Never call Meilisearch inline from a request handler.
+  - The job builds the document when it runs, from what SQLite holds then (`buildRecipeDocument` in `search/document.ts`), and takes it out of the index once the recipe is gone. So it's idempotent, and jobs for one recipe can run in any order.
+  - The API's key can't read documents back (`documents.get`), since the API never needs to. Container tests that check the index read it with the master key.
 - Only published recipe versions are indexed; drafts never are.
 - Index settings (searchable, filterable and sortable attributes, ranking rules, synonyms) are `RECIPES_SETTINGS` in `apps/api/src/search/settings.ts`, typed against `RecipeSearchDocument` (`search/document.ts`), so they can't name a field the document doesn't have. `setUpSearch()` (`search/setup.ts`) applies them on startup.
 - **Keys:** the master key (`MEILI_MASTER_KEY`) is used only in `setUpSearch()`, to create the API's own key, `API_KEY` in `settings.ts`. Everything else uses that key, through `search.client`. Never log either key.

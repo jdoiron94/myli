@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { Db } from '../db/database.ts';
 import type { Logger } from '../logger.ts';
 import type { Mailer } from '../mail/mailer.ts';
+import type { SearchService } from '../search/service.ts';
 
 /** What handlers use besides their payload. `main.ts` builds it; tests pass fakes. */
 export interface JobServices {
@@ -10,6 +11,8 @@ export interface JobServices {
   mailer: Mailer | null;
   /** Where the web app is served (`PUBLIC_URL`), for links in emails. */
   publicUrl: string;
+  /** Meilisearch, through the API's own key. `client` is undefined while it's unavailable. */
+  search: Pick<SearchService, 'client'>;
 }
 
 export interface JobContext {
@@ -30,6 +33,11 @@ export interface JobDefinition<TPayload extends z.ZodType = z.ZodType> {
   type: string;
   /** Validated when the job is queued and again before it runs. */
   payload: TPayload;
+  /**
+   * How many times to try before dead-lettering, if not the worker's default: more for a job that
+   * waits on a service which can be down for long, like search.
+   */
+  maxAttempts?: number;
   // Method syntax on purpose: it lets a definition with a specific payload type be stored in a
   // list of `JobDefinition`s.
   handle(payload: z.output<TPayload>, context: JobContext): Promise<void>;

@@ -75,6 +75,7 @@ async function setUp(options: { mailerOff?: boolean } = {}) {
       db: t.db,
       mailer: options.mailerOff ? null : memory.mailer,
       publicUrl: t.publicUrl,
+      search: { client: undefined },
     },
     logger,
     jobs: allJobs,
@@ -164,7 +165,12 @@ describe('invitations with email on', () => {
       verify: () => Promise.resolve(),
     };
     const worker = createWorker({
-      services: { db: t.db, mailer: checkingMailer, publicUrl: t.publicUrl },
+      services: {
+        db: t.db,
+        mailer: checkingMailer,
+        publicUrl: t.publicUrl,
+        search: { client: undefined },
+      },
       logger: t.logger,
       jobs: allJobs,
     });

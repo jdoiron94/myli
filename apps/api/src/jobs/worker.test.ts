@@ -53,7 +53,7 @@ function setup(options: Partial<WorkerOptions> = {}) {
   });
 
   const worker = createWorker({
-    services: { db, mailer: null, publicUrl: 'https://myli.test' },
+    services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client: undefined } },
     logger,
     jobs: [recordJob, failJob],
     now: clock.now,
@@ -140,6 +140,26 @@ describe('runOnce', () => {
     expect(await worker.runOnce()).toBe(false);
   });
 
+  it('tries a job as many times as its type says, if it says', async () => {
+    const patient = defineJob({
+      type: 'test.patient',
+      payload: z.object({}),
+      maxAttempts: DEFAULT_MAX_ATTEMPTS + 3,
+      handle: () => Promise.reject(new Error('Search is unavailable')),
+    });
+    const { db, worker, clock, rows } = setup({ jobs: [patient] });
+    enqueueJob(db, patient, {});
+
+    for (let attempt = 1; attempt <= DEFAULT_MAX_ATTEMPTS + 2; attempt++) {
+      await worker.runOnce();
+      clock.advance(defaultBackoffMs(attempt));
+    }
+    expect(rows()).toMatchObject([{ status: 'pending', attempts: DEFAULT_MAX_ATTEMPTS + 2 }]);
+
+    await worker.runOnce();
+    expect(rows()).toMatchObject([{ status: 'dead', attempts: DEFAULT_MAX_ATTEMPTS + 3 }]);
+  });
+
   it('dead-letters a job of an unknown type right away', async () => {
     const { db, worker, rows } = setup();
     db.insert(job).values({ type: 'test.removed', payload: {} }).run();
@@ -197,7 +217,7 @@ describe('start and stop', () => {
 
     const db = createTestDatabase();
     const worker = createWorker({
-      services: { db, mailer: null, publicUrl: 'https://myli.test' },
+      services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client: undefined } },
       logger: createLogger('silent'),
       jobs: [slowJob],
       pollIntervalMs: 5,
@@ -226,7 +246,12 @@ describe('start and stop', () => {
 
   it('stops promptly while idle, without waiting out the poll interval', async () => {
     const worker = createWorker({
-      services: { db: createTestDatabase(), mailer: null, publicUrl: 'https://myli.test' },
+      services: {
+        db: createTestDatabase(),
+        mailer: null,
+        publicUrl: 'https://myli.test',
+        search: { client: undefined },
+      },
       logger: createLogger('silent'),
       jobs: [],
       pollIntervalMs: 60_000,
@@ -254,7 +279,7 @@ describe('services', () => {
     });
     let now = START;
     const worker = createWorker({
-      services: { db, mailer, publicUrl: 'https://myli.test' },
+      services: { db, mailer, publicUrl: 'https://myli.test', search: { client: undefined } },
       logger: createLogger('silent'),
       jobs: [welcomeJob],
       now: () => now,

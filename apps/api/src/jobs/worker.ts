@@ -112,7 +112,7 @@ export function createWorker({
         0,
         MAX_ERROR_LENGTH,
       );
-      if (attempts >= maxAttempts) {
+      if (attempts >= (definition.maxAttempts ?? maxAttempts)) {
         log.error({ err: error }, 'job failed for the last time, dead-lettered');
         finish(id, { status: 'dead', lastError });
       } else {
