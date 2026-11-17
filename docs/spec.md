@@ -181,6 +181,14 @@ There are three roles: **admin**, **editor** and **viewer**.
   - `qty`, `unit`, `name`, `note`: parsed by a rule-based ingredient parser and shown for the user to confirm or correct
   - `normalized_name`: lowercase, singular, note removed. Used for search and shopping-list aggregation.
   - `scalable`: defaults to true; false for lines like "salt to taste"
+- **The parser** reads:
+  - quantities written as whole numbers, decimals, fractions ("3/4", "¾"), mixed numbers ("1 1/2", "1-1/2", "1½"), number words up to twelve, and "a" or "an" meaning one
+  - ranges ("2-3", "2–3", "2 to 3", "1 or 2"), stored as `qty` and a top end; one written backwards is turned around
+  - a unit from the unit table, also when written straight after the number ("200g"); without a quantity, only before "of" ("pinch of salt")
+  - a note from anything in parentheses ("1 (14 oz) can") and anything after the first comma, plus phrases like "to taste", "for garnish" and "optional" at the end
+  - not scalable: lines with "to taste" or "as needed", and amounts that depend on the pan rather than the servings ("for frying", "for greasing", "for dusting")
+  - whatever it can't read ("a few sprigs of thyme", "juice of 1 lemon") stays in the name for the user to correct
+- **The normalized name** also drops accents, apostrophes and other punctuation ("Jalapeños" and "jalapeno" are both "jalapeno"; "all-purpose" is "all purpose"). Only its last word is made singular: "cherry tomatoes" is "cherry tomato".
 - There is no canonical ingredient catalog. Ingredient identity is the normalized name (see the limitation in §3.4).
 
 **Structured steps**
