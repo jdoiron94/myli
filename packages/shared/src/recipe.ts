@@ -39,14 +39,28 @@ export const RECIPE_LIMITS = {
 
 const L = RECIPE_LIMITS;
 
+/** What a form says about text that's too long. */
+const tooLong = (max: number) => `Keep it to ${String(max)} characters.`;
+
 /** Optional text: `null` or empty when there's none. The API stores an empty one as `null`. */
-const optionalText = (max: number) => z.string().trim().max(max).nullable();
+const optionalText = (max: number) => z.string().trim().max(max, tooLong(max)).nullable();
 
-const quantitySchema = z.number().positive().max(L.quantity);
+const quantitySchema = z
+  .number({ error: 'Enter a number.' })
+  .positive('Enter a number above 0.')
+  .max(L.quantity, `Enter a number up to ${L.quantity.toLocaleString('en-US')}.`);
 
-const minutesSchema = z.int().min(0).max(L.minutes).nullable();
+const minutesSchema = z
+  .int({ error: 'Enter a whole number of minutes.' })
+  .min(0, 'Enter 0 or more minutes.')
+  .max(L.minutes, `Enter up to ${L.minutes.toLocaleString('en-US')} minutes.`)
+  .nullable();
 
-const nutrientSchema = z.number().min(0).max(L.nutrition).nullable();
+const nutrientSchema = z
+  .number({ error: 'Enter a number.' })
+  .min(0, 'Enter 0 or more.')
+  .max(L.nutrition, `Enter up to ${L.nutrition.toLocaleString('en-US')}.`)
+  .nullable();
 
 /** One ingredient line as the user confirmed it (spec §3.2). */
 export const ingredientLineInputSchema = z
@@ -86,7 +100,7 @@ const sourceSchema = z
   .object({
     url: z
       .url({ protocol: /^https?$/, error: 'Enter a web address starting with http or https.' })
-      .max(L.sourceUrl)
+      .max(L.sourceUrl, tooLong(L.sourceUrl))
       .nullable(),
     title: optionalText(L.sourceText).describe('A book or site title.'),
     author: optionalText(L.sourceText),
@@ -113,12 +127,24 @@ const nutritionSchema = z
 
 /** Everything about a recipe that editing it changes. Its visibility is changed on its own. */
 const recipeContentShape = {
-  title: z.string().trim().min(1, 'Give the recipe a title.').max(L.title),
-  description: z.string().trim().max(L.description).describe('Markdown.'),
+  title: z.string().trim().min(1, 'Give the recipe a title.').max(L.title, tooLong(L.title)),
+  description: z.string().trim().max(L.description, tooLong(L.description)).describe('Markdown.'),
   source: sourceSchema,
-  equipment: z.array(z.string().trim().min(1).max(L.equipmentItem)).max(L.equipment),
+  equipment: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, 'Name the equipment, or remove it.')
+        .max(L.equipmentItem, tooLong(L.equipmentItem)),
+    )
+    .max(L.equipment, `A recipe can list up to ${String(L.equipment)} pieces of equipment.`),
   yield: yieldSchema,
-  servings: z.int().min(1).max(L.servings).describe('The baseline scaling starts from.'),
+  servings: z
+    .int({ error: 'Enter a whole number of servings.' })
+    .min(1, 'A recipe serves at least 1.')
+    .max(L.servings, `A recipe serves at most ${L.servings.toLocaleString('en-US')}.`)
+    .describe('The baseline scaling starts from.'),
   prepMinutes: minutesSchema,
   cookMinutes: minutesSchema,
   totalMinutes: minutesSchema.describe(

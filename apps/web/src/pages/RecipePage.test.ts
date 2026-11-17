@@ -4,33 +4,15 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
-import type { Recipe } from '@/recipes/recipe.ts';
-import { sampleRecipe } from '@/recipes/testing.ts';
+import { answerRecipe, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
   describedBy,
   problemResponse,
   renderApp,
+  testUsers,
 } from '@/testing.ts';
-
-/**
- * Answers GET /recipes/{id} with this recipe, and counts the requests. Also answers the reader's
- * preferences with imperial, unless the test answers them itself afterwards.
- */
-function answerRecipe(recipe: Recipe) {
-  answerPreferences();
-  const requests: string[] = [];
-  apiServer.use(
-    http.get('/api/v1/recipes/:id', ({ params }) => {
-      requests.push(String(params.id));
-      return params.id === recipe.id
-        ? HttpResponse.json({ recipe })
-        : problemResponse(404, 'There is no recipe with this ID.');
-    }),
-  );
-  return requests;
-}
 
 const heading = () => screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
 
@@ -278,6 +260,30 @@ describe('the recipe page', () => {
 
     await heading();
     expect(screen.getByText('Private: only you can see it')).toBeDefined();
+  });
+
+  it.each([
+    ['their own recipe', 'editor', testUsers.editor],
+    ["someone else's shared recipe", 'editor', testUsers.admin],
+  ] as const)('links editors to editing %s', async (_, role, owner) => {
+    answerRecipe(sampleRecipe({ owner: { id: owner.id, name: owner.name } }));
+    const { router, user } = await renderApp('/recipes/recipe-bread', { signedInAs: role });
+    await heading();
+    await screen.findByRole('radio', { name: 'US customary' });
+
+    await user.click(screen.getByRole('link', { name: 'Edit recipe' }));
+
+    await screen.findByRole('textbox', { name: 'Title' });
+    expect(router.currentRoute.value.fullPath).toBe('/recipes/recipe-bread/edit');
+  });
+
+  it("doesn't offer viewers to edit", async () => {
+    answerRecipe(sampleRecipe());
+    await renderApp('/recipes/recipe-bread', { signedInAs: 'viewer' });
+    await heading();
+    await screen.findByRole('radio', { name: 'US customary' });
+
+    expect(screen.queryByRole('link', { name: 'Edit recipe' })).toBeNull();
   });
 
   it('says the same thing for a recipe that doesn’t exist and one the reader may not see', async () => {

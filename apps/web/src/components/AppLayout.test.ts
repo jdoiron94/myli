@@ -138,7 +138,7 @@ describe('the main navigation', () => {
     expect(await accessibilityViolations()).toEqual([]);
   });
 
-  it('links admins to the users too, after the invitations', async () => {
+  it('links admins to a new recipe, the invitations and the users', async () => {
     apiServer.use(
       http.get('/api/v1/users', () =>
         HttpResponse.json({
@@ -151,7 +151,11 @@ describe('the main navigation', () => {
     const { router, user } = await renderApp('/', { signedInAs: 'admin' });
     const nav = screen.getByRole('navigation', { name: 'Main' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((link) => link.textContent.trim())).toEqual(['Invitations', 'Users']);
+    expect(links.map((link) => link.textContent.trim())).toEqual([
+      'New recipe',
+      'Invitations',
+      'Users',
+    ]);
 
     await user.click(within(nav).getByRole('link', { name: 'Users' }));
 
@@ -165,14 +169,29 @@ describe('the main navigation', () => {
     ).toBeNull();
   });
 
+  it('links editors to a new recipe only', async () => {
+    const { router, user } = await renderApp('/');
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent.trim()),
+    ).toEqual(['New recipe']);
+
+    await user.click(within(nav).getByRole('link', { name: 'New recipe' }));
+
+    await screen.findByRole('heading', { level: 1, name: 'New recipe' });
+    expect(router.currentRoute.value.fullPath).toBe('/recipes/new');
+  });
+
   it.each([
-    ['an editor', 'editor'],
     ['a viewer', 'viewer'],
     ['no one signed in', null],
   ] as const)("isn't there for %s, who has no page to go to yet", async (_, role) => {
     await renderApp(role ? '/' : '/login', { signedInAs: role });
 
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'New recipe' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Invitations' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
   });
