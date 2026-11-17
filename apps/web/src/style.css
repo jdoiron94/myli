@@ -139,6 +139,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind 4 leaves buttons with the arrow, as browsers do. Here everything that can be clicked
+     shows the pointer: buttons (radios and checkboxes are buttons too), and the labels that toggle
+     checkboxes and radios. Menu items keep the arrow, as menus do, and so do disabled controls. */
+  button:not(:disabled, [aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [data-slot="field"]:has(> button:is([role="checkbox"], [role="radio"]):not(:disabled))
+    [data-slot="field-label"] {
+    cursor: pointer;
+  }
   /* Elements focused from code (skip link target, page headings): no ring after a click. */
   [tabindex="-1"]:focus:not(:focus-visible) {
     @apply outline-none;
