@@ -130,7 +130,9 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Content and security
 - **Cross-site requests:** every `/api/v1` request other than GET, HEAD and OPTIONS must say `Content-Type: application/json`, even with no body. `jsonOnly()` (`apps/api/src/json-only.ts`) answers 415 otherwise, before any route runs. With no CORS headers, that's what stops another origin from making requests with a user's cookie: a form or a no-CORS fetch can only send form-encoded, multipart, `text/plain` or no content type. `SameSite=Lax` alone isn't enough, because other origins on the same site, like another app on a different port of the same host, still get the cookie. Never exempt a route from `jsonOnly()`, accept form-encoded or `text/plain` bodies, or add CORS headers on cookie-authenticated routes. Test requests to bodyless endpoints send the header too.
-- User-written markdown (descriptions, steps, comments) is sanitized with DOMPurify when rendered.
+- User-written markdown (descriptions, steps, comments) is shown only through `MarkdownContent` (`apps/web/src/components/MarkdownContent.vue`), which renders it with `renderMarkdown()` (`src/lib/markdown.ts`): markdown-it with raw HTML off, then DOMPurify with an allowlist. Never `v-html` anything else.
+  - No images (the CSP loads images only from this site; photos are uploaded), no tables, no `style` or `class` attributes, and links only to http(s), mailto or a path on this site.
+  - Its `headingLevel` prop is the level a `#` becomes: one below the heading of the section it's in, so it never adds a second `<h1>`.
 - Uploads are validated by reading the file's first bytes, size-limited, and stripped of EXIF data.
 - Outbound fetches (URL import) go through the SSRF guard.
 - **The client's address** is `c.var.clientIp`, set by `clientAddress()` (`apps/api/src/client-ip.ts`). It's the connection's address, unless the connection comes from a proxy listed in `TRUSTED_PROXIES`; then it's the rightmost address in `X-Forwarded-For` that isn't a trusted proxy.
