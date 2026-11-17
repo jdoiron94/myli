@@ -192,7 +192,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Display rules:**
   - show common fractions (⅛, ¼, ⅓, ½, ⅔, ¾) instead of decimals
   - round to sensible precision for the unit
-  - convert up to larger units within the same system (48 tsp → 1 cup)
+  - convert up to larger units within the same system (48 tsp → 1 cup), choosing the largest unit where the amount comes out as one of those fractions
+- At the recipe's own servings, in the reader's own system, every line is shown in the unit it was written in: "8 tbsp" stays "8 tbsp".
+- A quantity can be a range ("2–3 cloves"). Both ends scale, and are shown in a unit the smaller end reaches.
 - Lines that aren't scalable never change.
 - Each user picks metric or imperial as a display preference, imperial until they choose. Imperial means the US customary measures American recipes use: a cup is 236.6 ml. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
 - Named units, like a clove or a can, scale but never convert.

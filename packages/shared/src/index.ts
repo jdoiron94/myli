@@ -60,6 +60,15 @@ export {
   type ValidationProblem,
   validationProblemSchema,
 } from './problem.ts';
+export {
+  type Amount,
+  type DisplayedAmount,
+  type DisplayOptions,
+  displayAmount,
+  formatAmount,
+  scaleAmount,
+  scaleFactor,
+} from './quantities.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
   type SetupRequest,
