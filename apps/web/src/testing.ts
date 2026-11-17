@@ -6,10 +6,10 @@ import {
   type User,
 } from '@myli/shared';
 import userEvent from '@testing-library/user-event';
-import { render, screen, within } from '@testing-library/vue';
+import { render, screen, waitFor, within } from '@testing-library/vue';
 import axe from 'axe-core';
 import { HttpHandler, HttpResponse, http } from 'msw';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import type { App as VueApp } from 'vue';
 import { createMemoryHistory } from 'vue-router';
 import App from './App.vue';
@@ -197,3 +197,15 @@ export function listItems(element: HTMLElement | undefined) {
     .getAllByRole('listitem')
     .map((item) => item.textContent.trim());
 }
+
+/**
+ * A markdown field's editor (`MarkdownField`), once it has taken the rendered markdown's place and
+ * has focus, which happens a moment after it's there.
+ */
+export const focusedMarkdownEditor = async (name: string) =>
+  waitFor(() => {
+    const editor = screen.getByRole('textbox', { name });
+    expect(editor.getAttribute('contenteditable')).toBe('true');
+    expect(document.activeElement).toBe(editor);
+    return editor;
+  });

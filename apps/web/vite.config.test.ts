@@ -85,7 +85,8 @@ describe('the build', () => {
     await build({
       root: import.meta.dirname,
       configFile: join(import.meta.dirname, 'vite.config.ts'),
-      build: { outDir, emptyOutDir: true },
+      // The manifest says which chunks each one imports.
+      build: { outDir, emptyOutDir: true, manifest: true },
       logLevel: 'silent',
     });
   }, 60_000);
@@ -106,5 +107,58 @@ describe('the build', () => {
 
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) expect(read(file ?? ''), file).not.toMatch(/scalar/i);
+  });
+
+  describe('the markdown editor (ADR 0014)', () => {
+    interface Chunk {
+      file: string;
+      imports?: string[];
+      dynamicImports?: string[];
+      isDynamicEntry?: boolean;
+    }
+    const manifest = () => JSON.parse(read('.vite/manifest.json')) as Record<string, Chunk>;
+
+    /** The files loading `entry` loads: its own, then its imports', all the way down. */
+    function filesLoadedWith(entry: string, chunks: Record<string, Chunk>): string[] {
+      const seen = new Set<string>();
+      const visit = (key: string) => {
+        if (seen.has(key)) return;
+        seen.add(key);
+        for (const imported of chunks[key]?.imports ?? []) visit(imported);
+      };
+      visit(entry);
+      return [...seen].map((key) => chunks[key]?.file ?? key);
+    }
+
+    // Cook mode joins these once it exists.
+    it.each(['index.html', 'src/pages/HomePage.vue', 'src/pages/RecipePage.vue'])(
+      'is left out of what %s loads',
+      (entry) => {
+        const chunks = manifest();
+        const files = filesLoadedWith(entry, chunks);
+
+        expect(files.length).toBeGreaterThan(0);
+        for (const file of files) expect(read(file), file).not.toMatch(/prosemirror/i);
+      },
+    );
+
+    it('is loaded by the pages that edit a recipe, when they ask for it', () => {
+      const chunks = manifest();
+
+      expect(chunks['src/components/MarkdownEditor.vue']?.isDynamicEntry).toBe(true);
+      expect(
+        filesLoadedWith('src/components/MarkdownEditor.vue', chunks).some((file) =>
+          /prosemirror/i.test(read(file)),
+        ),
+      ).toBe(true);
+      for (const page of ['src/pages/NewRecipePage.vue', 'src/pages/EditRecipePage.vue']) {
+        const loaded = filesLoadedWith(page, chunks);
+        for (const file of loaded) expect(read(file), file).not.toMatch(/prosemirror/i);
+        const asked = Object.entries(chunks)
+          .filter(([, chunk]) => loaded.includes(chunk.file))
+          .flatMap(([, chunk]) => chunk.dynamicImports ?? []);
+        expect(asked, page).toContain('src/components/MarkdownEditor.vue');
+      }
+    });
   });
 });

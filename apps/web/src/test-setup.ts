@@ -5,6 +5,11 @@ import { apiServer } from './fake-api.ts';
 // Tests that run in Node (`// @vitest-environment node`), like the dev server's, have no page to
 // clean up and don't use the fake API.
 if (typeof window !== 'undefined') {
+  // jsdom has no layout, so it leaves out what measures it. The markdown editor (ProseMirror)
+  // measures the cursor's range to scroll it into view, and gets nothing to scroll to.
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+  Range.prototype.getBoundingClientRect = () => new DOMRect();
+
   /** Requests that no handler answered during the current test. */
   const unhandledRequests: string[] = [];
 

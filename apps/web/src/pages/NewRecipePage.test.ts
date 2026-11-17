@@ -8,6 +8,7 @@ import {
   accessibilityViolations,
   apiServer,
   describedBy,
+  focusedMarkdownEditor,
   problemResponse,
   renderApp,
 } from '@/testing.ts';
@@ -57,6 +58,9 @@ describe('the new recipe page', () => {
     expect(document.title).toBe('New recipe · myli');
 
     await user.type(field('Title'), 'Weeknight Bread');
+    await user.click(field('Description'));
+    await focusedMarkdownEditor('Description');
+    await user.keyboard('A **crusty** loaf.');
     await user.type(field('Servings'), '8');
     await user.type(field('Makes'), '1');
     await user.type(field('What it makes'), 'loaf');
@@ -77,7 +81,7 @@ describe('the new recipe page', () => {
     expect(bodies).toEqual([
       {
         title: 'Weeknight Bread',
-        description: '',
+        description: 'A **crusty** loaf.',
         source: { url: 'https://example.com/bread', title: 'Example Bakes', author: 'A. Baker' },
         equipment: ['Loaf pan', 'Stand mixer'],
         yield: { qty: 1, unit: 'loaf' },

@@ -256,8 +256,8 @@ export const recipeFormSchema = z
         return kept;
       })
       .pipe(content.ingredientGroups),
-    // Not in the form yet: carried over as they were, until the editor has fields for them.
     description: content.description,
+    // Not in the form yet: carried over as they were, until the editor has fields for them.
     steps: content.steps,
     tagIds: content.tagIds,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */

@@ -1,5 +1,5 @@
 import { AUTH_BASE_PATH, type User } from '@myli/shared';
-import { screen, waitFor } from '@testing-library/vue';
+import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
@@ -8,6 +8,7 @@ import { answerRecipe, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
+  focusedMarkdownEditor,
   problemResponse,
   renderApp,
   sessionResponse,
@@ -58,6 +59,8 @@ describe('the edit recipe page', () => {
 
     expect(document.title).toBe('Edit recipe · myli');
     expect(field('Title')).toHaveProperty('value', 'Weeknight Bread');
+    // Shown as the recipe shows it, until it's edited.
+    expect(within(field('Description')).getByText('simple').tagName).toBe('EM');
     expect(field('Servings')).toHaveProperty('value', '8');
     expect(field('Makes')).toHaveProperty('value', '1');
     expect(field('What it makes')).toHaveProperty('value', 'loaf');
@@ -141,6 +144,20 @@ describe('the edit recipe page', () => {
     await waitFor(() => {
       expect(reads).toHaveLength(2);
     });
+  });
+
+  it('saves the description as edited, keeping how it was written', async () => {
+    const { saved } = storeRecipe(sampleRecipe());
+    const { user } = await openEditor();
+
+    await user.click(field('Description'));
+    await focusedMarkdownEditor('Description');
+    await user.keyboard(' Best the next day.');
+    await user.click(saveButton());
+
+    await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
+    expect(saved).toMatchObject([{ description: 'A *simple* loaf. Best the next day.' }]);
+    await screen.findByRole('radio', { name: 'US customary' });
   });
 
   it('shows the recipe as saved straight away, while its page loads it again', async () => {
