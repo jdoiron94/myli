@@ -170,6 +170,27 @@ describe('the main navigation', () => {
     ).toBeNull();
   });
 
+  it('marks each link with an icon, hidden from screen readers, which read the page’s name', async () => {
+    await renderApp('/', { signedInAs: 'admin' });
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+
+    const shown = within(nav)
+      .getAllByRole('link')
+      .map((link) => {
+        const icon = link.querySelector('svg');
+        expect(icon?.getAttribute('aria-hidden')).toBe('true');
+        return [
+          link.textContent.trim(),
+          icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1],
+        ];
+      });
+    expect(shown).toEqual([
+      ['New recipe', 'plus'],
+      ['Invitations', 'mail'],
+      ['Users', 'user-cog'],
+    ]);
+  });
+
   it('links editors to a new recipe only', async () => {
     answerTags();
     const { router, user } = await renderApp('/');

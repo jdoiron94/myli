@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MailIcon, PlusIcon, UserCogIcon } from '@lucide/vue';
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { computed, nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
@@ -11,11 +12,15 @@ const main = useTemplateRef('main');
 const router = useRouter();
 const { data: signedInUser } = useQuery(sessionQuery);
 const signOut = useSignOut();
-/** The pages in the header, each linked only for someone whose role allows it. */
-const NAV_PAGES = ['new-recipe', 'invitations', 'users'] as const;
+/** The pages in the header, with their icons, each linked only for someone whose role allows it. */
+const NAV_PAGES = [
+  { name: 'new-recipe', icon: PlusIcon },
+  { name: 'invitations', icon: MailIcon },
+  { name: 'users', icon: UserCogIcon },
+] as const;
 const navLinks = computed(() =>
-  NAV_PAGES.map((name) => router.resolve({ name })).filter(
-    ({ meta }) => !meta.permission || can(signedInUser.value ?? null, meta.permission),
+  NAV_PAGES.map(({ name, icon }) => ({ icon, route: router.resolve({ name }) })).filter(
+    ({ route }) => !route.meta.permission || can(signedInUser.value ?? null, route.meta.permission),
   ),
 );
 
@@ -55,7 +60,7 @@ onBeforeUnmount(stopForgetting);
   >Skip to content</a>
   <header class="border-b">
     <div class="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4 sm:gap-6">
         <RouterLink
           :to="{ name: 'home' }"
           class="rounded-md text-lg font-semibold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -65,16 +70,22 @@ onBeforeUnmount(stopForgetting);
         <nav
           v-if="signedInUser && navLinks.length > 0"
           aria-label="Main"
-          class="flex gap-4"
+          class="flex gap-1 sm:gap-4"
         >
-          <!-- RouterLink marks the current page's link with aria-current="page". -->
+          <!-- RouterLink marks the current page's link with aria-current="page". On a phone only the
+               icons fit: the page's name is still the link's, for screen readers and voice control. -->
           <RouterLink
             v-for="link in navLinks"
-            :key="link.fullPath"
-            :to="link.fullPath"
-            class="rounded-md text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-foreground"
+            :key="link.route.fullPath"
+            :to="link.route.fullPath"
+            class="inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-foreground"
           >
-            {{ link.meta.title }}
+            <component
+              :is="link.icon"
+              class="size-4 shrink-0"
+              aria-hidden="true"
+            />
+            <span class="sr-only sm:not-sr-only">{{ link.route.meta.title }}</span>
           </RouterLink>
         </nav>
       </div>
