@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronLeftIcon, ChevronRightIcon, SearchIcon } from '@lucide/vue';
+import { ChevronLeftIcon, ChevronRightIcon, SearchIcon, SlidersHorizontalIcon } from '@lucide/vue';
 import { can, type RecipeSearchQuery, type SearchSort } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from 'vue';
@@ -13,7 +13,9 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { pageNotice } from '@/lib/page-notice.ts';
+import { chosenCount } from '@/search/filters.ts';
 import RecipeCard from '@/search/RecipeCard.vue';
+import SearchFilters from '@/search/SearchFilters.vue';
 import { narrowed, queryFromSearch, recipeSearchQuery, searchFromQuery } from '@/search/search.ts';
 
 /**
@@ -101,6 +103,13 @@ watch(
   },
 );
 
+/** Whether there's anything to filter, or filters to take off again. */
+const filterable = computed(() => (data.value?.totalHits ?? 0) > 0 || narrowed(search.value));
+const chosen = computed(() => chosenCount(search.value));
+/** On a phone, whether the filters are shown. A wide screen always shows them. */
+const filtersOpen = ref(false);
+const filtersId = useId();
+
 const searchId = useId();
 const onlyId = useId();
 const sortId = useId();
@@ -177,117 +186,145 @@ const sortId = useId();
   >
     Searching…
   </p>
-  <template v-else>
-    <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
-      <!-- Announced as each search finds its recipes. Focused after going to another page. -->
-      <p
-        ref="count"
-        role="status"
-        tabindex="-1"
-        class="rounded-md text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+  <div
+    v-else
+    class="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8"
+  >
+    <!-- Beside the results on a wide screen. On a phone, they take the room, so they're behind a button. -->
+    <div
+      v-if="filterable"
+      class="lg:w-60 lg:shrink-0"
+    >
+      <Button
+        variant="outline"
+        class="lg:hidden"
+        :aria-expanded="filtersOpen"
+        :aria-controls="filtersId"
+        @click="filtersOpen = !filtersOpen"
       >
-        {{ countText }}
-      </p>
-      <div
-        v-if="data.totalHits > 1"
-        class="flex items-center gap-2"
-      >
-        <Label
-          :for="sortId"
-          class="font-normal text-muted-foreground"
-        >
-          Sort by
-        </Label>
-        <select
-          :id="sortId"
-          :value="sort"
-          class="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-          @change="chooseSort"
-        >
-          <option
-            v-for="option in sorts"
-            :key="option"
-            :value="option"
-          >
-            {{ SORT_LABELS[option] }}
-          </option>
-        </select>
-      </div>
+        <SlidersHorizontalIcon aria-hidden="true" />
+        Filters{{ chosen > 0 ? ` (${chosen})` : '' }}
+      </Button>
+      <SearchFilters
+        :id="filtersId"
+        :class="filtersOpen ? 'mt-4 lg:mt-0' : 'hidden lg:block'"
+        :search="search"
+        :facets="data.facets"
+        @change="go"
+      />
     </div>
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <!-- Announced as each search finds its recipes. Focused after going to another page. -->
+        <p
+          ref="count"
+          role="status"
+          tabindex="-1"
+          class="rounded-md text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {{ countText }}
+        </p>
+        <div
+          v-if="data.totalHits > 1"
+          class="flex items-center gap-2"
+        >
+          <Label
+            :for="sortId"
+            class="font-normal text-muted-foreground"
+          >
+            Sort by
+          </Label>
+          <select
+            :id="sortId"
+            :value="sort"
+            class="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            @change="chooseSort"
+          >
+            <option
+              v-for="option in sorts"
+              :key="option"
+              :value="option"
+            >
+              {{ SORT_LABELS[option] }}
+            </option>
+          </select>
+        </div>
+      </div>
 
-    <ul
-      v-if="data.hits.length > 0"
-      aria-label="Recipes"
-      :aria-busy="results.isPlaceholderData.value || undefined"
-      class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      <li
-        v-for="hit in data.hits"
-        :key="hit.id"
+      <ul
+        v-if="data.hits.length > 0"
+        aria-label="Recipes"
+        :aria-busy="results.isPlaceholderData.value || undefined"
+        class="mt-4 grid gap-4 sm:grid-cols-2"
       >
-        <RecipeCard :recipe="hit" />
-      </li>
-    </ul>
-    <p
-      v-else-if="data.totalHits > 0"
-      class="mt-4 text-sm"
-    >
-      There are no recipes on this page.
-      <RouterLink
-        :to="pageLink(1)"
-        class="font-medium underline underline-offset-4"
+        <li
+          v-for="hit in data.hits"
+          :key="hit.id"
+        >
+          <RecipeCard :recipe="hit" />
+        </li>
+      </ul>
+      <p
+        v-else-if="data.totalHits > 0"
+        class="mt-4 text-sm"
       >
-        Go to the first page
-      </RouterLink>
-    </p>
-    <p
-      v-else-if="!narrowed(search) && canCreate"
-      class="mt-4 text-sm"
-    >
-      <RouterLink
-        :to="{ name: 'new-recipe' }"
-        class="font-medium underline underline-offset-4"
+        There are no recipes on this page.
+        <RouterLink
+          :to="pageLink(1)"
+          class="font-medium underline underline-offset-4"
+        >
+          Go to the first page
+        </RouterLink>
+      </p>
+      <p
+        v-else-if="!narrowed(search) && canCreate"
+        class="mt-4 text-sm"
       >
-        Write the first one
-      </RouterLink>
-    </p>
-    <p
-      v-else-if="narrowed(search)"
-      class="mt-4 text-sm text-muted-foreground"
-    >
-      Try other words, or fewer of them.
-    </p>
+        <RouterLink
+          :to="{ name: 'new-recipe' }"
+          class="font-medium underline underline-offset-4"
+        >
+          Write the first one
+        </RouterLink>
+      </p>
+      <p
+        v-else-if="narrowed(search)"
+        class="mt-4 text-sm text-muted-foreground"
+      >
+        Try other words, or fewer filters.
+      </p>
 
-    <nav
-      v-if="data.totalPages > 1"
-      aria-label="Pages"
-      class="mt-8 flex items-center justify-center gap-4 text-sm"
-    >
-      <RouterLink
-        v-if="data.page > 1"
-        :to="pageLink(data.page - 1)"
-        class="inline-flex h-9 items-center gap-1 rounded-md px-3 font-medium hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-        @click="paging = true"
+      <nav
+        v-if="data.totalPages > 1"
+        aria-label="Pages"
+        class="mt-8 flex items-center justify-center gap-4 text-sm"
       >
-        <ChevronLeftIcon
-          class="size-4"
-          aria-hidden="true"
-        />
-        Previous page
-      </RouterLink>
-      <span>Page {{ data.page }} of {{ data.totalPages }}</span>
-      <RouterLink
-        v-if="data.page < data.totalPages"
-        :to="pageLink(data.page + 1)"
-        class="inline-flex h-9 items-center gap-1 rounded-md px-3 font-medium hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-        @click="paging = true"
-      >
-        Next page
-        <ChevronRightIcon
-          class="size-4"
-          aria-hidden="true"
-        />
-      </RouterLink>
-    </nav>
-  </template>
+        <RouterLink
+          v-if="data.page > 1"
+          :to="pageLink(data.page - 1)"
+          class="inline-flex h-9 items-center gap-1 rounded-md px-3 font-medium hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          @click="paging = true"
+        >
+          <ChevronLeftIcon
+            class="size-4"
+            aria-hidden="true"
+          />
+          Previous page
+        </RouterLink>
+        <span>Page {{ data.page }} of {{ data.totalPages }}</span>
+        <RouterLink
+          v-if="data.page < data.totalPages"
+          :to="pageLink(data.page + 1)"
+          class="inline-flex h-9 items-center gap-1 rounded-md px-3 font-medium hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          @click="paging = true"
+        >
+          Next page
+          <ChevronRightIcon
+            class="size-4"
+            aria-hidden="true"
+          />
+        </RouterLink>
+      </nav>
+    </div>
+  </div>
 </template>

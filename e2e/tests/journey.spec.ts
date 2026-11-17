@@ -344,7 +344,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('button', { name: 'Make private' })).toBeFocused();
   });
 
-  await test.step('home finds the recipe by what its description says', async () => {
+  await test.step('home finds the recipe by what its description says, and filters it out', async () => {
     await page.getByRole('link', { name: 'myli', exact: true }).click();
     await expect(heading(page, 'Recipes')).toBeVisible();
     if (!searchAvailable) {
@@ -369,8 +369,20 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       await page.reload();
       await expect(result).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 30_000 });
-    await expect(page.getByRole('status').filter({ hasText: 'recipe' })).toHaveText('1 recipe');
+    const count = page.getByRole('status').filter({ hasText: 'recipe' });
+    await expect(count).toHaveText('1 recipe');
     await checkPage(page);
+
+    // Leaving out what it contains finds nothing, until the filter is taken off again.
+    await page
+      .getByRole('group', { name: 'Leave out recipes with' })
+      .getByRole('checkbox', { name: 'wheat' })
+      .click();
+    await expect(page).toHaveURL(/\/\?q=crusty&excludeAllergen=wheat$/);
+    await expect(count).toHaveText('No recipes match.');
+    await checkPage(page);
+    await page.getByRole('button', { name: 'Clear filters' }).click();
+    await expect(count).toHaveText('1 recipe');
 
     await result.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();

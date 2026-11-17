@@ -5,6 +5,7 @@ import type { SearchHit, SearchResult } from '@/search/search.ts';
 import {
   accessibilityViolations,
   apiServer,
+  describedBy,
   NO_SEARCH_RESULTS,
   problemResponse,
   renderApp,
@@ -237,7 +238,7 @@ describe('home', () => {
     await renderApp('/?q=nothing');
 
     expect(await countText()).toBe('No recipes match.');
-    expect(screen.getByText('Try other words, or fewer of them.')).toBeDefined();
+    expect(screen.getByText('Try other words, or fewer filters.')).toBeDefined();
   });
 
   it('says when search is unavailable, and tries again when asked', async () => {
@@ -258,5 +259,221 @@ describe('home', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     await recipeList();
+  });
+});
+
+describe('home’s filters', () => {
+  const FACETS: SearchResult['facets'] = {
+    cuisine: { Thai: 3, Italian: 2 },
+    mealType: { Dinner: 4 },
+    diet: { Vegan: 2 },
+    tag: { Weeknight: 1 },
+    allergen: { milk: 2 },
+    difficulty: { easy: 3, medium: 1 },
+  };
+  const answerWithFacets = (facets = FACETS) =>
+    answerSearches(() => found([hit()], { totalHits: 5, facets }));
+  const filters = () => screen.findByRole('region', { name: 'Filters' });
+  const group = async (name: string) => within(await filters()).getByRole('group', { name });
+
+  it('shows each filter’s values, with how many recipes each gives', async () => {
+    answerWithFacets();
+    await renderApp('/');
+
+    const cuisine = await group('Cuisine');
+    expect(within(cuisine).getByText('Any of those checked.')).toBeDefined();
+    expect(describedBy(within(cuisine).getByRole('checkbox', { name: 'Thai' }))).toEqual([
+      '3 recipes',
+    ]);
+    const diet = await group('Diet');
+    expect(within(diet).getByText('All of those checked.')).toBeDefined();
+    expect(describedBy(within(await group('Other tags')).getByRole('checkbox'))).toEqual([
+      '1 recipe',
+    ]);
+    const difficulty = await group('Difficulty');
+    expect(
+      within(difficulty)
+        .getAllByRole('checkbox')
+        .map((box) => [box.getAttribute('aria-checked'), describedBy(box)[0]]),
+    ).toEqual([
+      ['false', '3 recipes'],
+      ['false', '1 recipe'],
+      ['false', '0 recipes'],
+    ]);
+    const allergens = await group('Leave out recipes with');
+    expect(within(allergens).getAllByRole('checkbox')).toHaveLength(9);
+    expect(describedBy(within(allergens).getByRole('checkbox', { name: 'milk' }))).toEqual([
+      '2 recipes',
+    ]);
+    expect(
+      within(await group('Total time')).getByRole('radio', { name: 'Any time' }),
+    ).toHaveProperty('ariaChecked', 'true');
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
+    expect(await accessibilityViolations()).toEqual([]);
+  });
+
+  it('includes and leaves out values, each a new search from the first page', async () => {
+    const asked = answerWithFacets();
+    const { router, user } = await renderApp('/?q=curry&page=2');
+    const cuisine = await group('Cuisine');
+
+    await user.click(within(cuisine).getByRole('checkbox', { name: 'Thai' }));
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({ q: 'curry', cuisine: ['Thai'] });
+    });
+
+    await user.click(within(cuisine).getByRole('button', { name: 'Leave out Italian' }));
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({
+        q: 'curry',
+        cuisine: ['Thai'],
+        excludeCuisine: ['Italian'],
+      });
+    });
+    await waitFor(() => {
+      expect(asked.at(-1)?.getAll('excludeCuisine')).toEqual(['Italian']);
+    });
+    const italian = within(cuisine).getByRole('checkbox', { name: 'Italian' });
+    expect(italian.getAttribute('aria-checked')).toBe('false');
+    // Left out, it's in no result, so it has no count.
+    expect(describedBy(italian)).toEqual([]);
+    expect(
+      within(cuisine)
+        .getByRole('button', { name: 'Leave out Italian' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    // Checking a value left out includes it instead.
+    await user.click(italian);
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({ q: 'curry', cuisine: ['Thai', 'Italian'] });
+    });
+    await waitFor(() => {
+      expect(asked.at(-1)?.getAll('cuisine')).toEqual(['Thai', 'Italian']);
+    });
+  });
+
+  it('leaves out allergens, and narrows by difficulty and total time', async () => {
+    const asked = answerWithFacets();
+    const { router, user } = await renderApp('/');
+
+    await user.click(
+      within(await group('Leave out recipes with')).getByRole('checkbox', { name: 'milk' }),
+    );
+    await user.click(within(await group('Difficulty')).getByRole('checkbox', { name: 'Easy' }));
+    await user.click(
+      within(await group('Total time')).getByRole('radio', { name: '30 min or less' }),
+    );
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({
+        excludeAllergen: ['milk'],
+        difficulty: ['easy'],
+        maxMinutes: '30',
+      });
+    });
+    await waitFor(() => {
+      expect(asked.at(-1)?.get('maxMinutes')).toBe('30');
+    });
+
+    await user.click(within(await group('Total time')).getByRole('radio', { name: 'Any time' }));
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({
+        excludeAllergen: ['milk'],
+        difficulty: ['easy'],
+      });
+    });
+    await waitFor(() => {
+      expect(asked.at(-1)?.has('maxMinutes')).toBe(false);
+    });
+  });
+
+  it('shows a time range from the address that isn’t one of those offered', async () => {
+    answerWithFacets();
+    await renderApp('/?minMinutes=20&maxMinutes=45');
+
+    expect(
+      within(await group('Total time')).getByRole('radio', { name: '20 min to 45 min' }),
+    ).toHaveProperty('ariaChecked', 'true');
+  });
+
+  it('clears every filter, keeping the words and the order', async () => {
+    const asked = answerWithFacets();
+    const { router, user } = await renderApp(
+      '/?q=soup&diet=Vegan&excludeAllergen=milk&maxMinutes=30&sort=quickest',
+    );
+
+    await user.click(within(await filters()).getByRole('button', { name: 'Clear filters' }));
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({ q: 'soup', sort: 'quickest' });
+    });
+    await waitFor(() => {
+      expect(asked.at(-1)?.has('diet')).toBe(false);
+    });
+  });
+
+  it('shows the most common values of a long list, until asked for all', async () => {
+    const cuisines = [
+      'Thai',
+      'Italian',
+      'Greek',
+      'Mexican',
+      'Indian',
+      'French',
+      'Korean',
+      'Basque',
+    ];
+    answerWithFacets({
+      ...FACETS,
+      cuisine: Object.fromEntries(cuisines.map((name, index) => [name, 10 - index])),
+    });
+    const { user } = await renderApp('/?excludeCuisine=Basque');
+    const cuisine = await group('Cuisine');
+    const names = () =>
+      within(cuisine)
+        .getAllByRole('checkbox')
+        .map(
+          (box) => box.id && document.querySelector(`label[for="${box.id}"]`)?.textContent.trim(),
+        );
+
+    // The six most common, and the one left out, which stays in sight.
+    expect(names()).toEqual(['Thai', 'Italian', 'Greek', 'Mexican', 'Indian', 'French', 'Basque']);
+    const more = within(cuisine).getByRole('button', { name: 'Show all 8 cuisines' });
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+
+    await user.click(more);
+
+    expect(names()).toEqual(cuisines.slice(0, 7).concat('Basque'));
+    expect(more.textContent.trim()).toBe('Show fewer');
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('keeps the filters behind a button on a phone, which says how many are chosen', async () => {
+    answerWithFacets();
+    const { user } = await renderApp('/?diet=Vegan&difficulty=easy');
+    const panel = await filters();
+
+    const button = screen.getByRole('button', { name: 'Filters (2)' });
+    expect(button.getAttribute('aria-controls')).toBe(panel.id);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(panel.classList).toContain('hidden');
+
+    await user.click(button);
+
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(panel.classList).not.toContain('hidden');
+  });
+
+  it('has none when there are no recipes yet', async () => {
+    await renderApp('/');
+    expect(await countText()).toBe('No recipes yet.');
+    expect(screen.queryByRole('region', { name: 'Filters' })).toBeNull();
+  });
+
+  it('stays when filters find nothing, so they can be taken off again', async () => {
+    await renderApp('/?diet=Vegan');
+    expect(await countText()).toBe('No recipes match.');
+    expect(await filters()).toBeDefined();
   });
 });
