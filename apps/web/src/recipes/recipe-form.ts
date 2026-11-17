@@ -56,7 +56,14 @@ export interface IngredientGroupValues {
   ingredients: IngredientLineValues[];
 }
 
+export interface StepValues {
+  /** Markdown. */
+  body: string;
+}
+
 export const emptyLine = (): IngredientLineValues => ({ rawText: '', details: null });
+
+export const emptyStep = (): StepValues => ({ body: '' });
 
 /** A group starts with a line to type in. */
 export const emptyGroup = (): IngredientGroupValues => ({ label: '', ingredients: [emptyLine()] });
@@ -156,6 +163,16 @@ const ingredientGroupSchema = z
     }
     return null;
   });
+
+/** A step as the API takes it, or `null` for a blank one, which is left out once it's checked. */
+const stepSchema = z.object({ body: z.string() }).transform((step, context) => {
+  if (step.body.trim() === '') return null;
+  const result = content.steps.element.safeParse(step);
+  for (const issue of result.error?.issues ?? []) {
+    context.issues.push({ code: 'custom', input: step, path: issue.path, message: issue.message });
+  }
+  return result.success ? result.data : z.NEVER;
+});
 
 /** "Not set" is a choice of its own, since a radio button can't be unchecked. */
 export const DIFFICULTY_CHOICES = ['none', ...DIFFICULTIES] as const;
@@ -257,8 +274,11 @@ export const recipeFormSchema = z
       })
       .pipe(content.ingredientGroups),
     description: content.description,
+    steps: z
+      .array(stepSchema)
+      .transform((steps) => steps.filter((step) => step !== null))
+      .pipe(content.steps),
     // Not in the form yet: carried over as they were, until the editor has fields for them.
-    steps: content.steps,
     tagIds: content.tagIds,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
     visibility: visibilitySchema,
@@ -271,6 +291,7 @@ export type RecipeFormResult = z.output<typeof recipeFormSchema>;
 /** Every field of the form, by its path, for the API's field errors. */
 export const RECIPE_FORM_FIELDS = [
   'title',
+  'description',
   'servings',
   'yield.qty',
   'yield.unit',
@@ -312,7 +333,7 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
       },
       description: '',
       ingredientGroups: [emptyGroup()],
-      steps: [],
+      steps: [emptyStep()],
       tagIds: [],
       // Nothing is shared by accident: sharing is a choice.
       visibility: 'private',
@@ -346,7 +367,7 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
             label: group.label ?? '',
             ingredients: group.ingredients.map(lineValues),
           })),
-    steps: recipe.steps.map(({ body }) => ({ body })),
+    steps: recipe.steps.length === 0 ? [emptyStep()] : recipe.steps.map(({ body }) => ({ body })),
     tagIds: recipe.tags.map((tag) => tag.id),
     visibility: recipe.visibility,
   };

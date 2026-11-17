@@ -166,8 +166,12 @@ const recipeContentShape = {
       `A recipe can have up to ${String(L.ingredientGroups)} groups of ingredients.`,
     ),
   steps: z
-    .array(z.object({ body: z.string().trim().min(1, 'Write the step.').max(L.stepBody) }))
-    .max(L.steps)
+    .array(
+      z.object({
+        body: z.string().trim().min(1, 'Write the step.').max(L.stepBody, tooLong(L.stepBody)),
+      }),
+    )
+    .max(L.steps, `A recipe can have up to ${String(L.steps)} steps.`)
     .describe('In order. Each body is markdown.'),
   tagIds: z
     .array(z.int().positive())

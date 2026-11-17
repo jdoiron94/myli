@@ -199,6 +199,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Structured steps**
 - Steps are ordered records. Each has a markdown body and an optional image.
 - Steps can be reordered, inserted and removed.
+- **In the editor,** each step is a markdown field (see Markdown below), numbered as the recipe shows it. A new recipe starts with one to write in. A step can be added at the end or after any step, and moved up or down. Blank steps are left out when the recipe is saved.
 
 **Markdown**
 - Descriptions and steps (and later comments and notes) are markdown, in a deliberately small subset (ADR 0006): bold, italic, lists, links and inline code. A line break is kept as typed.
