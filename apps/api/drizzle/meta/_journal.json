@@ -43,6 +43,20 @@
       "when": 1794701423828,
       "tag": "0005_audit_event_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794878544500,
+      "tag": "0006_recipes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794878544970,
+      "tag": "0007_seed_allergens",
+      "breakpoints": true
     }
   ]
 }

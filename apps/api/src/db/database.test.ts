@@ -61,8 +61,13 @@ describe('migrateDatabase', () => {
       'audit_event',
       'invitation',
       'job',
+      'recipe',
+      'recipe_ingredient',
+      'recipe_step',
+      'recipe_tag',
       'session',
       'setup_claim',
+      'tag',
       'user',
       'verification',
     ]);
