@@ -216,11 +216,16 @@ export async function searchRecipes(
     SEARCH_FACETS.map((facet) => [facet, distribution[FACET_ATTRIBUTES[facet]] ?? {}]),
   ) as RecipeSearchResult['facets'];
 
+  const found = (main?.hits ?? []) as SearchedRecipe[];
+  const hits = visibleHits(deps.db, user, found);
+  // What SQLite left out isn't counted either, so the count matches what's shown, as just after
+  // a recipe was deleted. Other pages can still be behind; the facet counts are left as they are.
+  const totalHits = Math.max((main?.totalHits ?? 0) - (found.length - hits.length), 0);
   return {
-    hits: visibleHits(deps.db, user, (main?.hits ?? []) as SearchedRecipe[]),
-    totalHits: main?.totalHits ?? 0,
+    hits,
+    totalHits,
     page: main?.page ?? query.page,
-    totalPages: main?.totalPages ?? 0,
+    totalPages: Math.ceil(totalHits / SEARCH_PAGE_SIZE),
     facets,
   };
 }

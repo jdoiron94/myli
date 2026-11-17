@@ -2,6 +2,7 @@ import {
   ingredientSuggestionsSchema,
   PROBLEM_CONTENT_TYPE,
   recipeSearchResultSchema,
+  SEARCH_PAGE_SIZE,
   type Visibility,
   validationProblemSchema,
 } from '@myli/shared';
@@ -162,12 +163,71 @@ describe('GET /search/recipes', () => {
     t.db.update(recipe).set({ deletedAt: new Date() }).where(eq(recipe.id, deleted)).run();
     hitsFor.push(shared, madePrivate, mine, deleted, 'never-existed');
 
-    const { hits } = recipeSearchResultSchema.parse(await (await search('')).json());
+    const { hits, totalHits, totalPages } = recipeSearchResultSchema.parse(
+      await (await search('')).json(),
+    );
 
     expect(hits.map(({ id, visibility }) => [id, visibility])).toEqual([
       [shared, 'shared'],
       [mine, 'private'],
     ]);
+    // Nor are the others counted, so the count matches what's shown.
+    expect({ totalHits, totalPages }).toEqual({ totalHits: 2, totalPages: 1 });
+  });
+
+  it('counts pages without the hits SQLite leaves out', async () => {
+    const page = (number: number, ids: string[], totalHits: number) => ({
+      hits: ids.map((id) => ({
+        id,
+        title: `Recipe ${id}`,
+        difficulty: null,
+        totalMinutes: null,
+        cuisine: [],
+        mealType: [],
+        diet: [],
+        customTags: [],
+        allergens: [],
+      })),
+      totalHits,
+      hitsPerPage: SEARCH_PAGE_SIZE,
+      page: number,
+      totalPages: Math.ceil(totalHits / SEARCH_PAGE_SIZE),
+    });
+    let answer = page(1, [], 0);
+    const { client } = fakeSearchClient({
+      search: (query) => ({
+        indexUid: query.indexUid,
+        query: '',
+        processingTimeMs: 0,
+        facetDistribution: {},
+        ...answer,
+      }),
+    });
+    const { t, user, search } = await setUp({ client });
+    const kept = insertRecipe(t.db, user.id, 'shared');
+    const gone = insertRecipe(t.db, user.id, 'shared');
+    t.db.update(recipe).set({ deletedAt: new Date() }).where(eq(recipe.id, gone)).run();
+    const result = async (query: string) => {
+      const { totalHits, page, totalPages } = recipeSearchResultSchema.parse(
+        await (await search(query)).json(),
+      );
+      return { totalHits, page, totalPages };
+    };
+
+    // The last hit of 25 was deleted: there's one page now, not two.
+    answer = page(2, [gone], SEARCH_PAGE_SIZE + 1);
+    expect(await result('?page=2')).toEqual({
+      totalHits: SEARCH_PAGE_SIZE,
+      page: 2,
+      totalPages: 1,
+    });
+
+    answer = page(2, [kept, gone], SEARCH_PAGE_SIZE + 2);
+    expect(await result('?page=2')).toEqual({
+      totalHits: SEARCH_PAGE_SIZE + 1,
+      page: 2,
+      totalPages: 2,
+    });
   });
 
   it('answers 503 while search is unavailable', async () => {
