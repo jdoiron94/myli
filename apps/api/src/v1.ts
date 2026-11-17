@@ -10,6 +10,7 @@ import { jsonOnly } from './json-only.ts';
 import { validationHook } from './problems.ts';
 import { registerRecipeRoutes } from './recipes/routes.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
+import { registerTagRoutes } from './tags/routes.ts';
 import { registerUserRoutes } from './users/routes.ts';
 
 /**
@@ -46,6 +47,7 @@ export function createV1Router(deps: V1Deps) {
   registerAuditRoutes(v1, { db: deps.db });
   registerUserRoutes(v1, { db: deps.db });
   registerRecipeRoutes(v1, { db: deps.db });
+  registerTagRoutes(v1, { db: deps.db });
   registerInvitationRoutes(v1, {
     db: deps.db,
     auth: deps.auth,

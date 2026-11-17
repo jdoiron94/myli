@@ -221,6 +221,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 | `allergen` | **fixed** seeded list: milk, eggs, fish, shellfish, tree nuts, peanuts, wheat, soy, sesame | Can't be edited |
 | `custom` | user-defined | Editors create; admins rename, merge or delete |
 
+- A tag's name is unique within its type, ignoring case and extra spaces: creating "italian" when "Italian" exists gives back the existing tag rather than a second one. The same name can exist in two types. Names are 1–50 characters.
 - Allergen and diet tags are set by hand. The UI shows a disclaimer that this information is entered by users and not verified.
 
 **Images**
