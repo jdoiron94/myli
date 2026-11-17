@@ -86,7 +86,7 @@ describe('the account menu', () => {
         return HttpResponse.json({ success: true });
       }),
     );
-    const { router, queryClient, user } = await renderApp('/recipes/1');
+    const { router, queryClient, user } = await renderApp('/no-such-page/1');
     queryClient.setQueryData(['recipes', '1'], { title: 'Soup' });
 
     await user.click(accountButton());
@@ -115,7 +115,7 @@ describe('the account menu', () => {
     expect(router.currentRoute.value.fullPath).toBe('/');
     expect(accountButton()).toBeDefined();
 
-    await router.push('/recipes/1');
+    await router.push('/no-such-page/1');
 
     await screen.findByRole('heading', { level: 1, name: 'Page not found' });
     expect(screen.queryByRole('alert')).toBeNull();

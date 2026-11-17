@@ -48,14 +48,14 @@ async function renderLogin(path = '/login', answer: () => Response = () => HttpR
 
 describe('the sign-in page', () => {
   it('signs in, then goes where they were going, signed in', async () => {
-    const { router, user, signIns } = await renderLogin('/login?redirect=/recipes/1');
+    const { router, user, signIns } = await renderLogin('/login?redirect=/no-such-page/1');
 
     await user.type(emailField(), 'Ada@Example.com');
     await user.type(passwordField(), 'correct horse battery staple');
     await user.click(signInButton());
 
     await screen.findByRole('heading', { level: 1, name: 'Page not found' });
-    expect(router.currentRoute.value.fullPath).toBe('/recipes/1');
+    expect(router.currentRoute.value.fullPath).toBe('/no-such-page/1');
     expect(screen.getByRole('button', { name: 'Account: Ada Lovelace' })).toBeDefined();
     // Emails are compared in lower case.
     expect(signIns).toEqual([

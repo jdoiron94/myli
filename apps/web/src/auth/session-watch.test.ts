@@ -86,19 +86,19 @@ describe('when the session ends', () => {
 
   it('a mutation finding out does the same', async () => {
     apiServer.use(http.post(INVITATIONS_PATH, noSession));
-    const { router, queryClient } = await renderApp('/recipes/1');
+    const { router, queryClient } = await renderApp('/no-such-page/1');
 
     await mutate(queryClient, invite);
 
     await signInHeading();
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/recipes/1' });
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/no-such-page/1' });
     expect(screen.getByText(SESSION_ENDED_NOTICE)).toBeDefined();
     expect(emailField()).toHaveProperty('value', testUsers.editor.email);
   });
 
   it('several requests finding out at once go to the sign-in page once', async () => {
     apiServer.use(http.post(INVITATIONS_PATH, noSession));
-    const { router, queryClient } = await renderApp('/recipes/1');
+    const { router, queryClient } = await renderApp('/no-such-page/1');
     const replace = vi.spyOn(router, 'replace');
 
     await Promise.all([mutate(queryClient, invite), mutate(queryClient, invite)]);
@@ -148,7 +148,7 @@ describe('when the API refuses something (403)', () => {
   it('leaves them where they are when their role is the same', async () => {
     const asked = answerSessionWith(() => testUsers.editor);
     apiServer.use(http.post(INVITATIONS_PATH, refused));
-    const { router, queryClient } = await renderApp('/recipes/1');
+    const { router, queryClient } = await renderApp('/no-such-page/1');
     const replace = vi.spyOn(router, 'replace');
 
     await mutate(queryClient, invite);
@@ -157,7 +157,7 @@ describe('when the API refuses something (403)', () => {
     });
     await settle();
 
-    expect(router.currentRoute.value.fullPath).toBe('/recipes/1');
+    expect(router.currentRoute.value.fullPath).toBe('/no-such-page/1');
     expect(replace).not.toHaveBeenCalled();
     expect(queryClient.getQueryData(['session'])).toEqual(testUsers.editor);
   });
@@ -176,7 +176,7 @@ describe('when the API refuses something (403)', () => {
       }),
       http.post(INVITATIONS_PATH, refused),
     );
-    const { queryClient } = await renderApp('/recipes/1');
+    const { queryClient } = await renderApp('/no-such-page/1');
     // Subscribed after the app's watcher, so it hears each refusal once the watcher has.
     let refusals = 0;
     queryClient.getMutationCache().subscribe((event) => {
@@ -199,13 +199,13 @@ describe('when the API refuses something (403)', () => {
     let user: User | null = testUsers.editor;
     answerSessionWith(() => user);
     apiServer.use(http.post(INVITATIONS_PATH, refused));
-    const { router, queryClient } = await renderApp('/recipes/1');
+    const { router, queryClient } = await renderApp('/no-such-page/1');
     user = null;
 
     await mutate(queryClient, invite);
 
     await signInHeading();
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/recipes/1' });
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/no-such-page/1' });
     expect(screen.getByText(SESSION_ENDED_NOTICE)).toBeDefined();
     expect(emailField()).toHaveProperty('value', testUsers.editor.email);
   });
@@ -218,13 +218,13 @@ describe('when the API refuses something (403)', () => {
       ),
       http.post(INVITATIONS_PATH, refused),
     );
-    const { router, queryClient } = await renderApp('/recipes/1');
+    const { router, queryClient } = await renderApp('/no-such-page/1');
     failing = true;
 
     await mutate(queryClient, invite);
     await settle();
 
-    expect(router.currentRoute.value.fullPath).toBe('/recipes/1');
+    expect(router.currentRoute.value.fullPath).toBe('/no-such-page/1');
     expect(queryClient.getQueryData(['session'])).toEqual(testUsers.editor);
     expect(screen.getByRole('button', { name: `Account: ${testUsers.editor.name}` })).toBeDefined();
   });
