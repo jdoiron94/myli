@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LockIcon } from '@lucide/vue';
+import { LockIcon, TriangleAlertIcon } from '@lucide/vue';
 import { recipeTotalMinutes, scaleFactor } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { computed, nextTick, ref, useTemplateRef, watch, watchEffect } from 'vue';
@@ -187,11 +187,22 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         </template>
       </p>
 
+      <!-- What the recipe contains comes first, and stands out: someone may need to avoid it. -->
       <ul
-        v-if="tags.tags.length > 0"
+        v-if="tags.allergens.length > 0 || tags.tags.length > 0"
         aria-label="Tags"
         class="mt-4 flex flex-wrap gap-2"
       >
+        <li
+          v-if="tags.allergens.length > 0"
+          class="inline-flex items-center gap-1.5 rounded-full bg-caution px-2.5 py-0.5 text-sm font-medium break-words text-caution-foreground"
+        >
+          <TriangleAlertIcon
+            class="size-3.5 shrink-0"
+            aria-hidden="true"
+          />
+          Contains {{ tags.allergens.map(({ name }) => name).join(', ') }}
+        </li>
         <li
           v-for="tag in tags.tags"
           :key="tag.id"
@@ -280,14 +291,6 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
               class="text-muted-foreground"
             >
               No ingredients yet.
-            </p>
-            <!-- As on a food label: what the ingredients contain, after them. -->
-            <p
-              v-if="tags.allergens.length > 0"
-              class="mt-4 text-sm"
-            >
-              <span class="font-semibold">Contains:</span>
-              {{ tags.allergens.map(({ name }) => name).join(', ') }}
             </p>
           </section>
 

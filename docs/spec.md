@@ -237,7 +237,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 - A tag's name is unique within its type, ignoring case and extra spaces: creating "italian" when "Italian" exists gives back the existing tag rather than a second one. The same name can exist in two types. Names are 1–50 characters.
 - Allergen and diet tags are set by hand.
-- **On a recipe's page,** its tags show in one row, cuisine first, then meal type, diet and custom tags. Its allergens follow its ingredients instead, as on a food label: "Contains: milk, wheat".
+- **On a recipe's page,** its tags show in one row. What it contains comes first, in one tag that stands out ("Contains milk, wheat"), then cuisine, meal type, diet and custom tags.
 - **In the editor,** every tag of each type shows as a checkbox, so picking one is a click and what exists is in view. Under each type but the allergens, editors can add a new tag, which is checked straight away; a name the type already has checks that tag instead.
 
 **Images**
