@@ -1,6 +1,11 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { normalizeIngredientName, type ParsedIngredient, parseIngredient } from './ingredients.ts';
+import {
+  normalizeIngredientName,
+  type ParsedIngredient,
+  parseIngredient,
+  parseQuantity,
+} from './ingredients.ts';
 import { displayAmount, formatAmount } from './quantities.ts';
 import { UNITS, type UnitSystem } from './units.ts';
 
@@ -146,6 +151,66 @@ describe('parseIngredient', () => {
     parseIngredient(line);
     normalizeIngredientName(line);
     expect(Date.now() - start).toBeLessThan(1000);
+  });
+});
+
+describe('parseQuantity', () => {
+  it.each([
+    ['2', 2],
+    [' 2.5 ', 2.5],
+    ['.5', 0.5],
+    ['3/4', 0.75],
+    ['1 1/2', 1.5],
+    ['1-1/2', 1.5],
+    ['1½', 1.5],
+    ['1 ½', 1.5],
+    ['⅓', 1 / 3],
+    ['1⁄4', 0.25],
+    ['two', 2],
+    ['Twelve', 12],
+  ])('reads %j as %d', (text, value) => {
+    expect(parseQuantity(text)).toBe(value);
+  });
+
+  it.each([
+    '',
+    ' ',
+    '0',
+    '0/1',
+    '1/0',
+    '-1',
+    '2-3',
+    '2 cups',
+    'a',
+    'a few',
+    '1,5',
+    '1e3',
+    'Infinity',
+  ])('reads %j as no quantity', (text) => {
+    expect(parseQuantity(text)).toBeUndefined();
+  });
+
+  it('reads a quantity as it does at the start of a line', () => {
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.integer({ min: 1, max: 999 }).map(String),
+          fc
+            .tuple(
+              fc.integer({ min: 0, max: 20 }),
+              fc.integer({ min: 1, max: 16 }),
+              fc.integer({ min: 1, max: 16 }),
+            )
+            .map(([whole, top, bottom]) =>
+              whole === 0
+                ? `${String(top)}/${String(bottom)}`
+                : `${String(whole)} ${String(top)}/${String(bottom)}`,
+            ),
+          fc.constantFrom('½', '1¾', '2 ⅓', 'three', '.25', '0.5'),
+        ),
+        (text) => parseQuantity(text) === (parseIngredient(`${text} cups flour`).qty ?? undefined),
+      ),
+    );
   });
 });
 

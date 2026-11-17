@@ -21,6 +21,7 @@ export {
   normalizeIngredientName,
   type ParsedIngredient,
   parseIngredient,
+  parseQuantity,
 } from './ingredients.ts';
 export {
   type AcceptInvitationRequest,

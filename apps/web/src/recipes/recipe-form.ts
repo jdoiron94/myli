@@ -1,11 +1,16 @@
 import {
   DIFFICULTIES,
+  ingredientGroupInputSchema,
+  ingredientLineInputSchema,
+  type ParsedIngredient,
+  parseIngredient,
+  parseQuantity,
   RECIPE_LIMITS,
   updateRecipeRequestSchema,
   visibilitySchema,
 } from '@myli/shared';
 import { z } from 'zod';
-import type { Recipe } from './recipe.ts';
+import type { IngredientLine, Recipe } from './recipe.ts';
 
 /**
  * The recipe editor's form: what's typed in its fields, and the API's request it becomes. Every
@@ -26,6 +31,131 @@ const typedNumber = <TSchema extends z.ZodType<unknown, number | null>>(schema: 
     .trim()
     .transform((text) => (text === '' ? null : Number(text)))
     .pipe(schema);
+
+/**
+ * How someone corrected the way a line is read, each part as typed. Lines without corrections are
+ * read by the parser from what was typed, each time it changes.
+ */
+export interface LineDetails {
+  qty: string;
+  qtyMax: string;
+  unit: string;
+  name: string;
+  note: string;
+  scalable: boolean;
+}
+
+export interface IngredientLineValues {
+  rawText: string;
+  /** `null` while the parser reads the line. */
+  details: LineDetails | null;
+}
+
+export interface IngredientGroupValues {
+  label: string;
+  ingredients: IngredientLineValues[];
+}
+
+export const emptyLine = (): IngredientLineValues => ({ rawText: '', details: null });
+
+/** A group starts with a line to type in. */
+export const emptyGroup = (): IngredientGroupValues => ({ label: '', ingredients: [emptyLine()] });
+
+/** A line as myli reads it: as corrected, or else by the parser. */
+export function readLine({ rawText, details }: IngredientLineValues): ParsedIngredient {
+  if (!details) return parseIngredient(rawText);
+  return {
+    qty: parseQuantity(details.qty) ?? null,
+    qtyMax: parseQuantity(details.qtyMax) ?? null,
+    unit: details.unit.trim() || null,
+    name: details.name.trim(),
+    note: details.note.trim() || null,
+    scalable: details.scalable,
+  };
+}
+
+const lineDetailsSchema = z.object({
+  qty: z.string(),
+  qtyMax: z.string(),
+  unit: z.string(),
+  name: z.string(),
+  note: z.string(),
+  scalable: z.boolean(),
+});
+
+/** What's wrong with the name the parser read from a line. */
+const parsedNameProblem = (name: string) =>
+  name === ''
+    ? "Name the ingredient: myli can't find a name in this line."
+    : `Keep the ingredient's name to ${String(L.ingredientName)} characters.`;
+
+/**
+ * One line, as the API takes it, or `null` for a blank line, which is left out. Its problems are
+ * on the field that shows them: the line itself while the parser reads it, or the corrected part.
+ */
+const ingredientLineSchema = z
+  .object({ rawText: z.string(), details: lineDetailsSchema.nullable() })
+  .transform((line, context) => {
+    if (line.details === null && line.rawText.trim() === '') return null;
+    for (const part of ['qty', 'qtyMax'] as const) {
+      const typed = line.details?.[part].trim() ?? '';
+      if (typed !== '' && parseQuantity(typed) === undefined) {
+        context.issues.push({
+          code: 'custom',
+          input: typed,
+          path: ['details', part],
+          message: 'Enter an amount, like 2, 1½ or 0.5.',
+        });
+      }
+    }
+    const read = readLine(line);
+    const result = ingredientLineInputSchema.safeParse({ rawText: line.rawText, ...read });
+    const issues = result.error?.issues ?? [];
+    if (line.details === null) {
+      // Only the line shows, so one problem at a time, the line's own first: a name that's too long
+      // may only be because the line is.
+      const issue = issues.find(({ path }) => path[0] === 'rawText') ?? issues[0];
+      if (issue) {
+        context.issues.push({
+          code: 'custom',
+          input: line,
+          path: ['rawText'],
+          message: issue.path[0] === 'name' ? parsedNameProblem(read.name) : issue.message,
+        });
+      }
+    } else {
+      for (const issue of issues) {
+        const [part = 'rawText'] = issue.path;
+        context.issues.push({
+          code: 'custom',
+          input: line,
+          path: part === 'rawText' ? ['rawText'] : ['details', String(part)],
+          message: issue.message,
+        });
+      }
+    }
+    return result.success && context.issues.length === 0 ? result.data : z.NEVER;
+  });
+
+/** A group as the API takes it, or `null` for one with no lines and no name, which is left out. */
+const ingredientGroupSchema = z
+  .object({
+    label: ingredientGroupInputSchema.shape.label,
+    ingredients: z.array(ingredientLineSchema),
+  })
+  .transform(({ label, ingredients }, context) => {
+    const lines = ingredients.filter((line) => line !== null);
+    if (lines.length > 0) return { label: label === '' ? null : label, ingredients: lines };
+    if (label !== null && label !== '') {
+      context.issues.push({
+        code: 'custom',
+        input: ingredients,
+        path: ['ingredients'],
+        message: 'Add an ingredient to the group, or remove the group.',
+      });
+    }
+    return null;
+  });
 
 /** "Not set" is a choice of its own, since a radio button can't be unchecked. */
 export const DIFFICULTY_CHOICES = ['none', ...DIFFICULTIES] as const;
@@ -111,9 +241,23 @@ export const recipeFormSchema = z
       sugarGrams: typedNumber(nutrient.sugarGrams),
       sodiumMilligrams: typedNumber(nutrient.sodiumMilligrams),
     }),
+    ingredientGroups: z
+      .array(ingredientGroupSchema)
+      .transform((groups, context) => {
+        const kept = groups.filter((group) => group !== null);
+        // On the section as a whole, like the limits below it.
+        if (kept.flatMap((group) => group.ingredients).length > L.ingredients) {
+          context.issues.push({
+            code: 'custom',
+            input: groups,
+            message: `A recipe can have up to ${String(L.ingredients)} ingredients.`,
+          });
+        }
+        return kept;
+      })
+      .pipe(content.ingredientGroups),
     // Not in the form yet: carried over as they were, until the editor has fields for them.
     description: content.description,
-    ingredientGroups: content.ingredientGroups,
     steps: content.steps,
     tagIds: content.tagIds,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
@@ -167,7 +311,7 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
         sodiumMilligrams: '',
       },
       description: '',
-      ingredientGroups: [],
+      ingredientGroups: [emptyGroup()],
       steps: [],
       tagIds: [],
       // Nothing is shared by accident: sharing is a choice.
@@ -195,22 +339,64 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
       sodiumMilligrams: typed(nutrition.sodiumMilligrams),
     },
     description: recipe.description,
-    ingredientGroups: recipe.ingredientGroups.map((group) => ({
-      label: group.label,
-      ingredients: group.ingredients.map(
-        ({ rawText, qty, qtyMax, unit, name, note, scalable }) => ({
-          rawText,
-          qty,
-          qtyMax,
-          unit,
-          name,
-          note,
-          scalable,
-        }),
-      ),
-    })),
+    ingredientGroups:
+      recipe.ingredientGroups.length === 0
+        ? [emptyGroup()]
+        : recipe.ingredientGroups.map((group) => ({
+            label: group.label ?? '',
+            ingredients: group.ingredients.map(lineValues),
+          })),
     steps: recipe.steps.map(({ body }) => ({ body })),
     tagIds: recipe.tags.map((tag) => tag.id),
     visibility: recipe.visibility,
+  };
+}
+
+const FRACTIONS = [
+  [1 / 8, '⅛'],
+  [1 / 4, '¼'],
+  [1 / 3, '⅓'],
+  [3 / 8, '⅜'],
+  [1 / 2, '½'],
+  [5 / 8, '⅝'],
+  [2 / 3, '⅔'],
+  [3 / 4, '¾'],
+  [7 / 8, '⅞'],
+] as const;
+
+/**
+ * A quantity as it's typed back: "1½" or "⅓" for the fractions cooks use, which `parseQuantity`
+ * reads as the same number, or else the number as it is.
+ */
+export function quantityText(value: number | null): string {
+  if (value === null) return '';
+  const whole = Math.floor(value);
+  const fraction = FRACTIONS.find(([part]) => Math.abs(value - whole - part) < 1e-9);
+  if (!fraction) return String(value);
+  return whole === 0 ? fraction[1] : `${String(whole)}${fraction[1]}`;
+}
+
+/** A saved line: corrected by hand when it isn't what the parser reads from its text. */
+function lineValues(line: IngredientLine): IngredientLineValues {
+  const read = parseIngredient(line.rawText);
+  const asRead =
+    read.qty === line.qty &&
+    read.qtyMax === line.qtyMax &&
+    read.unit === line.unit &&
+    read.name === line.name &&
+    read.note === line.note &&
+    read.scalable === line.scalable;
+  return {
+    rawText: line.rawText,
+    details: asRead
+      ? null
+      : {
+          qty: quantityText(line.qty),
+          qtyMax: quantityText(line.qtyMax),
+          unit: line.unit ?? '',
+          name: line.name,
+          note: line.note ?? '',
+          scalable: line.scalable,
+        },
   };
 }

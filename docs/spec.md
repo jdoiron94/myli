@@ -193,6 +193,8 @@ There are three roles: **admin**, **editor** and **viewer**.
   - whatever it can't read ("a few sprigs of thyme", "juice of 1 lemon") stays in the name for the user to correct
 - **The normalized name** also drops accents, apostrophes and other punctuation ("Jalapeños" and "jalapeno" are both "jalapeno"; "all-purpose" is "all purpose"). Only its last word is made singular: "cherry tomatoes" is "cherry tomato".
 - There is no canonical ingredient catalog. Ingredient identity is the normalized name (see the limitation in §3.4).
+- **In the editor,** each line is typed as it would be written, with how myli reads it shown under it as it's typed. Enter starts the next line, a pasted list becomes a line each, and blank lines are left out. A group with a name needs at least one line.
+- A line corrected by hand keeps its corrections when its text changes, until its author asks for it to be read again.
 
 **Structured steps**
 - Steps are ordered records. Each has a markdown body and an optional image.

@@ -1,7 +1,11 @@
-import { RECIPE_LIMITS } from '@myli/shared';
+import { parseQuantity, RECIPE_LIMITS } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
 import { formSchema } from '@/lib/forms.ts';
+import type { IngredientLine } from './recipe.ts';
 import {
+  type IngredientGroupValues,
+  type LineDetails,
+  quantityText,
   RECIPE_FORM_FIELDS,
   type RecipeFormValues,
   recipeFormSchema,
@@ -253,6 +257,318 @@ describe('the recipe form', () => {
     expect((await submitted(recipeFormValues(sampleRecipe()))).value?.content).toMatchObject({
       yield: { qty: 1, unit: 'loaf' },
       difficulty: 'easy',
+    });
+  });
+
+  describe('ingredients', () => {
+    /** Groups of lines the parser reads, each written as `[label, lines]`. */
+    const groups = (...written: [string, string[]][]): IngredientGroupValues[] =>
+      written.map(([label, lines]) => ({
+        label,
+        ingredients: lines.map((rawText) => ({ rawText, details: null })),
+      }));
+    const withIngredients = (ingredientGroups: IngredientGroupValues[]) =>
+      filledIn((values) => {
+        values.ingredientGroups = ingredientGroups;
+      });
+
+    it('reads each line as the parser does, leaving out blank lines and empty groups', async () => {
+      const { value, errors } = await submitted(
+        withIngredients(groups(['', ['2 cups flour, sifted', ' ', 'salt to taste', '']], ['', []])),
+      );
+
+      expect(errors).toEqual({});
+      expect(value?.content.ingredientGroups).toEqual([
+        {
+          label: null,
+          ingredients: [
+            {
+              rawText: '2 cups flour, sifted',
+              qty: 2,
+              qtyMax: null,
+              unit: 'cup',
+              name: 'flour',
+              note: 'sifted',
+              scalable: true,
+            },
+            {
+              rawText: 'salt to taste',
+              qty: null,
+              qtyMax: null,
+              unit: null,
+              name: 'salt',
+              note: 'to taste',
+              scalable: false,
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('has none when nothing was typed', async () => {
+      const { value } = await submitted(filledIn());
+
+      expect(value?.content.ingredientGroups).toEqual([]);
+    });
+
+    it('keeps each group’s name', async () => {
+      const { value } = await submitted(
+        withIngredients(groups([' For the dough ', ['flour']], ['For the filling', ['jam']])),
+      );
+
+      expect(value?.content.ingredientGroups.map((group) => group.label)).toEqual([
+        'For the dough',
+        'For the filling',
+      ]);
+    });
+
+    it('says when a line names no ingredient, on that line, wherever blank lines are', async () => {
+      expect(
+        await errorsFor((values) => {
+          values.ingredientGroups = groups(['', ['flour']], ['', ['', '2 cups']]);
+        }),
+      ).toEqual({
+        'ingredientGroups[1].ingredients[1].rawText': [
+          "Name the ingredient: myli can't find a name in this line.",
+        ],
+      });
+    });
+
+    it('needs a line in a group that has a name', async () => {
+      expect(
+        await errorsFor((values) => {
+          values.ingredientGroups = groups(['For the dough', ['flour']], ['For the filling', ['']]);
+        }),
+      ).toEqual({
+        'ingredientGroups[1].ingredients': ['Add an ingredient to the group, or remove the group.'],
+      });
+    });
+
+    it('says how long a line can be', async () => {
+      expect(
+        await errorsFor((values) => {
+          values.ingredientGroups = groups(['', [`2 cups ${'flour '.repeat(100)}`]]);
+        }),
+      ).toEqual({ 'ingredientGroups[0].ingredients[0].rawText': ['Keep it to 500 characters.'] });
+      expect(
+        await errorsFor((values) => {
+          values.ingredientGroups = groups(['', [`2 cups ${'x'.repeat(201)}`]]);
+        }),
+      ).toEqual({
+        'ingredientGroups[0].ingredients[0].rawText': [
+          "Keep the ingredient's name to 200 characters.",
+        ],
+      });
+    });
+
+    it(`allows up to ${String(RECIPE_LIMITS.ingredients)} ingredients in all`, async () => {
+      const lines = (count: number) => Array.from({ length: count }, () => '1 egg');
+
+      expect(
+        await errorsFor((values) => {
+          values.ingredientGroups = groups(['', lines(150)], ['', lines(51)]);
+        }),
+      ).toEqual({ ingredientGroups: ['A recipe can have up to 200 ingredients.'] });
+      expect(
+        await errorsFor((values) => {
+          values.ingredientGroups = groups(['', lines(150)], ['', lines(50)]);
+        }),
+      ).toEqual({});
+    });
+
+    describe('a line corrected by hand', () => {
+      const corrected = (details: Partial<LineDetails>) =>
+        withIngredients([
+          {
+            label: '',
+            ingredients: [
+              {
+                rawText: 'a few sprigs of thyme',
+                details: {
+                  qty: '3',
+                  qtyMax: '',
+                  unit: 'sprig',
+                  name: 'thyme',
+                  note: '',
+                  scalable: true,
+                  ...details,
+                },
+              },
+            ],
+          },
+        ]);
+
+      it('is read as corrected, keeping what was typed', async () => {
+        const { value } = await submitted(corrected({ qty: '1½', qtyMax: ' 2 ', note: ' fresh ' }));
+
+        expect(value?.content.ingredientGroups[0]?.ingredients).toEqual([
+          {
+            rawText: 'a few sprigs of thyme',
+            qty: 1.5,
+            qtyMax: 2,
+            unit: 'sprig',
+            name: 'thyme',
+            note: 'fresh',
+            scalable: true,
+          },
+        ]);
+      });
+
+      it('may have no amount, unit or note', async () => {
+        const { value } = await submitted(
+          corrected({ qty: '', unit: ' ', note: '  ', scalable: false }),
+        );
+
+        expect(value?.content.ingredientGroups[0]?.ingredients[0]).toMatchObject({
+          qty: null,
+          unit: null,
+          note: null,
+          scalable: false,
+        });
+      });
+
+      it.each([
+        [{ qty: 'lots' }, 'qty', 'Enter an amount, like 2, 1½ or 0.5.'],
+        [{ qtyMax: '0' }, 'qtyMax', 'Enter an amount, like 2, 1½ or 0.5.'],
+        [{ qtyMax: '2' }, 'qtyMax', 'The top of a range must be more than its bottom.'],
+        [{ qty: '', qtyMax: '2' }, 'qtyMax', 'The top of a range must be more than its bottom.'],
+        [{ name: ' ' }, 'name', 'Name the ingredient.'],
+        [{ unit: 'x'.repeat(31) }, 'unit', 'Keep it to 30 characters.'],
+      ] as const)('refuses %j, on the part that’s wrong', async (details, part, message) => {
+        const { errors } = await submitted(corrected({ qty: '2', ...details }));
+
+        expect(errors).toEqual({
+          [`ingredientGroups[0].ingredients[0].details.${part}`]: [message],
+        });
+      });
+
+      it('still needs the line as it was typed', async () => {
+        const values = corrected({});
+        const line = values.ingredientGroups[0]?.ingredients[0];
+        if (line) line.rawText = ' ';
+
+        expect((await submitted(values)).errors).toEqual({
+          'ingredientGroups[0].ingredients[0].rawText': ['Enter the ingredient.'],
+        });
+      });
+    });
+
+    it.each([
+      ['amount', { qty: 4 }],
+      ['range', { qtyMax: 4 }],
+      ['unit', { unit: 'tbsp' }],
+      ['name', { name: 'bread flour' }],
+      ['note', { note: 'sifted' }],
+      ['scaling', { scalable: false }],
+    ])('takes a saved line with a different %s as corrected', (_, difference) => {
+      const asTyped: IngredientLine = {
+        rawText: '3 cups flour',
+        qty: 3,
+        qtyMax: null,
+        unit: 'cup',
+        name: 'flour',
+        normalizedName: 'flour',
+        note: null,
+        scalable: true,
+      };
+      const linesOf = (line: IngredientLine) =>
+        recipeFormValues(sampleRecipe({ ingredientGroups: [{ label: null, ingredients: [line] }] }))
+          .ingredientGroups[0]?.ingredients;
+
+      expect(linesOf(asTyped)).toEqual([{ rawText: '3 cups flour', details: null }]);
+      expect(linesOf({ ...asTyped, ...difference })?.[0]?.details).not.toBeNull();
+    });
+
+    it('fills in a saved line as typed, and a corrected one with its corrections', () => {
+      const saved = sampleRecipe({
+        ingredientGroups: [
+          {
+            label: 'For the dough',
+            ingredients: [
+              {
+                rawText: '3 cups all-purpose flour',
+                qty: 3,
+                qtyMax: null,
+                unit: 'cup',
+                name: 'all-purpose flour',
+                normalizedName: 'all purpose flour',
+                note: null,
+                scalable: true,
+              },
+              {
+                rawText: 'a few sprigs of thyme',
+                qty: 7 / 3,
+                qtyMax: 3,
+                unit: 'sprig',
+                name: 'thyme',
+                normalizedName: 'thyme',
+                note: null,
+                scalable: false,
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(recipeFormValues(saved).ingredientGroups).toEqual([
+        {
+          label: 'For the dough',
+          ingredients: [
+            { rawText: '3 cups all-purpose flour', details: null },
+            {
+              rawText: 'a few sprigs of thyme',
+              details: {
+                qty: '2⅓',
+                qtyMax: '3',
+                unit: 'sprig',
+                name: 'thyme',
+                note: '',
+                scalable: false,
+              },
+            },
+          ],
+        },
+      ]);
+      expect(recipeFormValues(sampleRecipe({ ingredientGroups: [] })).ingredientGroups).toEqual([
+        { label: '', ingredients: [{ rawText: '', details: null }] },
+      ]);
+    });
+  });
+
+  describe('quantityText', () => {
+    it('writes the fractions cooks use as fractions, and other numbers as they are', () => {
+      expect([1, 0.5, 1.5, 7 / 3, 0.125, 2.875, 0.3, 1.05].map(quantityText)).toEqual([
+        '1',
+        '½',
+        '1½',
+        '2⅓',
+        '⅛',
+        '2⅞',
+        '0.3',
+        '1.05',
+      ]);
+      expect(quantityText(null)).toBe('');
+    });
+
+    it('is read back as the same number', () => {
+      const wholes = Array.from({ length: 21 }, (_, whole) => whole);
+      const values = [
+        ...wholes.flatMap((whole) =>
+          [3, 4, 8].flatMap((bottom) =>
+            Array.from({ length: bottom }, (_, top) => whole + top / bottom),
+          ),
+        ),
+        0.3,
+        0.05,
+        1.05,
+        2.2,
+        12.345,
+        99_999.5,
+      ].filter((value) => value > 0);
+
+      for (const value of values) {
+        expect(parseQuantity(quantityText(value)), quantityText(value)).toBeCloseTo(value, 9);
+      }
     });
   });
 

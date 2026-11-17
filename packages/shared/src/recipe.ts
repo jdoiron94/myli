@@ -65,7 +65,7 @@ const nutrientSchema = z
 /** One ingredient line as the user confirmed it (spec §3.2). */
 export const ingredientLineInputSchema = z
   .object({
-    rawText: z.string().trim().min(1, 'Enter the ingredient.').max(L.rawText),
+    rawText: z.string().trim().min(1, 'Enter the ingredient.').max(L.rawText, tooLong(L.rawText)),
     qty: quantitySchema.nullable().describe('`null` when the line has no quantity.'),
     qtyMax: quantitySchema
       .nullable()
@@ -73,13 +73,17 @@ export const ingredientLineInputSchema = z
     unit: z
       .string()
       .trim()
-      .min(1)
-      .max(L.unit)
+      .min(1, 'Enter the unit, or leave it out.')
+      .max(L.unit, tooLong(L.unit))
       // "Tablespoons" is stored as the unit table's "tbsp"; a unit typed by hand stays as it is.
       .overwrite((unit) => findUnit(unit)?.name ?? unit)
       .nullable()
       .describe('A unit from the unit table, by any of its names, or one typed by hand.'),
-    name: z.string().trim().min(1, 'Name the ingredient.').max(L.ingredientName),
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Name the ingredient.')
+      .max(L.ingredientName, tooLong(L.ingredientName)),
     note: optionalText(L.ingredientNote),
     scalable: z.boolean().describe('False for lines like "salt to taste", which never scale.'),
   })
@@ -92,7 +96,10 @@ export const ingredientLineInputSchema = z
 export const ingredientGroupInputSchema = z
   .object({
     label: optionalText(L.groupLabel).describe('"For the dough". A lone group needs none.'),
-    ingredients: z.array(ingredientLineInputSchema).min(1).max(L.ingredients),
+    ingredients: z
+      .array(ingredientLineInputSchema)
+      .min(1, 'Add an ingredient to the group, or remove the group.')
+      .max(L.ingredients, `A recipe can have up to ${String(L.ingredients)} ingredients.`),
   })
   .meta({ id: 'IngredientGroupInput' });
 
@@ -152,7 +159,12 @@ const recipeContentShape = {
   ),
   difficulty: difficultySchema.nullable(),
   nutrition: nutritionSchema,
-  ingredientGroups: z.array(ingredientGroupInputSchema).max(L.ingredientGroups),
+  ingredientGroups: z
+    .array(ingredientGroupInputSchema)
+    .max(
+      L.ingredientGroups,
+      `A recipe can have up to ${String(L.ingredientGroups)} groups of ingredients.`,
+    ),
   steps: z
     .array(z.object({ body: z.string().trim().min(1, 'Write the step.').max(L.stepBody) }))
     .max(L.steps)
