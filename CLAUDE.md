@@ -316,6 +316,7 @@ Run these from the repo root:
 - `pnpm seed`: creates the demo accounts (`setup/demo.ts`), one per role at example.com addresses, on a database with no users yet, and prints their random passwords once. It reads `.env`, like `pnpm dev`. In the API's container: `docker compose exec api node src/seed-demo.ts`.
   - It creates them the way people would: the admin through first-run setup (`runSetup`), the others by invitation from the admin, so the audit log shows how each came to be. Never give it a shortcut around those.
   - It logs to stderr, so stdout holds only the accounts. Phase 1 adds the demo recipes there.
+- `pnpm reindex`: rebuilds the search index (`reindex-search.ts`). It queues `reindexRecipesJob` for the running API's worker and waits for it, printing failed attempts; stopping it doesn't stop the rebuild. It reads `.env`, like `pnpm dev`. In the API's container: `docker compose exec api node src/reindex-search.ts`.
 - `docker compose up --detach --build`: the whole stack, as deployed (README's "Getting started"). It reads `.env`, where `PUBLIC_URL` must be `https://` for Caddy, unlike `pnpm dev`'s; pass another file with `--env-file` to keep both.
 - `pnpm db:generate`: generates a SQL migration from changes to the Drizzle schema. Name it with `--name <what_changed>` (no `--` separator: pnpm passes arguments straight through, and drizzle-kit rejects a literal `--`).
 
