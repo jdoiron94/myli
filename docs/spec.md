@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | Draft |
-| Last updated | 2026-11-13 |
+| Last updated | 2026-11-17 |
 | Decisions | [`docs/adr/`](./adr/) |
 
 ## 1. Overview
@@ -24,6 +24,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Viewers** are strictly read-only.
 - **Editors** can edit any shared recipe, whoever created it.
 - Only a recipe's owner or an admin can delete it.
+- Only a recipe's owner can change its visibility.
 
 | Action | Admin | Editor | Viewer |
 |---|---|---|---|
@@ -32,6 +33,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 | Edit or publish shared recipes (any author) | ✓ | ✓ | – |
 | View private recipes | own | own | own¹ |
 | Edit private recipes | own | own | – |
+| Change a recipe's visibility | own | own | – |
 | Delete or restore from trash | any | own | – |
 | Restore a revision | ✓ | ✓ (recipes they can edit) | – |
 | Create or revoke public links | any | own | – |
@@ -130,6 +132,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 - A public link is read-only and uses an unguessable token.
 - The owner or an admin can revoke it at any time.
+- Only the owner can change a recipe's visibility. Making someone else's shared recipe private would hide it from everyone but its owner.
 - Making a recipe private revokes its public link.
 
 **Audit log**
@@ -191,7 +194,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - round to sensible precision for the unit
   - convert up to larger units within the same system (48 tsp → 1 cup)
 - Lines that aren't scalable never change.
-- Each user picks metric or imperial as a display preference. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
+- Each user picks metric or imperial as a display preference, imperial until they choose. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
 - Scaling changes only the display. It never changes the stored recipe.
 
 **Tags**
@@ -477,7 +480,9 @@ Each phase is delivered as small, atomic increments, each reviewed on its own (s
 | **1. MVP** | Recipe create/edit/delete with ingredient groups, structured steps and ingredient parsing; tags, allergens, diet, nutrition; images; scaling and units; visibility; Meilisearch indexing, search, filters and sorting; favorites; cook mode; print view |
 | **2. Collaboration** | Drafts, revisions, compare and restore; optimistic concurrency; comments; ratings; collections; personal notes; public links; trash |
 | **3. Shopping lists** | Aggregation, normalization and dedup; manual items; multiple lists; check-off |
-| **4. Best effort and polish** | URL import; JSON and JSON-LD export; full-instance export; backup and restore tooling; finished documentation |
+| **4. Best effort and polish** | URL import; JSON and JSON-LD export; full-instance export; backup and restore tooling; the S3 blob storage adapter, tested against Garage; finished documentation |
+
+Until Phase 2, saving a recipe changes its published version directly, and deleting one sets `deleted_at`, which hides it everywhere. Drafts, the trash page, restoring and purging come with Phase 2.
 
 ## Open questions
 
@@ -485,6 +490,6 @@ These need decisions before or during the phase that uses them:
 
 1. **Trash retention period** before permanent purge (Phase 2). Suggestion: 30 days, configurable.
 2. **Bayesian rating parameters** (Phase 2). Suggestion: prior = the instance-wide mean rating, weight = 3 ratings.
-3. **Image limits** (Phase 1). Suggestion: 10 MB max upload, variants at 400 px and 1200 px wide, served as WebP.
+3. ~~**Image limits** (Phase 1).~~ Decided: uploads up to 10 MB. Variants are served as WebP, at sizes chosen from the layouts images appear in, so they look good where they're shown.
 4. **Revision retention** (Phase 2). Suggestion: keep all revisions; snapshots are small.
 5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided in Phase 0: record every one and keep them. Revisit pruning when the Phase 2 purge job exists.
