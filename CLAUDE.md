@@ -12,15 +12,15 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - deleting remote branches
   - rewriting history (force push, rebase, amending pushed commits)
   - discarding work (`reset --hard`, `checkout -- .`, `clean`, `branch -D`, `stash drop`)
-- **Work in small, atomic increments.** Each increment is one coherent change that can be reviewed on its own. Example: "Drizzle setup + first migration", not "the whole data layer".
-- **Stop and check in after every increment,** not at the end of a phase. Each check-in lists:
+- **Work in small, atomic increments.** Each increment is one coherent change that can be reviewed on its own, committed locally with a conventional commit message once it's green. Example: "Drizzle setup + first migration", not "the whole data layer".
+- **Plan each phase as a list of increments in groups** before writing its code. Each group, such as "shared scaling and parsing logic", gets its own branch from `main` and, once approved, its own PR.
+- **Check in at the end of each group,** and sooner whenever a decision or feedback is needed before going on. Each check-in lists, for each increment:
   - which files changed
   - why
   - how to verify (commands to run, what to look for)
   - anything deferred or uncertain
-- **Wait for approval before starting the next increment.** Once an increment is approved, commit it locally with a conventional commit message.
+- **Wait for approval before starting the next group.** Feedback on an earlier increment lands as a new commit, never by rewriting history.
 - **Every increment ships its own tests and doc updates** and leaves lint, typecheck and tests green.
-- **Plan each phase as a list of increments** before writing its code.
 
 ## Scope
 
