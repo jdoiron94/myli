@@ -6,6 +6,7 @@ import { RouterLink } from 'vue-router';
 import { failureMessage } from '@/api/failure.ts';
 import FormRadioField from '@/components/FormRadioField.vue';
 import FormTextField from '@/components/FormTextField.vue';
+import MarkdownField from '@/components/MarkdownField.vue';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
 import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.ts';
@@ -106,6 +107,10 @@ const cancelTo = computed(() =>
       <FormTextField
         name="title"
         label="Title"
+      />
+      <MarkdownField
+        name="description"
+        label="Description"
       />
 
       <FieldSet>

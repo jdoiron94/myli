@@ -13,6 +13,9 @@ const MEMBER = {
   password: 'Staple battery 2 horse!',
 };
 
+// The tests after the first sign in with the admin it set up, so each needs the one before.
+test.describe.configure({ mode: 'serial' });
+
 const heading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 // `exact`, so "Show password" doesn't match too.
 const passwordField = (page: Page) => page.getByLabel('Password', { exact: true });
@@ -198,5 +201,65 @@ test('an admin sets up myli, invites someone and manages their account', async (
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await expect(heading(page, 'Sign in')).toBeVisible();
+  });
+});
+
+test('an admin writes a recipe, formatting its description', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
+  await signIn(page, ADMIN);
+  await expect(heading(page, 'Recipes')).toBeVisible();
+
+  await test.step('the description is edited in place, with its toolbar', async () => {
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'New recipe' })
+      .click();
+    await expect(heading(page, 'New recipe')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Title' }).fill('Weeknight Bread');
+    await page.getByRole('textbox', { name: 'Servings' }).fill('8');
+
+    const description = page.getByRole('textbox', { name: 'Description' });
+    await description.click();
+    await expect(description).toHaveAttribute('contenteditable', 'true');
+    await expect(description).toBeFocused();
+    await page.keyboard.type('A crusty ');
+    // Bold on while typing a word, then off again.
+    const bold = page.getByRole('button', { name: 'Bold' });
+    await bold.click();
+    await expect(bold).toHaveAttribute('aria-pressed', 'true');
+    await expect(description).toBeFocused();
+    await page.keyboard.type('loaf');
+    await bold.click();
+    await expect(bold).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.type(', from ');
+    await checkPage(page);
+  });
+
+  await test.step('a link is added from its dialog', async () => {
+    await page.getByRole('button', { name: 'Link' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Add a link' });
+    await expect(dialog).toBeVisible();
+    await checkPage(page, { popup: true });
+    await dialog.getByRole('textbox', { name: 'Address' }).fill('example.com/bread');
+    await dialog.getByRole('textbox', { name: 'Text' }).fill('the original');
+    await dialog.getByRole('button', { name: 'Save link' }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('textbox', { name: 'Description' })).toBeFocused();
+    await page.keyboard.type('.');
+  });
+
+  await test.step('the recipe shows the description as it was written', async () => {
+    await page.getByRole('button', { name: 'Create recipe' }).click();
+
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    const main = page.getByRole('main');
+    await expect(main.getByText('loaf', { exact: true })).toHaveJSProperty('tagName', 'STRONG');
+    await expect(main.getByRole('link', { name: 'the original' })).toHaveAttribute(
+      'href',
+      'https://example.com/bread',
+    );
+    await checkPage(page);
   });
 });

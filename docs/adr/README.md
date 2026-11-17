@@ -17,7 +17,8 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0011](./0011-api-docs-as-a-separate-page.md) | The API docs are a separate page of the web app | Accepted, amended by 0012 |
 | [0012](./0012-content-security-policy.md) | A strict Content Security Policy, with inline styles allowed on the API docs page | Accepted |
 | [0013](./0013-https-with-caddys-local-ca.md) | HTTPS with Caddy's local certificate authority | Accepted |
-| [0014](./0014-milkdown-kit-held-to-the-markdown-subset.md) | Markdown is edited with Milkdown's kit, held to the subset, not with Crepe | Accepted |
+| [0014](./0014-milkdown-kit-held-to-the-markdown-subset.md) | Markdown is edited with Milkdown's kit, held to the subset, not with Crepe | Accepted, amended by 0015 |
+| [0015](./0015-editor-reads-markdown-with-the-renderers-parser.md) | The markdown editor reads markdown with the renderer's parser | Accepted |
 
 ## Adding an ADR
 

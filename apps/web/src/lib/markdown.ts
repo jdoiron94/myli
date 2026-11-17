@@ -57,6 +57,15 @@ const ALLOWED_URI_REGEXP = /^(?:(?:https?|mailto):|\/(?![/\\]))/i;
 // own, like `title`), so a list's `start="3"` would be dropped without them.
 const ADD_URI_SAFE_ATTR = ['rel', 'start'];
 
+/**
+ * How the renderer reads markdown, as markdown-it's tokens. The markdown editor reads it the same
+ * way, so it opens just what the recipe shows (ADR 0015).
+ */
+export const markdownTokens = (source: string) => md.parse(source, {});
+
+/** Whether a link's address is one the renderer keeps, rather than dropping it from the link. */
+export const isShownLinkAddress = (href: string) => ALLOWED_URI_REGEXP.test(href);
+
 /** Sanitized HTML for markdown that someone wrote. */
 export function renderMarkdown(source: string): string {
   return DOMPurify.sanitize(md.render(source), {

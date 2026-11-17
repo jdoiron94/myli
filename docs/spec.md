@@ -204,6 +204,10 @@ There are three roles: **admin**, **editor** and **viewer**.
 - Descriptions and steps (and later comments and notes) are markdown, in a deliberately small subset (ADR 0006): bold, italic, lists, links and inline code. A line break is kept as typed.
 - Anything else, like a heading, a quote, a table, an image or raw HTML, is shown as the text that was typed, never run. Images come only from uploads (§3.2 Images).
 - Links go only to web or email addresses, or to pages on the instance. They're marked as user-written (`rel="ugc nofollow noopener noreferrer"`), so the sites they lead to aren't told which recipe sent the reader.
+- **In the editor** (ADR 0014), formatting comes from a toolbar (bold, italic, code, link, bulleted and numbered lists) or its shortcuts (Ctrl/⌘ with B, I, E or K; with Alt and 8 or 7 for the lists), or from typing it as markdown (`**bold**`, `- ` to start a list). Nothing outside the subset can be made: typed or pasted in, it stays text. Shift+Enter breaks a line, Tab moves on to the next field, and Ctrl/⌘ with ] or [ indents a list item or brings it back.
+  - A link's address can be typed as people would ("example.com/bread", "sam@example.com"). Anything that isn't a web or email address, or a path on the instance, is refused.
+  - Each markdown field shows the markdown as the recipe will until it's focused; then the editor takes its place. One field is edited at a time.
+  - Markdown outside the subset, saved before or written through the API, opens just as the recipe shows it (ADR 0015).
 
 **Scaling**
 - Choosing a different serving count scales every scalable quantity by `new / baseline`. A recipe always opens at its own servings: the count chosen isn't saved.
@@ -436,7 +440,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | Blob storage | `BlobStore` interface: local volume by default, optional S3 adapter tested against Garage |
 | Auth | Better Auth (email + password, `admin` plugin) plus a custom invitations module |
 | Email | Nodemailer to any SMTP server; Mailpit in development |
-| Markdown | Milkdown (Crepe) editor; markdown-it + DOMPurify for rendering |
+| Markdown | Milkdown's kit, held to the subset (ADR 0014), for editing; markdown-it + DOMPurify for rendering |
 | Background jobs | SQLite `job` table + in-process worker; croner for schedules |
 | Reverse proxy | Caddy: serves the SPA, proxies the API, provides HTTPS |
 | Observability | pino structured logs with request IDs; `/healthz` and `/readyz` |
