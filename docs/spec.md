@@ -135,6 +135,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - Only the owner can change a recipe's visibility. Making someone else's shared recipe private would hide it from everyone but its owner.
 - A recipe's visibility is chosen when it's created and changed on its own afterwards: saving the recipe's content never changes it, so editors can edit any shared recipe without being able to hide it.
 - A new recipe starts private in the editor, so nothing is shared by accident: sharing is a choice.
+- The owner shares a recipe, or makes it private again, from its page, after a confirmation that says who will see it.
 - Making a recipe private revokes its public link.
 
 **Audit log**
@@ -264,6 +265,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **Trash**
 - Deleting a recipe moves it to the trash. It disappears from search and lists immediately.
+- It's deleted from its page, after a confirmation. The page then goes home, which says it's deleted, and the recipe's address shows it as not found.
 - The owner or an admin can restore it.
 - A scheduled job permanently purges recipes after the retention period (see Open questions).
 

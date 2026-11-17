@@ -359,7 +359,8 @@ describe('scaling a recipe', () => {
       .getAllByRole('listitem')
       .map((item) => item.textContent.trim());
   const servingsField = () => screen.getByRole('textbox', { name: 'Servings' });
-  const status = () => screen.getByRole('status');
+  const status = () =>
+    within(screen.getByRole('region', { name: 'Ingredients' })).getByRole('status');
 
   it('scales the amounts to the servings typed in, and back', async () => {
     answerRecipe(sampleRecipe());

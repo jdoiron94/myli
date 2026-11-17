@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { can, recipeTotalMinutes, scaleFactor } from '@myli/shared';
+import { recipeTotalMinutes, scaleFactor } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { computed, nextTick, ref, useTemplateRef, watch, watchEffect } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useUnitSystem } from '@/account/preferences.ts';
 import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
-import { sessionQuery } from '@/auth/session.ts';
 import MarkdownContent from '@/components/MarkdownContent.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +21,7 @@ import {
   tagsByType,
 } from '@/recipes/format.ts';
 import IngredientList from '@/recipes/IngredientList.vue';
+import RecipeActions from '@/recipes/RecipeActions.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
 import ServingsControl from '@/recipes/ServingsControl.vue';
 import UnitSystemChoice from '@/recipes/UnitSystemChoice.vue';
@@ -44,16 +44,6 @@ const heading = computed(() => {
   if (recipe.value) return recipe.value.title;
   return notFound.value ? 'Recipe not found' : 'Recipe';
 });
-
-const { data: signedInUser } = useQuery(sessionQuery);
-const canEdit = computed(
-  () =>
-    recipe.value !== undefined &&
-    can(signedInUser.value ?? null, 'recipe.edit', {
-      ownerId: recipe.value.owner.id,
-      visibility: recipe.value.visibility,
-    }),
-);
 
 const route = useRoute();
 watchEffect(() => {
@@ -156,20 +146,7 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         </Badge>
       </p>
 
-      <div
-        v-if="canEdit"
-        class="mt-4 flex flex-wrap gap-2"
-      >
-        <Button
-          variant="outline"
-          size="sm"
-          as-child
-        >
-          <RouterLink :to="{ name: 'edit-recipe', params: { id: recipe.id } }">
-            Edit recipe
-          </RouterLink>
-        </Button>
-      </div>
+      <RecipeActions :recipe="recipe" />
 
       <dl class="mt-4 flex flex-wrap gap-x-6 gap-y-2">
         <div
