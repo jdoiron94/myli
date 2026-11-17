@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MailIcon, PlusIcon, UserCogIcon } from '@lucide/vue';
+import { MailIcon, PlusIcon, SearchCheckIcon, UserCogIcon } from '@lucide/vue';
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { type Component, computed, nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
@@ -21,6 +21,7 @@ const NAV_PAGES = [{ name: 'new-recipe', icon: PlusIcon }] as const;
 const ADMIN_PAGES = [
   { name: 'invitations', icon: MailIcon },
   { name: 'users', icon: UserCogIcon },
+  { name: 'search-index', icon: SearchCheckIcon },
 ] as const;
 
 function allowed(pages: readonly { name: string; icon: Component }[]) {
