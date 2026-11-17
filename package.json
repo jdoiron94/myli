@@ -12,6 +12,7 @@
     "dev": "pnpm --recursive --parallel dev",
     "db:generate": "pnpm --filter @myli/api db:generate",
     "seed": "pnpm --filter @myli/api seed",
+    "reindex": "pnpm --filter @myli/api reindex",
     "format": "biome check --write",
     "format:check": "biome check",
     "lint": "eslint . --max-warnings=0",

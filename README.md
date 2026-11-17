@@ -162,7 +162,7 @@ Compose keeps myli's data in volumes, named after the project (`myli` unless you
 |---|---|
 | `myli_api-data` | The database: all of myli's data. |
 | `myli_caddy-data` | The certificate authority. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
-| `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up. |
+| `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up: an empty index is rebuilt when the API starts. |
 
 Until myli has backups of its own, stop the stack and archive the first two:
 
@@ -173,6 +173,14 @@ for volume in api-data caddy-data; do
     tar -czf "/backup/myli-$volume.tar.gz" -C /data .
 done
 docker compose start
+```
+
+### Rebuild the search index
+
+The search index is kept in step with the database as recipes change, and rebuilt by itself when it's found empty. Should search ever miss a recipe, rebuild it while the stack runs. Search keeps working meanwhile:
+
+```sh
+docker compose exec api node src/reindex-search.ts
 ```
 
 ## Development
@@ -192,6 +200,7 @@ pnpm format      # Biome
 pnpm openapi:generate   # refresh apps/api/openapi.json and the web app's API types after changing the API
 pnpm db:generate        # create a migration after changing the database schema
 pnpm seed               # demo accounts, one per role, on a database with no users yet; prints their passwords
+pnpm reindex            # rebuild the search index, through the API that pnpm dev runs
 ```
 
 The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.

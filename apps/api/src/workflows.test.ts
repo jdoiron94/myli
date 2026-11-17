@@ -86,6 +86,7 @@ const NOT_CHECKS = {
   'openapi:generate': 'rewrites files; pnpm test checks they match',
   'db:generate': 'writes a migration; pnpm test checks none is missing',
   seed: 'writes demo accounts to a database',
+  reindex: 'rebuilds the search index of a running instance',
 };
 
 describe('every workflow', () => {

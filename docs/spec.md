@@ -402,7 +402,7 @@ Search is served by Meilisearch through the API (§4).
   - The API adds `deleted = false AND (visibility = "shared" OR ownerId = <caller>)` to every query.
   - The API uses a scoped key limited to the actions it needs. The master key is used only to create that key.
 - **Reindexing:**
-  - an admin action and a CLI command build a fresh index and swap it in atomically
+  - an admin action and a CLI command (`node src/reindex-search.ts` in the API's container) build a fresh index and swap it in atomically
   - it runs as a background job, one at a time with the index updates, so no update is lost in the swap
   - each time search is set up (on startup, and again after Meilisearch lost its data), the API reindexes if the index is missing or empty while SQLite has recipes
 - **Degraded mode.**

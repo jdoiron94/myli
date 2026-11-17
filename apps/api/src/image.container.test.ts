@@ -171,6 +171,13 @@ describe('the API image', () => {
     expect(stderr).toContain('"msg":"demo accounts created"');
   });
 
+  it('rebuilds the search index with the reindex script, through the running API', async () => {
+    const { exitCode, stdout } = await api.exec(['node', 'src/reindex-search.ts']);
+
+    expect(exitCode).toBe(0);
+    expect(stdout.trimEnd().split('\n').at(-1)).toBe('Rebuilt the search index.');
+  });
+
   it('shuts down cleanly when Docker stops it', async () => {
     const id = api.getId();
     await api.stop({ timeout: 10_000, remove: false });
