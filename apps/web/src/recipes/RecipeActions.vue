@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LockIcon, PencilIcon, TrashIcon, UsersIcon } from '@lucide/vue';
 import { can, type RecipeAction } from '@myli/shared';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { computed, ref } from 'vue';
@@ -90,6 +91,7 @@ async function remove() {
         as-child
       >
         <RouterLink :to="{ name: 'edit-recipe', params: { id: recipe.id } }">
+          <PencilIcon aria-hidden="true" />
           Edit recipe
         </RouterLink>
       </Button>
@@ -100,6 +102,14 @@ async function remove() {
             variant="outline"
             size="sm"
           >
+            <LockIcon
+              v-if="shared"
+              aria-hidden="true"
+            />
+            <UsersIcon
+              v-else
+              aria-hidden="true"
+            />
             {{ shared ? 'Make private' : 'Share with everyone' }}
           </Button>
         </AlertDialogTrigger>
@@ -131,6 +141,7 @@ async function remove() {
             variant="outline"
             size="sm"
           >
+            <TrashIcon aria-hidden="true" />
             Delete recipe
           </Button>
         </AlertDialogTrigger>
