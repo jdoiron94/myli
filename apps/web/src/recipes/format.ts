@@ -2,10 +2,12 @@ import {
   type Difficulty,
   displayAmount,
   formatAmount,
+  type ParsedIngredient,
+  resolveUnit,
   type TagType,
   type UnitSystem,
 } from '@myli/shared';
-import type { IngredientLine, Recipe, Tag } from './recipe.ts';
+import type { Recipe, Tag } from './recipe.ts';
 
 /** How a recipe's parts read on its page. */
 
@@ -31,7 +33,7 @@ export interface ShownLine {
 
 /** An ingredient line as the reader sees it, in their unit system, scaled by `factor`. */
 export function showLine(
-  line: IngredientLine,
+  line: ParsedIngredient,
   { system, factor }: { system: UnitSystem; factor: number },
 ): ShownLine {
   const shown = displayAmount(line, { system, factor, scalable: line.scalable });
@@ -40,6 +42,10 @@ export function showLine(
     shown.quantity === null && shown.unit !== null ? `${shown.unit} of` : formatAmount(shown);
   return { amount, name: line.name, note: line.note };
 }
+
+/** A line as it was written, as the editor shows it: unscaled, in its own unit. */
+export const showLineAsWritten = (line: ParsedIngredient) =>
+  showLine(line, { system: resolveUnit(line.unit)?.system ?? 'imperial', factor: 1 });
 
 export const UNIT_SYSTEM_LABELS: Readonly<Record<UnitSystem, string>> = {
   imperial: 'US customary',

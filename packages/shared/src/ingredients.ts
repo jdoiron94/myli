@@ -117,6 +117,19 @@ function numberValue(text: string): number {
   return Number(trimmed);
 }
 
+const WHOLE_QUANTITY = new RegExp(String.raw`^${NUMBER}$`, 'i');
+
+/**
+ * One quantity typed on its own, as the parser reads it at the start of a line: "1 1/2", "1½",
+ * "3/4", "2.5", "two". `undefined` for anything else, and for 0 or less, which isn't an amount.
+ */
+export function parseQuantity(text: string): number | undefined {
+  const trimmed = text.replace(/⁄/g, '/').replace(/\s+/g, ' ').trim();
+  if (!WHOLE_QUANTITY.test(trimmed)) return undefined;
+  const value = numberValue(trimmed);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 /** A unit at the start of `text`, one or two words long, and what follows it. */
 function readUnit(text: string): { unit: string; rest: string } | undefined {
   const words = /^(\S+)(?:\s+(\S+))?/.exec(text);

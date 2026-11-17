@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
 import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.ts';
 import { DIFFICULTY_LABELS } from './format.ts';
+import IngredientsEditor from './IngredientsEditor.vue';
 import { type Recipe, useCreateRecipe, useSaveRecipe } from './recipe.ts';
 import {
   DIFFICULTY_CHOICES,
@@ -147,6 +148,8 @@ const cancelTo = computed(() =>
           />
         </div>
       </FieldSet>
+
+      <IngredientsEditor />
 
       <FormRadioField
         name="difficulty"
