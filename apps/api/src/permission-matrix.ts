@@ -239,6 +239,18 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     access: { recipe: 'recipe.trash' },
     send: (t, cookie, recipeId) => request(t, 'DELETE', `/recipes/${recipeId}`, cookie),
   },
+  {
+    method: 'get',
+    path: '/tags',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'GET', '/tags', cookie),
+  },
+  {
+    method: 'post',
+    path: '/tags',
+    access: 'tag.create',
+    send: (t, cookie) => request(t, 'POST', '/tags', cookie, { type: 'cuisine', name: 'Italian' }),
+  },
 ];
 
 export type Outcome = 'allowed' | 401 | 403 | 404;

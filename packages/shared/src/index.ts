@@ -102,10 +102,16 @@ export {
 } from './setup.ts';
 export {
   ALLERGENS,
+  createTagRequestSchema,
+  TAG_NAME_MAX_LENGTH,
   TAG_TYPES,
   type Tag,
   type TagType,
+  tagListQuerySchema,
+  tagListSchema,
   tagNameKey,
+  tagNameSchema,
+  tagResultSchema,
   tagSchema,
   tagTypeSchema,
   USER_TAG_TYPES,

@@ -49,3 +49,32 @@ export const tagSchema = z
   .meta({ id: 'Tag' });
 
 export type Tag = z.infer<typeof tagSchema>;
+
+export const TAG_NAME_MAX_LENGTH = 50;
+
+/** A tag's name as its creator writes it, with spacing tidied: "Middle  Eastern " is "Middle Eastern". */
+export const tagNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Name the tag.')
+  .max(TAG_NAME_MAX_LENGTH)
+  .overwrite((name) => name.replace(/\s+/g, ' '));
+
+export const tagListSchema = z
+  .object({ tags: z.array(tagSchema).describe('By type, then name.') })
+  .meta({ id: 'TagList' });
+
+export const tagListQuerySchema = z.object({
+  type: tagTypeSchema.optional().describe('Only tags of this type.'),
+});
+
+export const createTagRequestSchema = z
+  .object({
+    type: z
+      .enum(USER_TAG_TYPES)
+      .describe('Any type but `allergen`: the allergens are a fixed list.'),
+    name: tagNameSchema,
+  })
+  .meta({ id: 'CreateTagRequest' });
+
+export const tagResultSchema = z.object({ tag: tagSchema }).meta({ id: 'TagResult' });

@@ -3,7 +3,6 @@ import {
   normalizeIngredientName,
   type PolicyRecipe,
   type Recipe,
-  TAG_TYPES,
   type UpdateRecipeRequest,
   type Visibility,
 } from '@myli/shared';
@@ -11,6 +10,7 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
+import { byTypeThenName } from '../tags/tags.ts';
 
 /**
  * Recipes (spec §3.2). Until Phase 2 adds drafts, saving writes the one live version directly, and
@@ -234,10 +234,7 @@ export function loadRecipe(db: Db | Tx, id: string): Recipe | undefined {
     .innerJoin(tag, eq(tag.id, recipeTag.tagId))
     .where(eq(recipeTag.recipeId, id))
     .all()
-    .sort(
-      (a, b) =>
-        TAG_TYPES.indexOf(a.type) - TAG_TYPES.indexOf(b.type) || a.nameKey.localeCompare(b.nameKey),
-    )
+    .sort(byTypeThenName)
     .map(({ id: tagId, type, name }) => ({ id: tagId, type, name }));
 
   return {

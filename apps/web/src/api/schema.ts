@@ -794,6 +794,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tags
+         * @description Any signed-in user. Every tag, the allergens included, or every tag of one type.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Only tags of this type. */
+                    type?: "cuisine" | "meal_type" | "diet" | "allergen" | "custom";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The tags. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TagList"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a tag
+         * @description Editors and admins. If the type already has a tag with this name, ignoring case and spacing, that tag is returned instead of a new one, with status 200.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateTagRequest"];
+                };
+            };
+            responses: {
+                /** @description The tag that already had this name. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TagResult"];
+                    };
+                };
+                /** @description The new tag. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TagResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invitations": {
         parameters: {
             query?: never;
@@ -1478,6 +1592,21 @@ export interface components {
         };
         ChangeVisibilityRequest: {
             visibility: components["schemas"]["Visibility"];
+        };
+        TagList: {
+            /** @description By type, then name. */
+            tags: components["schemas"]["Tag"][];
+        };
+        TagResult: {
+            tag: components["schemas"]["Tag"];
+        };
+        CreateTagRequest: {
+            /**
+             * @description Any type but `allergen`: the allergens are a fixed list.
+             * @enum {string}
+             */
+            type: "cuisine" | "meal_type" | "diet" | "custom";
+            name: string;
         };
         InvitationList: {
             /** @description Open invitations, newest first. */
