@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.2.0](https://github.com/jdoiron94/myli/compare/v0.1.0...v0.2.0) (2026-11-17)
+
+
+### Features
+
+* **api:** add the recipe, ingredient, step and tag tables, with the allergens seeded ([40ec3c1](https://github.com/jdoiron94/myli/commit/40ec3c1e67879780dce3068f5c55c1fb7bbecbb2))
+* **api:** create and read recipes ([6f7ecf4](https://github.com/jdoiron94/myli/commit/6f7ecf42b9682a993c3928d3f53c560329c5444d))
+* **api:** delete recipes, softly, with an audit event ([9f507b8](https://github.com/jdoiron94/myli/commit/9f507b82ad23301dd643486fc3ca0c78e0549005))
+* **api:** list tags, and let editors create them ([d2f1d0d](https://github.com/jdoiron94/myli/commit/d2f1d0d69c42e6ec74fc411f4f6f67a6b73d482e))
+* **api:** save each user's unit system ([eaaeb9e](https://github.com/jdoiron94/myli/commit/eaaeb9e3401e6c8ca8e56b20f23bac7bef49601e))
+* **api:** save recipes, and let owners change their visibility ([0a6baa6](https://github.com/jdoiron94/myli/commit/0a6baa69d11efb23009a866860f05e2d3060b12f))
+* **shared:** add units of measure and conversion ([9ef8450](https://github.com/jdoiron94/myli/commit/9ef84505241e68b326b7e7f6c1f992c4a42cc478))
+* **shared:** parse ingredient lines and normalize their names ([910105d](https://github.com/jdoiron94/myli/commit/910105d71e068da801ebccf653e90731ae17e2ef))
+* **shared:** scale ingredient amounts and show them as cooks write them ([6886fc4](https://github.com/jdoiron94/myli/commit/6886fc4cef1cfdfe00f744f31064d9f6f8723193))
+* **web:** a calmer layout for the recipe page ([865661b](https://github.com/jdoiron94/myli/commit/865661b5b625eb0e50fc8acf0ff79f5b00d817de))
+* **web:** choose servings and units on one row ([893aa0f](https://github.com/jdoiron94/myli/commit/893aa0fd39bff5ce8962ea6dd1c0813d485b54ec))
+* **web:** correct how an ingredient line is read ([08f84d0](https://github.com/jdoiron94/myli/commit/08f84d0616442a3e043a500998783de6d81f45b4))
+* **web:** create and edit a recipe's details ([ace704f](https://github.com/jdoiron94/myli/commit/ace704f92dfe103478055544f49c821723af2990))
+* **web:** edit a recipe's ingredients, seeing how each line is read ([76a7a29](https://github.com/jdoiron94/myli/commit/76a7a29a7047690842806f521b67408af517c12b))
+* **web:** mark a recipe's actions with icons ([e9e8cab](https://github.com/jdoiron94/myli/commit/e9e8cab802571e3b5fd6fdd2696c6a2eb7aee5ca))
+* **web:** mark the header's links with icons ([ed0d97b](https://github.com/jdoiron94/myli/commit/ed0d97b59aa48698da50a1faf08e6873560830e3))
+* **web:** render user-written markdown safely ([eb1b189](https://github.com/jdoiron94/myli/commit/eb1b18924eed830995d187235f855f0b3bf66605))
+* **web:** scale a recipe, and show it in the reader's units ([d1ae22d](https://github.com/jdoiron94/myli/commit/d1ae22defbe7873fb66fe3895aee8791960a01d8))
+* **web:** share, make private and delete a recipe from its page ([8cb893e](https://github.com/jdoiron94/myli/commit/8cb893e3dd4f83d3db61ccfc4a980c7bdf642da4))
+* **web:** show a recipe on its own page ([6c265a2](https://github.com/jdoiron94/myli/commit/6c265a2a14fade17423b2225542f2f516071e1e7))
+* **web:** show a recipe's tags in one row, and its allergens after its ingredients ([221100b](https://github.com/jdoiron94/myli/commit/221100bb1a203ea95deac36af513692297494d13))
+* **web:** show what a recipe contains first among its tags ([de158d6](https://github.com/jdoiron94/myli/commit/de158d670331f8cb299d62ead50860dcfdf4a0f3))
+* **web:** tag a recipe, adding new tags from the editor ([1aece53](https://github.com/jdoiron94/myli/commit/1aece532b7dc308cd97a3189b0bb29fc25be5097))
+* **web:** write a recipe's description in the markdown editor ([39901ed](https://github.com/jdoiron94/myli/commit/39901edbf0a42632675bc976e9a089ce12911187))
+* **web:** write a recipe's steps, adding, moving and removing them ([fc759ae](https://github.com/jdoiron94/myli/commit/fc759aefeb710d92d9e31024395ca49713f8ff8c))
+
+
+### Bug Fixes
+
+* **web:** keep user markdown to ADR 0006's subset ([4b0f76e](https://github.com/jdoiron94/myli/commit/4b0f76ecd9b9cae398256ff711a4678c021623cf))
+* **web:** say where a recipe is from with only its author given ([78e3807](https://github.com/jdoiron94/myli/commit/78e3807502f194ccbb3deb2e49079b79c9f8cf9c))
+* **web:** show the pointer over everything that can be clicked ([fd9dab3](https://github.com/jdoiron94/myli/commit/fd9dab31c64c13e8d326800eeaaeb2b3d9f8a68d))
+
 ## 0.1.0 (2026-11-16)
 
 
