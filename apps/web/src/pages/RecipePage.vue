@@ -135,7 +135,7 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
 
     <template v-if="recipe">
       <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span>By {{ recipe.owner.name }}</span>
+        <span>Added by {{ recipe.owner.name }}</span>
         <span aria-hidden="true">·</span>
         <span>Updated {{ updatedFormat.format(new Date(recipe.updatedAt)) }}</span>
         <Badge
@@ -199,22 +199,28 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         :source="recipe.description"
       />
 
+      <!-- "From" names where it was published; with only an author, there's nowhere to name. -->
       <p
         v-if="source"
         class="mt-4 text-sm break-words"
       >
-        From
-        <a
-          v-if="source.url"
-          :href="source.url"
-          :rel="USER_LINK_REL"
-          class="underline underline-offset-2"
-        >{{ source.linkText }}</a>
-        <template v-else-if="source.linkText">
-          {{ source.linkText }}
+        <template v-if="source.linkText">
+          From
+          <a
+            v-if="source.url"
+            :href="source.url"
+            :rel="USER_LINK_REL"
+            class="underline underline-offset-2"
+          >{{ source.linkText }}</a>
+          <template v-else>
+            {{ source.linkText }}
+          </template>
+          <template v-if="source.author">
+            by {{ source.author }}
+          </template>
         </template>
-        <template v-if="source.author">
-          by {{ source.author }}
+        <template v-else>
+          Recipe by {{ source.author }}
         </template>
       </p>
 

@@ -14,6 +14,7 @@ import {
   testUsers,
 } from '@/testing.ts';
 
+const URL_ = 'https://www.example.com/a/b';
 const heading = () => screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
 
 /** What a definition list says for each term, its definitions joined with commas. */
@@ -41,7 +42,7 @@ describe('the recipe page', () => {
     await waitFor(() => {
       expect(document.title).toBe('Weeknight Bread · myli');
     });
-    expect(screen.getByText('By Ada Lovelace')).toBeDefined();
+    expect(screen.getByText('Added by Ada Lovelace')).toBeDefined();
     expect(screen.getByText(/^Updated /).textContent).toBe(
       `Updated ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date('2026-11-12T09:00:00.000Z'))}`,
     );
@@ -202,14 +203,34 @@ describe('the recipe page', () => {
     });
   });
 
-  it('names a source by its address when it has no title', async () => {
-    answerRecipe(
-      sampleRecipe({ source: { url: 'https://www.example.com/a/b', title: null, author: null } }),
-    );
+  it.each([
+    [{ url: URL_, title: 'Example Bakes', author: 'A. Baker' }, 'From Example Bakes by A. Baker'],
+    [{ url: URL_, title: 'Example Bakes', author: null }, 'From Example Bakes'],
+    [{ url: URL_, title: null, author: 'A. Baker' }, 'From www.example.com by A. Baker'],
+    [{ url: URL_, title: null, author: null }, 'From www.example.com'],
+    [{ url: null, title: 'The Bread Book', author: 'A. Baker' }, 'From The Bread Book by A. Baker'],
+    [{ url: null, title: 'The Bread Book', author: null }, 'From The Bread Book'],
+    [{ url: null, title: null, author: 'A. Baker' }, 'Recipe by A. Baker'],
+  ])('says where a recipe is from, given %o', async (source, said) => {
+    answerRecipe(sampleRecipe({ source }));
     await renderApp('/recipes/recipe-bread');
 
     await heading();
-    expect(screen.getByRole('link', { name: 'www.example.com' })).toBeDefined();
+    const line = screen.getByText(/^(From|Recipe by)\b/);
+    expect(line.textContent.replace(/\s+/g, ' ').trim()).toBe(said);
+    const link = within(line).queryByRole('link');
+    expect(link?.textContent.trim() ?? null).toBe(
+      source.url === null ? null : (source.title ?? 'www.example.com'),
+    );
+    expect(link?.getAttribute('href') ?? null).toBe(source.url);
+  });
+
+  it('says nothing of a source when none is given', async () => {
+    answerRecipe(sampleRecipe({ source: { url: null, title: null, author: null } }));
+    await renderApp('/recipes/recipe-bread');
+
+    await heading();
+    expect(screen.queryByText(/^(From|Recipe by)\b/)).toBeNull();
   });
 
   it.each([

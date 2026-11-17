@@ -169,7 +169,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 |---|---|
 | Title | Required |
 | Description | Markdown |
-| Source | URL, book title, and/or author, all optional |
+| Source | URL, book title, and/or author, all optional. The page says "From" the title (or the URL's site) "by" the author, or "Recipe by" the author when that's all there is. |
 | Equipment | List of short strings |
 | Yield | Free quantity + unit ("1 loaf", "24 cookies"), separate from servings |
 | Servings | Integer; the baseline for scaling |
