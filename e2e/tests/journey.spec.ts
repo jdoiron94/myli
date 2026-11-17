@@ -204,7 +204,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
   });
 });
 
-test('an admin writes a recipe, formatting its description', async ({ page }) => {
+test('an admin writes a recipe, formatting its description and steps', async ({ page }) => {
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
   await signIn(page, ADMIN);
@@ -250,7 +250,28 @@ test('an admin writes a recipe, formatting its description', async ({ page }) =>
     await page.keyboard.type('.');
   });
 
-  await test.step('the recipe shows the description as it was written', async () => {
+  await test.step('steps are written one at a time, and put in order', async () => {
+    const step = (position: number) =>
+      page.getByRole('textbox', { name: `Step ${String(position)}` });
+    /** Waits for the step's editor, which takes the rendered markdown's place, to have focus. */
+    const writing = async (position: number) => {
+      await expect(step(position)).toHaveAttribute('contenteditable', 'true');
+      await expect(step(position)).toBeFocused();
+    };
+    await step(1).click();
+    await writing(1);
+    await page.keyboard.type('Bake at 400°F.');
+    await page.getByRole('button', { name: 'Add a step', exact: true }).click();
+    await writing(2);
+    await page.keyboard.type('Mix everything.');
+    await page.getByRole('button', { name: 'Move step 2 up' }).click();
+    await expect(page.getByRole('button', { name: 'Move step 1 up' })).toBeFocused();
+    await expect(step(1)).toHaveText('Mix everything.');
+    await expect(step(2)).toHaveText('Bake at 400°F.');
+    await checkPage(page);
+  });
+
+  await test.step('the recipe shows the description and steps as they were written', async () => {
     await page.getByRole('button', { name: 'Create recipe' }).click();
 
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
@@ -260,6 +281,10 @@ test('an admin writes a recipe, formatting its description', async ({ page }) =>
       'href',
       'https://example.com/bread',
     );
+    await expect(page.getByRole('region', { name: 'Steps' }).getByRole('listitem')).toHaveText([
+      'Mix everything.',
+      'Bake at 400°F.',
+    ]);
     await checkPage(page);
   });
 });

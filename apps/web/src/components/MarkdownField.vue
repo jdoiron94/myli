@@ -120,12 +120,16 @@ defineExpose({ focus });
 
 <template>
   <Field :data-invalid="errorMessage ? true : undefined">
-    <FieldLabel
-      :id="labelId"
-      @click="focus"
-    >
-      {{ label }}
-    </FieldLabel>
+    <!-- Actions for the field, like moving a step, go beside its label, before the field itself. -->
+    <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <FieldLabel
+        :id="labelId"
+        @click="focus"
+      >
+        {{ label }}
+      </FieldLabel>
+      <slot name="actions" />
+    </div>
     <FieldDescription
       v-if="description"
       :id="descriptionId"

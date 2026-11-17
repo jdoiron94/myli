@@ -20,6 +20,7 @@ import {
   recipeFormSchema,
   recipeFormValues,
 } from './recipe-form.ts';
+import StepsEditor from './StepsEditor.vue';
 
 /** The recipe editor: creates a recipe, or edits `recipe`. */
 const props = defineProps<{ recipe?: Recipe }>();
@@ -155,6 +156,7 @@ const cancelTo = computed(() =>
       </FieldSet>
 
       <IngredientsEditor />
+      <StepsEditor />
 
       <FormRadioField
         name="difficulty"

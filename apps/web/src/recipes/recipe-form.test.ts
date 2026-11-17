@@ -184,6 +184,51 @@ describe('the recipe form', () => {
     });
   });
 
+  describe('steps', () => {
+    const steps = (...bodies: string[]) => bodies.map((body) => ({ body }));
+
+    it('starts with a blank step to write in, for a new recipe or one without steps', () => {
+      expect(recipeFormValues().steps).toEqual(steps(''));
+      expect(recipeFormValues(sampleRecipe({ steps: [] })).steps).toEqual(steps(''));
+    });
+
+    it('is the steps in order, without blank ones or spaces around', async () => {
+      const { value } = await submitted(
+        filledIn((values) => {
+          values.steps = steps('', ' Mix **well**. ', ' \n ', 'Bake.\nCool.');
+        }),
+      );
+
+      expect(value?.content.steps).toEqual(steps('Mix **well**.', 'Bake.\nCool.'));
+    });
+
+    it('says what’s wrong with a step, on that step, wherever blank steps are', async () => {
+      expect(
+        await errorsFor((values) => {
+          values.steps = steps('', 'Mix.', 'x'.repeat(RECIPE_LIMITS.stepBody + 1));
+        }),
+      ).toEqual({ 'steps[2].body': ['Keep it to 10000 characters.'] });
+    });
+
+    it(`allows up to ${String(RECIPE_LIMITS.steps)} steps`, async () => {
+      const many = Array.from(
+        { length: RECIPE_LIMITS.steps + 1 },
+        (_, index) => `Step ${String(index)}`,
+      );
+
+      expect(
+        await errorsFor((values) => {
+          values.steps = steps(...many);
+        }),
+      ).toEqual({ steps: ['A recipe can have up to 100 steps.'] });
+      expect(
+        await errorsFor((values) => {
+          values.steps = steps(...many.slice(1), '');
+        }),
+      ).toEqual({});
+    });
+  });
+
   it('takes a source address only on the web', async () => {
     expect(
       await errorsFor((values) => {
@@ -583,10 +628,6 @@ describe('the recipe form', () => {
         return [];
       });
 
-    expect([...RECIPE_FORM_FIELDS].sort()).toEqual(
-      textFields(recipeFormValues())
-        .filter((field) => field !== 'description')
-        .sort(),
-    );
+    expect([...RECIPE_FORM_FIELDS].sort()).toEqual(textFields(recipeFormValues()).sort());
   });
 });
