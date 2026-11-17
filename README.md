@@ -200,7 +200,7 @@ In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. Docker Compose
 
 The first time you open the web app, it asks you to create the first admin, then to sign in. Instead, you can set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, which creates that admin on startup.
 
-The pre-commit hook formats staged files, lints them, and typechecks the workspace. [CI](.github/workflows/ci.yml) runs every check above on each push to a branch, with `pnpm audit`, whose findings it reports without failing. [Renovate](renovate.json) opens dependency PRs on Mondays, only for releases at least a week old, and each waits for review.
+The pre-commit hook formats staged files, lints them, and typechecks the workspace. [CI](.github/workflows/ci.yml) runs every check above on each push to a branch, with `pnpm audit`, whose findings it reports without failing. [Renovate](renovate.json) opens dependency PRs on Mondays, only for releases at least a week old, and each waits for review. pnpm refuses to install anything younger, dependencies of dependencies included.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/), which decide each release's version: `feat` bumps the minor version and `fix` the patch, and before 1.0 a breaking change bumps the minor too. On every push to `main`, [release-please](release-please-config.json) keeps a release PR open with the next version and its changelog. Merging it tags the release, creates the GitHub release, then [tests both images and publishes them](.github/workflows/release.yml).
 

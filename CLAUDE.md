@@ -144,7 +144,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - Add one from `apps/web` with `pnpm dlx shadcn-vue@2.9.0 add <name>`.
   - When the new component depends on one we already have (`alert-dialog` uses `button`), the CLI asks whether to overwrite it, even with `--yes`, and stops when it can't ask. Copy the existing component's folder aside, run with `--overwrite`, and copy it back.
   - The CLI installs shadcn's `cn` package and imports it in the new files. Remove that dependency, and import `cn` from `@/lib/utils` instead (clsx + tailwind-merge). ESLint flags the import.
-  - Its other dependencies follow the usual rules: exact versions, at least a week old.
+  - Its other dependencies follow the usual rules: exact versions, at least a week old (pnpm refuses younger ones).
 - **Styling:** theme colors are CSS variables in `src/style.css`. They must meet WCAG AA contrast in both themes, which only the end-to-end tests can measure (jsdom has no layout); `--destructive` is darker than shadcn's for that reason. Text uses the system font stack; never load web fonts from a third party.
 - **Every page has exactly one `<h1>`.** After each navigation the layout moves focus to it, for keyboard and screen-reader users. A route other than home sets `meta.title`, which becomes the browser tab's title.
 - **Dark mode** is `useTheme()` in `src/theme.ts`. `public/theme.js` applies the saved choice before the app loads, so the page doesn't flash. The two share a storage key and class names; a test runs the real file against the app.
@@ -179,6 +179,11 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
+- **Only releases at least a week old,** dependencies of dependencies included. pnpm enforces it (`minimumReleaseAge` in `pnpm-workspace.yaml`), and `release-age.test.ts` (in `apps/api/src`) checks the setting.
+  - pnpm checks every lockfile entry on every install, `--frozen-lockfile` included, so a lockfile with a younger release fails locally, in CI and in the image builds.
+  - Adding or updating, pnpm picks the newest release in range that's a week old, and fails (`ERR_PNPM_NO_MATURE_MATCHING_VERSION`) when only a younger one fits: pin an older version, or wait.
+  - To move indirect dependencies back to week-old releases, re-resolve them by name: `pnpm update -r --depth Infinity <names>`. pnpm otherwise keeps any lockfile entry that's still in range.
+  - Never add an exception (`minimumReleaseAgeExclude`) without asking: it lets a release in before it's a week old. The test fails if there is one.
 - A dependency used by more than one workspace package gets its version in the `catalog` in `pnpm-workspace.yaml`, and each package references it as `catalog:`.
 - Don't use MinIO: its Community Edition is archived and no longer ships official images.
 - Don't add Redis. Background jobs use the SQLite `job` table.
