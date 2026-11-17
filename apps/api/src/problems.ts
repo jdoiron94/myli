@@ -29,6 +29,21 @@ export class HttpProblem extends Error {
   }
 }
 
+/**
+ * Throw from a handler when a request body passed its schema but some of its fields still can't be
+ * used, like a tag that no longer exists: the client gets the same 422 `ValidationProblem` as for a
+ * schema failure, so forms show the message next to the field. `detail` goes to the client as is.
+ */
+export class InvalidFields extends Error {
+  override name = 'InvalidFields';
+  readonly fields: readonly { path: readonly PropertyKey[]; detail: string }[];
+
+  constructor(fields: readonly { path: readonly PropertyKey[]; detail: string }[]) {
+    super('Request validation failed');
+    this.fields = fields;
+  }
+}
+
 export function problemResponse(c: Context<AppEnv>, status: ContentfulStatusCode, detail?: string) {
   const body: ProblemDetails = {
     type: 'about:blank',
@@ -43,6 +58,16 @@ export function problemResponse(c: Context<AppEnv>, status: ContentfulStatusCode
 export const onNotFound: NotFoundHandler<AppEnv> = (c) => problemResponse(c, 404);
 
 export const onError: ErrorHandler<AppEnv> = (error, c) => {
+  if (error instanceof InvalidFields) {
+    return validationProblemResponse(
+      c,
+      error.fields.map(({ path, detail }) => ({
+        in: 'body',
+        pointer: toJsonPointer(path),
+        detail,
+      })),
+    );
+  }
   if (error instanceof HttpProblem) {
     return problemResponse(c, error.status, error.detail);
   }
@@ -101,16 +126,23 @@ export const validationHook: Hook<unknown, AppEnv, string, Response | undefined>
   if (result.success) {
     return undefined;
   }
-  const body: ValidationProblem = {
-    type: VALIDATION_PROBLEM_TYPE,
-    title: 'Request validation failed',
-    status: 422,
-    errors: result.error.issues.map((issue) => ({
+  return validationProblemResponse(
+    c,
+    result.error.issues.map((issue) => ({
       in: LOCATION_BY_TARGET[result.target],
       pointer: toJsonPointer(issue.path),
       detail: issue.message,
     })),
+  );
+};
+
+function validationProblemResponse(c: Context<AppEnv>, errors: ValidationProblem['errors']) {
+  const body: ValidationProblem = {
+    type: VALIDATION_PROBLEM_TYPE,
+    title: 'Request validation failed',
+    status: 422,
+    errors,
     requestId: c.get('requestId'),
   };
   return c.json(body, 422, { 'Content-Type': PROBLEM_CONTENT_TYPE });
-};
+}

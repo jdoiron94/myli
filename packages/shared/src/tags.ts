@@ -38,3 +38,14 @@ export const ALLERGENS = [
 export function tagNameKey(name: string): string {
   return name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
 }
+
+/** A tag as the API shows it. */
+export const tagSchema = z
+  .object({
+    id: z.int().positive(),
+    type: tagTypeSchema,
+    name: z.string().describe('As its creator wrote it. Allergens are lowercase: "tree nuts".'),
+  })
+  .meta({ id: 'Tag' });
+
+export type Tag = z.infer<typeof tagSchema>;

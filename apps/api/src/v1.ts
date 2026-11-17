@@ -8,6 +8,7 @@ import type { Env } from './env.ts';
 import { registerInvitationRoutes } from './invitations/routes.ts';
 import { jsonOnly } from './json-only.ts';
 import { validationHook } from './problems.ts';
+import { registerRecipeRoutes } from './recipes/routes.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
 import { registerUserRoutes } from './users/routes.ts';
 
@@ -44,6 +45,7 @@ export function createV1Router(deps: V1Deps) {
   registerSetupRoutes(v1, deps);
   registerAuditRoutes(v1, { db: deps.db });
   registerUserRoutes(v1, { db: deps.db });
+  registerRecipeRoutes(v1, { db: deps.db });
   registerInvitationRoutes(v1, {
     db: deps.db,
     auth: deps.auth,

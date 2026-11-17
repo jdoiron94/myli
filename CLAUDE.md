@@ -60,6 +60,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - The committed copy, `apps/api/openapi.json`, must match the generated one, and so must the web app's types generated from it with openapi-typescript, `apps/web/src/api/schema.ts`. Run `pnpm openapi:generate` after changing a route or schema, which rewrites both, or `pnpm test` fails.
 - The web app calls the API only through its typed client (see Web app). Never hand-write API request or response types.
 - API errors use RFC 9457 `application/problem+json`, matching `problemDetailsSchema` in `packages/shared`. Handlers fail by throwing `HttpProblem(status, detail)`, and `detail` goes to the client verbatim. Any other error becomes a generic 500 with only the request ID, and the details go to the log. Never put internals in a response.
+  - A field that passed its schema but still can't be used, like a tag that no longer exists, fails with `InvalidFields([{ path, detail }])` (`problems.ts`): the same 422 `ValidationProblem` a schema failure gets, so forms show it next to the field.
 - **The one exception is Better Auth's own routes** under `AUTH_BASE_PATH` (`/api/auth/*`). Better Auth answers them in its own format, and they're not in the OpenAPI document. The web app calls them through Better Auth's client, which ships its own types. Errors Better Auth didn't raise itself still become our generic 500 (`onAPIError.throw`). Never add app endpoints under `/api/auth`.
 
 ### Authentication
@@ -79,7 +80,9 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - `requireSession`: any signed-in user (401 otherwise).
   - `requirePermission(action)`: role-only actions such as `user.invite` (401, then 403). Add it to `createRoute({ middleware: [...] as const })`; it narrows `c.var.user` to non-null.
   - `authorize(c, action, resource)`: recipe and comment actions, called in the handler once the resource is loaded. It answers 404 when the user may not see the recipe, identical to `notFound()`, which handlers also throw for IDs they can't find. Never write a different 404 for a hidden resource.
-- Every new endpoint gets an entry in `ENDPOINTS` in `apps/api/src/permission-matrix.ts`: its method, OpenAPI path, `access` (`public`, `signed-in` or an action) and a valid request. The matrix test sends that request as anonymous, viewer, editor and admin and checks the status against `can()`. It also fails if an OpenAPI operation has no entry.
+- Every new endpoint gets an entry in `ENDPOINTS` in `apps/api/src/permission-matrix.ts`: its method, OpenAPI path, `access` and a valid request. The matrix test sends that request as anonymous, viewer, editor and admin and checks the status against `can()`. It also fails if an OpenAPI operation has no entry.
+  - `access` is `public`, `signed-in`, a role-only action, or `{ recipe: action }` for an endpoint on one recipe.
+  - An endpoint on one recipe is tried against the caller's own and someone else's private and shared recipe (`RECIPE_CASES`), and its `send` gets that recipe's ID. Where the policy hides the recipe, it must answer 404; where it shows it but forbids the action, 403.
 - **Web pages** that need a role-only action set `meta.permission` (e.g. `'user.invite'`), which the router checks with `can()`. Someone without it sees the no-access page at the same address. Links to such a page show only when `can()` allows it: the header's links (`NAV_PAGES` in `AppLayout.vue`) read each page's `meta.permission` and `meta.title` from the router.
 - **Viewers are strictly read-only.**
 - **Private recipes must never leak** through direct ID access, search results, revision endpoints, public links or deactivating their owner. Each of those paths has a test.

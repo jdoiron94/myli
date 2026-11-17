@@ -5,19 +5,42 @@
  * document is missing here.
  */
 import { randomUUID } from 'node:crypto';
-import { API_BASE_PATH, can, ROLES, type Role, type RoleAction } from '@myli/shared';
+import {
+  API_BASE_PATH,
+  can,
+  type RecipeAction,
+  ROLES,
+  type Role,
+  type RoleAction,
+  type Visibility,
+} from '@myli/shared';
 import { createUserWithPassword } from './auth/users.ts';
 import { createInvitation } from './invitations/invitations.ts';
+import { insertRecipe, sampleRecipeRequest } from './recipes/testing.ts';
 import { signedInAs, type TestApp } from './testing.ts';
 
 export const CALLERS = ['anonymous', ...ROLES] as const;
 export type Caller = 'anonymous' | Role;
 
 /**
- * Who may call an endpoint: anyone, any signed-in user, or users whose role allows an action.
- * (Endpoints on one recipe or comment will add the ownership cases in Phase 1.)
+ * Who may call an endpoint: anyone, any signed-in user, users whose role allows an action, or, for
+ * an endpoint on one recipe, users the policy lets do an action to that recipe.
  */
-export type Access = 'public' | 'signed-in' | RoleAction;
+export type Access = 'public' | 'signed-in' | RoleAction | { recipe: RecipeAction };
+
+/**
+ * The recipes an endpoint on one recipe is tried against, as in `policy.test.ts`: whose it is,
+ * relative to the caller, and who may see it. A viewer's own recipes were written before they were
+ * demoted from editor. Anonymous callers own nothing, so they're tried against the others only.
+ */
+export const RECIPE_CASES = [
+  { owner: 'caller', visibility: 'private' },
+  { owner: 'caller', visibility: 'shared' },
+  { owner: 'someone else', visibility: 'private' },
+  { owner: 'someone else', visibility: 'shared' },
+] as const satisfies readonly { owner: 'caller' | 'someone else'; visibility: Visibility }[];
+
+export type RecipeCase = (typeof RECIPE_CASES)[number];
 
 export interface EndpointCase {
   /** Lower case, as in the OpenAPI document. */
@@ -27,9 +50,10 @@ export interface EndpointCase {
   access: Access;
   /**
    * Sends a valid request to the endpoint, with `cookie` as the `Cookie` header when it's set.
-   * Each caller gets a fresh app, so this can create whatever the request needs first.
+   * Each caller gets a fresh app, so this can create whatever the request needs first. Endpoints
+   * on one recipe get the ID of the recipe to send it about.
    */
-  send: (t: TestApp, cookie: string | undefined) => Response | Promise<Response>;
+  send: (t: TestApp, cookie: string | undefined, recipeId: string) => Response | Promise<Response>;
 }
 
 /**
@@ -183,38 +207,94 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     send: async (t, cookie) =>
       request(t, 'POST', `/invitations/${(await openInvitation(t)).id}/revoke`, cookie),
   },
+  {
+    method: 'post',
+    path: '/recipes',
+    access: 'recipe.create',
+    send: (t, cookie) => request(t, 'POST', '/recipes', cookie, sampleRecipeRequest()),
+  },
+  {
+    method: 'get',
+    path: '/recipes/{id}',
+    access: { recipe: 'recipe.read' },
+    send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}`, cookie),
+  },
 ];
 
-/** What the policy says should happen: the request goes through, or exactly this status. */
-export function expectedOutcome(access: Access, caller: Caller): 'allowed' | 401 | 403 {
+export type Outcome = 'allowed' | 401 | 403 | 404;
+
+/**
+ * What the policy says should happen: the request goes through, or exactly this status. For an
+ * endpoint on one recipe, a recipe the caller may not see answers 404, before any other check.
+ */
+export function expectedOutcome(access: Access, caller: Caller, recipeCase?: RecipeCase): Outcome {
   if (access === 'public') return 'allowed';
   if (caller === 'anonymous') return 401;
   if (access === 'signed-in') return 'allowed';
-  return can({ id: 'matrix', role: caller }, access) ? 'allowed' : 403;
+  const user = { id: 'caller', role: caller };
+  if (typeof access === 'string') return can(user, access) ? 'allowed' : 403;
+  if (!recipeCase) throw new Error('an endpoint on one recipe needs a recipe to be tried against');
+  const recipe = {
+    ownerId: recipeCase.owner === 'caller' ? user.id : 'someone else',
+    visibility: recipeCase.visibility,
+  };
+  if (!can(user, 'recipe.read', recipe)) return 404;
+  return can(user, access.recipe, recipe) ? 'allowed' : 403;
+}
+
+/** The users and recipes `endpoint` is tried with: one run per caller, or per caller and recipe. */
+function runsOf(endpoint: EndpointCase): { caller: Caller; recipeCase: RecipeCase | undefined }[] {
+  return CALLERS.flatMap((caller): { caller: Caller; recipeCase: RecipeCase | undefined }[] =>
+    typeof endpoint.access === 'object'
+      ? RECIPE_CASES.filter(({ owner }) => caller !== 'anonymous' || owner !== 'caller').map(
+          (recipeCase) => ({ caller, recipeCase }),
+        )
+      : [{ caller, recipeCase: undefined }],
+  );
+}
+
+/** Someone other than the caller, to own the recipes that aren't theirs. */
+async function someoneElse(t: TestApp): Promise<string> {
+  const created = await createUserWithPassword(t.auth, {
+    name: 'Someone Else',
+    email: `someone-else-${randomUUID()}@example.com`,
+    password: 'Someone else password 1',
+    role: 'editor',
+  });
+  return created.id;
 }
 
 /**
- * Sends `endpoint`'s request as every caller, each on a fresh app from `createApp`, and describes
- * each status that doesn't match the policy. "Allowed" means anything but 401, 403 or a 5xx: the
- * matrix checks who gets through, not what the endpoint does then.
+ * Sends `endpoint`'s request as every caller (and, for an endpoint on one recipe, about each kind
+ * of recipe), each on a fresh app from `createApp`, and describes each status that doesn't match
+ * the policy. "Allowed" means anything but 401, 403 or a 5xx, and on a recipe, anything but 404
+ * too: the matrix checks who gets through, not what the endpoint does then.
  */
 export async function findMismatches(
   endpoint: EndpointCase,
   createApp: () => TestApp,
 ): Promise<string[]> {
   const mismatches: string[] = [];
-  for (const caller of CALLERS) {
+  for (const { caller, recipeCase } of runsOf(endpoint)) {
     const t = createApp();
-    const cookie = caller === 'anonymous' ? undefined : (await signedInAs(t, caller)).cookie;
-    const { status } = await endpoint.send(t, cookie);
-    const expected = expectedOutcome(endpoint.access, caller);
+    const signedIn = caller === 'anonymous' ? undefined : await signedInAs(t, caller);
+    let recipeId = '';
+    if (recipeCase) {
+      const ownerId =
+        recipeCase.owner === 'caller' && signedIn ? signedIn.user.id : await someoneElse(t);
+      recipeId = insertRecipe(t.db, ownerId, recipeCase.visibility);
+    }
+    const { status } = await endpoint.send(t, signedIn?.cookie, recipeId);
+    const expected = expectedOutcome(endpoint.access, caller, recipeCase);
+    const refusals = recipeCase ? [401, 403, 404] : [401, 403];
     const matches =
-      expected === 'allowed'
-        ? status !== 401 && status !== 403 && status < 500
-        : status === expected;
+      expected === 'allowed' ? !refusals.includes(status) && status < 500 : status === expected;
     if (!matches) {
+      const about = recipeCase
+        ? ` on ${recipeCase.owner === 'caller' ? 'their own' : "someone else's"} ${recipeCase.visibility} recipe`
+        : '';
       mismatches.push(
-        `${caller} ${endpoint.method.toUpperCase()} ${endpoint.path}: expected ${String(expected)}, got ${String(status)}`,
+        `${caller} ${endpoint.method.toUpperCase()} ${endpoint.path}${about}: expected ${String(expected)}, got ${String(status)}`,
       );
     }
   }
