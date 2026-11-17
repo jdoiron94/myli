@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMinutes, nutritionFacts, showLine, tagsByType } from './format.ts';
+import { formatMinutes, nutritionFacts, showLine, shownTags } from './format.ts';
 import type { IngredientLine } from './recipe.ts';
 
 const line = (overrides: Partial<IngredientLine>): IngredientLine => ({
@@ -64,19 +64,25 @@ describe('showLine', () => {
   });
 });
 
-describe('tagsByType', () => {
-  it('groups tags by type, in the order the page shows them, leaving out empty types', () => {
-    const groups = tagsByType([
+describe('shownTags', () => {
+  it('puts the allergens apart, and the rest in order of type, keeping their order within it', () => {
+    const { tags, allergens } = shownTags([
       { id: 1, type: 'custom', name: 'Weeknight' },
       { id: 2, type: 'allergen', name: 'milk' },
-      { id: 3, type: 'cuisine', name: 'Italian' },
-      { id: 4, type: 'allergen', name: 'wheat' },
+      { id: 3, type: 'diet', name: 'Vegetarian' },
+      { id: 4, type: 'cuisine', name: 'Italian' },
+      { id: 5, type: 'allergen', name: 'wheat' },
+      { id: 6, type: 'meal_type', name: 'Lunch' },
+      { id: 7, type: 'meal_type', name: 'Dinner' },
     ]);
-    expect(groups.map(({ type, tags }) => [type, tags.map(({ name }) => name)])).toEqual([
-      ['cuisine', ['Italian']],
-      ['allergen', ['milk', 'wheat']],
-      ['custom', ['Weeknight']],
+    expect(tags.map(({ name }) => name)).toEqual([
+      'Italian',
+      'Lunch',
+      'Dinner',
+      'Vegetarian',
+      'Weeknight',
     ]);
+    expect(allergens.map(({ name }) => name)).toEqual(['milk', 'wheat']);
   });
 });
 

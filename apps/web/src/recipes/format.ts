@@ -58,23 +58,23 @@ export const DIFFICULTY_LABELS: Readonly<Record<Difficulty, string>> = {
   hard: 'Hard',
 };
 
-/** What each type of tag is called on a recipe's page, in the order they're shown. */
-export const TAG_TYPE_LABELS: Readonly<Record<TagType, string>> = {
-  cuisine: 'Cuisine',
-  meal_type: 'Meal',
-  diet: 'Diet',
-  allergen: 'Contains',
-  custom: 'Tags',
-};
+/** The order a recipe's page shows its tags in, by type. */
+const SHOWN_TAG_TYPES: readonly Exclude<TagType, 'allergen'>[] = [
+  'cuisine',
+  'meal_type',
+  'diet',
+  'custom',
+];
 
-/** A recipe's tags by type, leaving out types it has none of. */
-export function tagsByType(tags: readonly Tag[]): { type: TagType; tags: Tag[] }[] {
-  const groups = new Map<TagType, Tag[]>();
-  for (const tag of tags) groups.set(tag.type, [...(groups.get(tag.type) ?? []), tag]);
-  return (Object.keys(TAG_TYPE_LABELS) as TagType[]).flatMap((type) => {
-    const ofType = groups.get(type);
-    return ofType ? [{ type, tags: ofType }] : [];
-  });
+/**
+ * A recipe's tags as its page shows them: the allergens apart, since they go with the ingredients,
+ * and the rest in one list, by type.
+ */
+export function shownTags(tags: readonly Tag[]): { tags: Tag[]; allergens: Tag[] } {
+  return {
+    tags: SHOWN_TAG_TYPES.flatMap((type) => tags.filter((tag) => tag.type === type)),
+    allergens: tags.filter((tag) => tag.type === 'allergen'),
+  };
 }
 
 /** The nutrition a recipe states per serving, as label and value, leaving out what it doesn't. */

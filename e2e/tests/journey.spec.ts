@@ -295,9 +295,12 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       'Mix everything.',
       'Bake at 400°F.',
     ]);
-    const tags = main.locator('dl').filter({ has: page.getByRole('term').getByText('Cuisine') });
-    await expect(tags.getByRole('term')).toHaveText(['Cuisine', 'Contains']);
-    await expect(tags.getByRole('definition')).toHaveText(['American', 'wheat']);
+    await expect(main.getByRole('list', { name: 'Tags' }).getByRole('listitem')).toHaveText([
+      'American',
+    ]);
+    await expect(
+      page.getByRole('region', { name: 'Ingredients' }).getByText('Contains:').locator('..'),
+    ).toHaveText('Contains: wheat');
     await checkPage(page);
   });
 

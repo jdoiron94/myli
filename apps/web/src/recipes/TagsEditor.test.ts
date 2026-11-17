@@ -78,11 +78,6 @@ describe('the tags editor', () => {
     expect(within(group('Meal')).getByRole('checkbox', { name: 'Dinner' })).toBeDefined();
     expect(within(group('Diet')).getByRole('checkbox', { name: 'Vegetarian' })).toBeDefined();
     expect(within(group('Other tags')).getByRole('checkbox', { name: 'Weeknight' })).toBeDefined();
-    expect(
-      screen.getByText(
-        'Allergen and diet tags are added by the people who use myli, and nobody checks them.',
-      ),
-    ).toBeDefined();
   });
 
   it('saves the tags checked', async () => {
