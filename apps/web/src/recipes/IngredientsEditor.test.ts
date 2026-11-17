@@ -1,10 +1,10 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import { accessibilityViolations, apiServer, describedBy, renderApp } from '@/testing.ts';
 import type { Recipe } from './recipe.ts';
-import { answerRecipe, sampleRecipe } from './testing.ts';
+import { answerRecipe, answerTags, sampleRecipe } from './testing.ts';
 
 const line = (position: number, group?: number) =>
   within(group === undefined ? document.body : groupList(group)).getByRole('textbox', {
@@ -47,6 +47,11 @@ function answerCreate() {
   };
   return { sent, opened };
 }
+
+// The editor loads every tag.
+beforeEach(() => {
+  answerTags();
+});
 
 describe('the ingredients editor', () => {
   it('shows how myli reads each line as it’s typed', async () => {

@@ -57,7 +57,7 @@ export const tagNameSchema = z
   .string()
   .trim()
   .min(1, 'Name the tag.')
-  .max(TAG_NAME_MAX_LENGTH)
+  .max(TAG_NAME_MAX_LENGTH, `Keep it to ${String(TAG_NAME_MAX_LENGTH)} characters.`)
   .overwrite((name) => name.replace(/\s+/g, ' '));
 
 export const tagListSchema = z

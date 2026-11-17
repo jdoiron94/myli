@@ -175,7 +175,7 @@ const recipeContentShape = {
     .describe('In order. Each body is markdown.'),
   tagIds: z
     .array(z.int().positive())
-    .max(L.tags)
+    .max(L.tags, `A recipe can have up to ${String(L.tags)} tags.`)
     .refine((ids) => new Set(ids).size === ids.length, 'Each tag can be added once.'),
 };
 

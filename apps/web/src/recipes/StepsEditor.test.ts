@@ -1,11 +1,11 @@
 import { RECIPE_LIMITS } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import { accessibilityViolations, apiServer, focusedMarkdownEditor, renderApp } from '@/testing.ts';
 import type { Recipe } from './recipe.ts';
-import { sampleRecipe } from './testing.ts';
+import { answerTags, sampleRecipe } from './testing.ts';
 
 const step = (position: number) =>
   screen.getByRole('textbox', { name: `Step ${String(position)}` });
@@ -32,6 +32,11 @@ async function editSteps(...bodies: string[]) {
   await screen.findByRole('textbox', { name: 'Title' });
   return { ...app, saved };
 }
+
+// The editor loads every tag.
+beforeEach(() => {
+  answerTags();
+});
 
 describe('the steps editor', () => {
   it('starts a new recipe with a step to write, and adds the next at the end', async () => {

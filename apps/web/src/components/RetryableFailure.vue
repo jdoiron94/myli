@@ -36,7 +36,9 @@ onUnmounted(() => {
     <p role="alert">
       {{ failureMessage(error) }}
     </p>
+    <!-- A button, not a submit, should it be shown inside a form. -->
     <Button
+      type="button"
       class="mt-6 aria-disabled:opacity-50"
       :aria-disabled="retrying ? true : undefined"
       @click="$emit('retry')"
