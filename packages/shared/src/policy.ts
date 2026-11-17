@@ -25,6 +25,8 @@ export const RECIPE_ACTIONS = [
   'recipe.read',
   /** Edit and publish, and restore an older revision. */
   'recipe.edit',
+  /** Make it private or shared. */
+  'recipe.setVisibility',
   /** Move to the trash, and restore from it. */
   'recipe.trash',
   /** Create or revoke the public link. */
@@ -86,6 +88,9 @@ const canRead = (user: PolicyUser, recipe: PolicyRecipe) =>
 const RECIPE_RULES = {
   'recipe.read': canRead,
   'recipe.edit': (user, recipe) => canWrite(user) && canRead(user, recipe),
+  // Only the owner, admins included: making a shared recipe private would hide it from everyone
+  // else, and making a private one shared would publish someone else's notes.
+  'recipe.setVisibility': (user, recipe) => canWrite(user) && owns(user, recipe),
   'recipe.trash': (user, recipe) =>
     canRead(user, recipe) && (isAdmin(user) || (canWrite(user) && owns(user, recipe))),
   // Only shared recipes can have a public link.

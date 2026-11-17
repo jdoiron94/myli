@@ -133,6 +133,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - A public link is read-only and uses an unguessable token.
 - The owner or an admin can revoke it at any time.
 - Only the owner can change a recipe's visibility. Making someone else's shared recipe private would hide it from everyone but its owner.
+- A recipe's visibility is chosen when it's created and changed on its own afterwards: saving the recipe's content never changes it, so editors can edit any shared recipe without being able to hide it.
 - Making a recipe private revokes its public link.
 
 **Audit log**

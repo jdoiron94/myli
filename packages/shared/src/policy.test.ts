@@ -46,6 +46,7 @@ const RECIPE_TABLE: Record<RecipeAction, Record<Role, string>> = {
   // A viewer's own recipes were written before they were demoted from editor.
   'recipe.read': { admin: '✓✓–✓', editor: '✓✓–✓', viewer: '✓✓–✓' },
   'recipe.edit': { admin: '✓✓–✓', editor: '✓✓–✓', viewer: '––––' },
+  'recipe.setVisibility': { admin: '✓✓––', editor: '✓✓––', viewer: '––––' },
   'recipe.trash': { admin: '✓✓–✓', editor: '✓✓––', viewer: '––––' },
   'recipe.share': { admin: '–✓–✓', editor: '–✓––', viewer: '––––' },
   'recipe.interact': { admin: '✓✓–✓', editor: '✓✓–✓', viewer: '––––' },

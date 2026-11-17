@@ -1,11 +1,11 @@
-import type { CreateRecipeRequest, Visibility } from '@myli/shared';
+import type { CreateRecipeRequest, UpdateRecipeRequest, Visibility } from '@myli/shared';
 import type { Db } from '../db/database.ts';
 import { createRecipe } from './recipes.ts';
 
-/** A complete, valid request to create a recipe. Override any part of it. */
-export function sampleRecipeRequest(
-  overrides: Partial<CreateRecipeRequest> = {},
-): CreateRecipeRequest {
+/** A complete, valid request to save a recipe. Override any part of it. */
+export function sampleRecipeContent(
+  overrides: Partial<UpdateRecipeRequest> = {},
+): UpdateRecipeRequest {
   return {
     title: 'Weeknight Bread',
     description: 'A *simple* loaf.',
@@ -53,9 +53,15 @@ export function sampleRecipeRequest(
     ],
     steps: [{ body: 'Mix everything.' }, { body: 'Bake at **400°F**.' }],
     tagIds: [],
-    visibility: 'shared',
     ...overrides,
   };
+}
+
+/** A complete, valid request to create a recipe: the sample content, shared. */
+export function sampleRecipeRequest(
+  overrides: Partial<CreateRecipeRequest> = {},
+): CreateRecipeRequest {
+  return { ...sampleRecipeContent(), visibility: 'shared', ...overrides };
 }
 
 /** A new recipe owned by `ownerId`, written straight to the database. Its ID. */

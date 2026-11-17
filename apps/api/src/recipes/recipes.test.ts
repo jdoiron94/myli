@@ -6,11 +6,15 @@ import {
   validationProblemSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { recipe as recipeTable, tag } from '../db/schema.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { deactivateUser } from '../users/manage.ts';
-import { insertRecipe, sampleRecipeRequest } from './testing.ts';
+import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function send(t: TestApp, method: string, path: string, cookie?: string, body?: unknown) {
   return t.app.request(`/api/v1${path}`, {
@@ -336,5 +340,190 @@ describe('GET /recipes/{id}', () => {
     const id = insertRecipe(t.db, user.id, 'private');
     expect((await send(t, 'GET', `/recipes/${id}`)).status).toBe(401);
     expect((await send(t, 'GET', '/recipes/no-such-recipe')).status).toBe(401);
+  });
+});
+
+describe('PUT /recipes/{id}', () => {
+  const save = (t: TestApp, id: string, cookie: string, body: unknown) =>
+    send(t, 'PUT', `/recipes/${id}`, cookie, body);
+
+  it('replaces the content, lines, steps and tags, and keeps the owner and visibility', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-16T10:00:00Z') });
+    const { t, user, cookie } = await setUp('editor');
+    const created = await recipeFrom(
+      await send(
+        t,
+        'POST',
+        '/recipes',
+        cookie,
+        sampleRecipeRequest({ tagIds: [tagId(t, 'milk')] }),
+      ),
+    );
+    vi.setSystemTime(new Date('2026-11-16T10:05:00Z'));
+
+    const content = sampleRecipeContent({
+      title: 'Sunday Bread',
+      servings: 12,
+      ingredientGroups: [
+        {
+          label: 'For the starter',
+          ingredients: [
+            {
+              rawText: '1 cup water',
+              qty: 1,
+              qtyMax: null,
+              unit: 'cup',
+              name: 'Water',
+              note: null,
+              scalable: true,
+            },
+          ],
+        },
+      ],
+      steps: [{ body: 'Wait a day.' }],
+      tagIds: [tagId(t, 'wheat')],
+    });
+    const res = await save(t, created.id, cookie, content);
+
+    expect(res.status).toBe(200);
+    const saved = await recipeFrom(res);
+    expect(saved).toMatchObject({
+      id: created.id,
+      owner: { id: user.id },
+      visibility: 'shared',
+      title: 'Sunday Bread',
+      servings: 12,
+      ingredientGroups: [
+        { label: 'For the starter', ingredients: [{ name: 'Water', normalizedName: 'water' }] },
+      ],
+      steps: [{ body: 'Wait a day.' }],
+      tags: [{ name: 'wheat' }],
+      createdAt: '2026-11-16T10:00:00.000Z',
+      updatedAt: '2026-11-16T10:05:00.000Z',
+    });
+    expect(await recipeFrom(await send(t, 'GET', `/recipes/${created.id}`, cookie))).toEqual(saved);
+  });
+
+  it('lets an editor save someone else’s shared recipe, which stays theirs', async () => {
+    const { t, user } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const other = await signedInAs(t, 'editor');
+
+    const res = await save(t, id, other.cookie, sampleRecipeContent({ title: 'Improved' }));
+    expect(res.status).toBe(200);
+    expect(await recipeFrom(res)).toMatchObject({ title: 'Improved', owner: { id: user.id } });
+  });
+
+  it('refuses viewers with 403, and hides someone else’s private recipe with 404', async () => {
+    const { t, user } = await setUp('editor');
+    const shared = insertRecipe(t.db, user.id, 'shared');
+    const hidden = insertRecipe(t.db, user.id, 'private');
+    const viewer = await signedInAs(t, 'viewer');
+    const admin = await signedInAs(t, 'admin');
+
+    expect((await save(t, shared, viewer.cookie, sampleRecipeContent())).status).toBe(403);
+    expect((await save(t, hidden, admin.cookie, sampleRecipeContent())).status).toBe(404);
+  });
+
+  it('changes nothing when a tag no longer exists', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id);
+    const res = await save(t, id, cookie, sampleRecipeContent({ title: 'Lost', tagIds: [9999] }));
+
+    expect(await fieldErrors(res)).toEqual({
+      '#/tagIds/0': 'This tag no longer exists. Choose another.',
+    });
+    const unchanged = await recipeFrom(await send(t, 'GET', `/recipes/${id}`, cookie));
+    expect(unchanged.title).toBe('Weeknight Bread');
+    expect(unchanged.ingredientGroups[0]?.ingredients).toHaveLength(2);
+  });
+
+  it('answers 404 for a deleted recipe', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id);
+    t.db.update(recipeTable).set({ deletedAt: new Date() }).where(eq(recipeTable.id, id)).run();
+    expect((await save(t, id, cookie, sampleRecipeContent())).status).toBe(404);
+  });
+
+  it('keeps the last save, until drafts bring a concurrency check', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id);
+    const other = await signedInAs(t, 'editor');
+    await save(t, id, cookie, sampleRecipeContent({ title: 'First' }));
+    await save(t, id, other.cookie, sampleRecipeContent({ title: 'Second' }));
+    expect((await recipeFrom(await send(t, 'GET', `/recipes/${id}`, cookie))).title).toBe('Second');
+  });
+
+  it('ignores a visibility in the body: it’s changed on its own', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const res = await save(t, id, cookie, { ...sampleRecipeContent(), visibility: 'private' });
+    // Unknown keys are dropped, so the save goes through and the visibility stays.
+    expect(res.status).toBe(200);
+    expect((await recipeFrom(res)).visibility).toBe('shared');
+  });
+});
+
+describe('PUT /recipes/{id}/visibility', () => {
+  const setVisibility = (t: TestApp, id: string, cookie: string, visibility: string) =>
+    send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility });
+
+  it('lets the owner make a shared recipe private, which hides it from everyone else', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const admin = await signedInAs(t, 'admin');
+    expect((await send(t, 'GET', `/recipes/${id}`, admin.cookie)).status).toBe(200);
+
+    const res = await setVisibility(t, id, cookie, 'private');
+    expect(res.status).toBe(200);
+    expect((await recipeFrom(res)).visibility).toBe('private');
+    expect((await send(t, 'GET', `/recipes/${id}`, admin.cookie)).status).toBe(404);
+    expect((await send(t, 'GET', `/recipes/${id}`, cookie)).status).toBe(200);
+  });
+
+  it('lets the owner share a private recipe', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'private');
+    const viewer = await signedInAs(t, 'viewer');
+
+    expect((await setVisibility(t, id, cookie, 'shared')).status).toBe(200);
+    expect((await send(t, 'GET', `/recipes/${id}`, viewer.cookie)).status).toBe(200);
+  });
+
+  it('refuses everyone but the owner, admins included', async () => {
+    const { t, user } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    for (const role of ['admin', 'editor'] as const) {
+      const other = await signedInAs(t, role);
+      expect((await setVisibility(t, id, other.cookie, 'private')).status).toBe(403);
+    }
+    const unchanged = await recipeFrom(
+      await send(t, 'GET', `/recipes/${id}`, (await signedInAs(t, 'viewer')).cookie),
+    );
+    expect(unchanged.visibility).toBe('shared');
+  });
+
+  it('refuses an owner who was demoted to viewer', async () => {
+    const { t, user, cookie } = await setUp('viewer');
+    const id = insertRecipe(t.db, user.id, 'private');
+    expect((await setVisibility(t, id, cookie, 'shared')).status).toBe(403);
+  });
+
+  it('changes nothing when the recipe already has that visibility', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const res = await setVisibility(t, id, cookie, 'shared');
+    expect(res.status).toBe(200);
+    expect((await recipeFrom(res)).visibility).toBe('shared');
+  });
+
+  it('refuses a visibility that doesn’t exist, and answers 404 for a deleted recipe', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    expect(Object.keys(await fieldErrors(await setVisibility(t, id, cookie, 'public')))).toEqual([
+      '#/visibility',
+    ]);
+    t.db.update(recipeTable).set({ deletedAt: new Date() }).where(eq(recipeTable.id, id)).run();
+    expect((await setVisibility(t, id, cookie, 'private')).status).toBe(404);
   });
 });
