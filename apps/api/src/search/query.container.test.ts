@@ -382,6 +382,11 @@ describe('ingredients', () => {
     expect(await suggest('oat', 'other')).toEqual([]);
   });
 
+  it('suggests names with any word that starts like what’s typed', async () => {
+    expect(await suggest('onion')).toEqual([{ name: 'green onion', recipes: 1 }]);
+    expect((await suggest('Milk')).map(({ name }) => name)).toEqual(['coconut milk', 'oat milk']);
+  });
+
   it('suggests the most used first, with no query', async () => {
     const suggested = await suggest('');
 

@@ -273,32 +273,63 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSe
 }
 
 /**
- * The ingredient names recipes the caller may see use, starting like `q` (or the most used, for an
- * empty one), for picking ingredients to search by (spec §3.4).
+ * The ingredient names recipes the caller may see use, with a word starting like `q` (or the most
+ * used, for an empty one), for picking ingredients to search by (spec §3.4), most used first.
+ *
+ * Meilisearch's facet search matches only the start of a name, typos forgiven: "bre" finds "bread
+ * flour", but "flour" doesn't. So a search on ingredient names finds the recipes with a word like
+ * `q`, and their names with a word that starts with it are added, with the counts the search gives:
+ * exact, since every recipe with "bread flour" matches "flour". It counts the 100 names most used
+ * in those recipes (Meilisearch's `maxValuesPerFacet`), which a large instance could pass.
  */
 export async function suggestIngredients(
   deps: SearchDeps,
   user: PolicyUser,
   q: string,
 ): Promise<IngredientSuggestions['ingredients']> {
-  const { facetHits } = await ask(deps, (client) =>
-    client.index(RECIPES_INDEX).searchForFacetValues({
-      facetName: 'normalizedIngredientNames' satisfies Attribute,
-      facetQuery: q,
-      filter: accessFilter(user.id),
-    }),
+  const facet = 'normalizedIngredientNames' satisfies Attribute;
+  const filter = accessFilter(user.id);
+  const term = q.trim().toLowerCase().replace(/\s+/g, ' ');
+  const [{ facetHits }, inside] = await ask(deps, (client) =>
+    Promise.all([
+      client.index(RECIPES_INDEX).searchForFacetValues({ facetName: facet, facetQuery: q, filter }),
+      term
+        ? client.multiSearch({
+            queries: [
+              {
+                indexUid: RECIPES_INDEX,
+                q: term,
+                // As written: the normalized names are only for filtering and counting.
+                attributesToSearchOn: ['ingredientNames' satisfies Attribute],
+                filter,
+                facets: [facet],
+                hitsPerPage: 0,
+              },
+            ],
+          })
+        : undefined,
+    ]),
   );
-  const names = new Set(
+
+  const counts = new Map(facetHits.map(({ value, count }) => [value, count]));
+  for (const [value, count] of Object.entries(
+    inside?.results[0]?.facetDistribution?.[facet] ?? {},
+  )) {
+    if (` ${value}`.includes(` ${term}`))
+      counts.set(value, Math.max(counts.get(value) ?? 0, count));
+  }
+  const ranked = [...counts].sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
+  const visible = new Set(
     visibleIngredientNames(
       deps.db,
       user,
-      facetHits.map(({ value }) => value),
+      ranked.map(([value]) => value),
     ),
   );
-  return facetHits
-    .filter(({ value }) => names.has(value))
+  return ranked
+    .filter(([value]) => visible.has(value))
     .slice(0, INGREDIENT_SUGGESTIONS_MAX)
-    .map(({ value, count }) => ({ name: value, recipes: count }));
+    .map(([name, recipes]) => ({ name, recipes }));
 }
 
 /**
