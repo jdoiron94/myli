@@ -228,7 +228,10 @@ test('an admin sets up myli, invites someone and manages their account', async (
   });
 });
 
-test('an admin writes a recipe, with a formatted description, steps and tags', async ({ page }) => {
+test('an admin writes a recipe, with a formatted description, steps and tags', async ({
+  page,
+  searchAvailable,
+}) => {
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
   await signIn(page, ADMIN);
@@ -341,6 +344,38 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('button', { name: 'Make private' })).toBeFocused();
   });
 
+  await test.step('home finds the recipe by what its description says', async () => {
+    await page.getByRole('link', { name: 'myli', exact: true }).click();
+    await expect(heading(page, 'Recipes')).toBeVisible();
+    if (!searchAvailable) {
+      // The dev servers run without Meilisearch: home says so, after its retries.
+      await expect(page.getByRole('alert')).toHaveText(/^Search is unavailable right now\./, {
+        timeout: 15_000,
+      });
+      await page.goBack();
+      return;
+    }
+
+    const searchbox = page.getByRole('searchbox', { name: 'Search recipes' });
+    await searchbox.fill('crusty');
+    await searchbox.press('Enter');
+    await expect(page).toHaveURL(/\/\?q=crusty$/);
+    await expect(searchbox).toBeFocused();
+    const result = page.getByRole('list', { name: 'Recipes' }).getByRole('link', {
+      name: 'Weeknight Bread',
+    });
+    // The index catches up in the background, a moment after the recipe is saved.
+    await expect(async () => {
+      await page.reload();
+      await expect(result).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 30_000 });
+    await expect(page.getByRole('status').filter({ hasText: 'recipe' })).toHaveText('1 recipe');
+    await checkPage(page);
+
+    await result.click();
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+  });
+
   await test.step('the recipe is deleted once asked, which the audit log records', async () => {
     const address = new URL(page.url()).pathname;
     const id = address.split('/').at(-1);
@@ -351,7 +386,9 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await dialog.getByRole('button', { name: 'Delete recipe' }).click();
 
     await expect(heading(page, 'Recipes')).toBeVisible();
-    await expect(page.getByRole('status')).toHaveText('Deleted “Weeknight Bread”.');
+    await expect(page.getByRole('status').filter({ hasText: 'Deleted' })).toHaveText(
+      'Deleted “Weeknight Bread”.',
+    );
     await checkPage(page);
 
     const response = await page.request.get('/api/v1/audit-events?action=recipe.deleted');

@@ -59,9 +59,15 @@ export const useChangeVisibility = () =>
  * Deletes a recipe. Its page is left before the recipe is forgotten (`removeQueries`), so nothing
  * there loads it again meanwhile.
  */
-export const useDeleteRecipe = () =>
-  useMutation({
+export const useDeleteRecipe = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: async (id: string) => {
       await api.DELETE('/recipes/{id}', { params: { path: { id } } });
     },
+    // Searches from before would show it, until each was fetched again.
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['search'] });
+    },
   });
+};

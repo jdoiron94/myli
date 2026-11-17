@@ -13,8 +13,15 @@ describe('what a failed request tells the user', () => {
     );
   });
 
+  it("is the API's own explanation of a 503, which says what's unavailable", () => {
+    expect(failureMessage(problem(503, 'Search is unavailable right now.'))).toBe(
+      'Search is unavailable right now.',
+    );
+  });
+
   it.each([
     ['a 5xx', problem(500, 'Internal Server Error')],
+    ['a 503 with no explanation, as from a proxy', problem(503)],
     ['a 4xx with no explanation', problem(400)],
     ["Better Auth's 4xx, which isn't written for users", new AuthProblem(400, 'X', 'Bad body')],
   ])('is a general one for %s', (_, error) => {

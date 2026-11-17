@@ -3,9 +3,11 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
+import type { SearchHit } from '@/search/search.ts';
 import {
   accessibilityViolations,
   apiServer,
+  NO_SEARCH_RESULTS,
   problemResponse,
   renderApp,
   testUsers,
@@ -261,7 +263,7 @@ describe('what a reader can do with a recipe', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Recipes' });
     expect(router.currentRoute.value.fullPath).toBe('/');
-    expect(status()).toEqual(['Deleted “Weeknight Bread”.']);
+    expect(status()).toContain('Deleted “Weeknight Bread”.');
     expect(sent).toEqual([{ method: 'DELETE' }]);
     expect(queryClient.getQueryData(recipeQuery('recipe-bread').queryKey)).toBeUndefined();
     // Back doesn't return to the recipe: home took its place in the history.
@@ -270,6 +272,54 @@ describe('what a reader can do with a recipe', () => {
 
     await router.push('/recipes/recipe-bread');
     await screen.findByRole('heading', { level: 1, name: 'Recipe not found' });
+  });
+
+  it('forgets searches from before, so home never shows the recipe deleted', async () => {
+    storeRecipe(sampleRecipe());
+    const bread: SearchHit = {
+      id: 'recipe-bread',
+      title: 'Weeknight Bread',
+      difficulty: 'easy',
+      totalMinutes: 180,
+      cuisine: [],
+      mealType: [],
+      diet: [],
+      tags: [],
+      allergens: [],
+      visibility: 'shared',
+    };
+    const searchedAgain = Promise.withResolvers<undefined>();
+    let searches = 0;
+    apiServer.use(
+      http.get('/api/v1/search/recipes', async () => {
+        searches += 1;
+        if (searches === 1) {
+          return HttpResponse.json({
+            ...NO_SEARCH_RESULTS,
+            hits: [bread],
+            totalHits: 1,
+            totalPages: 1,
+          });
+        }
+        await searchedAgain.promise;
+        return HttpResponse.json(NO_SEARCH_RESULTS);
+      }),
+    );
+    const { user } = await renderApp('/');
+    await user.click(await screen.findByRole('link', { name: 'Weeknight Bread' }));
+    await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
+    await screen.findByRole('radio', { name: 'US customary' });
+
+    await user.click(button('Delete recipe'));
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete recipe' }),
+    );
+
+    await screen.findByRole('heading', { level: 1, name: 'Recipes' });
+    expect(screen.queryByRole('link', { name: 'Weeknight Bread' })).toBeNull();
+    expect(screen.getByText('Searching…')).toBeDefined();
+    searchedAgain.resolve(undefined);
+    await screen.findByText('No recipes yet.');
   });
 
   it('says why deleting failed, staying on the recipe', async () => {
