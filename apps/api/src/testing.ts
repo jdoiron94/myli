@@ -9,7 +9,8 @@ import type { Db } from './db/database.ts';
 import { createTestDatabase } from './db/testing.ts';
 import type { Env } from './env.ts';
 import { createLogger, type Logger } from './logger.ts';
-import type { SearchService } from './search/service.ts';
+import { fakeSearchClient } from './search/fake-client.ts';
+import type { SearchAccess } from './search/service.ts';
 
 type TestEnv = Pick<
   Env,
@@ -38,7 +39,7 @@ export interface TestAppOptions {
   logger?: Logger;
   env?: Partial<TestEnv>;
   /** What `/readyz` and the search routes ask about search. Ready unless given; the search tests use real Meilisearch. */
-  search?: Pick<SearchService, 'isReady'>;
+  search?: SearchAccess;
 }
 
 /**
@@ -50,7 +51,10 @@ export function createTestApp(options: TestAppOptions = {}) {
   const logger = options.logger ?? createLogger('silent');
   const env = { ...TEST_ENV, ...options.env };
   const auth = createAuth({ db, logger, env });
-  const search = options.search ?? { isReady: () => Promise.resolve(true) };
+  const search = options.search ?? {
+    isReady: () => Promise.resolve(true),
+    client: fakeSearchClient().client,
+  };
   const app = createApp({ logger, auth, db, env, search });
   return { app, db, auth, logger, env, search, publicUrl: env.PUBLIC_URL };
 }

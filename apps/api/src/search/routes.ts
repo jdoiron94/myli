@@ -1,17 +1,52 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
-import { type RebuildState, type SearchIndexStatus, searchIndexStatusSchema } from '@myli/shared';
+import {
+  PROBLEM_CONTENT_TYPE,
+  problemDetailsSchema,
+  type RebuildState,
+  recipeSearchQuerySchema,
+  recipeSearchResultSchema,
+  type SearchIndexStatus,
+  searchIndexStatusSchema,
+} from '@myli/shared';
 import { desc, eq } from 'drizzle-orm';
 import { requirePermission } from '../auth/authorize.ts';
+import { requireSession } from '../auth/session.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
 import { job } from '../db/schema.ts';
 import { errorResponses } from '../problems.ts';
+import { searchRecipes } from './query.ts';
 import { queueReindex, reindexRecipesJob } from './reindex.ts';
-import type { SearchService } from './service.ts';
+import type { SearchAccess, SearchService } from './service.ts';
 
 const status = (description: string) => ({
   description,
   content: { 'application/json': { schema: searchIndexStatusSchema } },
+});
+
+const getRecipes = createRoute({
+  method: 'get',
+  path: '/search/recipes',
+  tags: ['Search'],
+  summary: 'Search recipes',
+  description:
+    'Any signed-in user. Finds only recipes the caller may see: shared ones, and their own private ' +
+    'ones. Filters on different things all hold; within one, cuisines, meals and difficulties ' +
+    'take any of their values, and diets and other tags all of them. Repeat a parameter for more ' +
+    'than one value.',
+  middleware: [requireSession] as const,
+  request: { query: recipeSearchQuerySchema },
+  responses: {
+    200: {
+      description: 'One page of matching recipes, with the count of each filter value.',
+      content: { 'application/json': { schema: recipeSearchResultSchema } },
+    },
+    503: {
+      description: 'Search is unavailable. Everything else works.',
+      content: { [PROBLEM_CONTENT_TYPE]: { schema: problemDetailsSchema } },
+    },
+    ...errorResponses,
+  },
 });
 
 const getIndex = createRoute({
@@ -74,8 +109,17 @@ async function indexStatus(db: Db, search: Pick<SearchService, 'isReady'>) {
 
 export function registerSearchRoutes(
   app: OpenAPIHono<AppEnv>,
-  { db, search }: { db: Db; search: Pick<SearchService, 'isReady'> },
+  { db, search }: { db: Db; search: SearchAccess },
 ) {
+  app.openapi(getRecipes, async (c) => {
+    const found = await searchRecipes(
+      { db, client: search.client, logger: c.var.logger },
+      c.var.user,
+      c.req.valid('query'),
+    );
+    return c.json(found, 200);
+  });
+
   app.openapi(getIndex, async (c) => c.json(await indexStatus(db, search), 200));
 
   app.openapi(postRebuild, async (c) => {

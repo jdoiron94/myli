@@ -13,7 +13,10 @@ describe('GET /healthz', () => {
 });
 
 describe('GET /readyz', () => {
-  const searchReady = (ready: boolean) => ({ isReady: () => Promise.resolve(ready) });
+  const searchReady = (ready: boolean) => ({
+    isReady: () => Promise.resolve(ready),
+    client: undefined,
+  });
 
   it('reports ready when the database and search both work, and is never cached', async () => {
     const res = await createTestApp({ search: searchReady(true) }).app.request('/readyz');

@@ -11,7 +11,7 @@ import { registerPreferenceRoutes } from './preferences/routes.ts';
 import { validationHook } from './problems.ts';
 import { registerRecipeRoutes } from './recipes/routes.ts';
 import { registerSearchRoutes } from './search/routes.ts';
-import type { SearchService } from './search/service.ts';
+import type { SearchAccess } from './search/service.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
 import { registerTagRoutes } from './tags/routes.ts';
 import { registerUserRoutes } from './users/routes.ts';
@@ -26,7 +26,7 @@ export interface V1Deps {
   db: Db;
   auth: Auth;
   env: AppSettings;
-  search: Pick<SearchService, 'isReady'>;
+  search: SearchAccess;
 }
 
 /** The settings route handlers need from the environment. */

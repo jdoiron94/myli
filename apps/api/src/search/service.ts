@@ -1,5 +1,6 @@
 import type { Meilisearch } from 'meilisearch';
 import type { Logger } from '../logger.ts';
+import type { SearchClient } from './query.ts';
 import { RECIPES_INDEX } from './settings.ts';
 import { isMeilisearchError } from './setup.ts';
 
@@ -22,6 +23,11 @@ export interface SearchService {
   /** Stops trying: no attempt starts after this. */
   stop(): void;
 }
+
+/** What request handlers need of search: whether it works, and a client to search with. */
+export type SearchAccess = Pick<SearchService, 'isReady'> & {
+  readonly client: SearchClient | undefined;
+};
 
 export interface SearchServiceOptions {
   /** Prepares Meilisearch and returns a client with the API's key (`setUpSearch`). */
