@@ -68,6 +68,19 @@ export {
   setupStatusSchema,
 } from './setup.ts';
 export {
+  convert,
+  DEFAULT_UNIT_SYSTEM,
+  type Dimension,
+  dimensionOf,
+  findUnit,
+  resolveUnit,
+  UNIT_SYSTEMS,
+  UNITS,
+  type Unit,
+  type UnitSystem,
+  unitSystemSchema,
+} from './units.ts';
+export {
   changeRoleRequestSchema,
   emailSchema,
   type User,
