@@ -1287,6 +1287,33 @@
           "name"
         ]
       },
+      "PreferencesResult": {
+        "type": "object",
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/UserPreferences"
+          }
+        },
+        "required": [
+          "preferences"
+        ]
+      },
+      "UserPreferences": {
+        "type": "object",
+        "properties": {
+          "unitSystem": {
+            "type": "string",
+            "enum": [
+              "imperial",
+              "metric"
+            ],
+            "description": "How recipes show quantities. `imperial` is the US customary measures."
+          }
+        },
+        "required": [
+          "unitSystem"
+        ]
+      },
       "InvitationList": {
         "type": "object",
         "properties": {
@@ -2351,6 +2378,96 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TagResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/preferences": {
+      "get": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Get your preferences",
+        "description": "Any signed-in user's own display preferences, or the defaults until they choose.",
+        "responses": {
+          "200": {
+            "description": "Your preferences.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Save your preferences",
+        "description": "Any signed-in user, viewers included: preferences change only what they see. Replaces all of them.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Your preferences, as saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResult"
                 }
               }
             }

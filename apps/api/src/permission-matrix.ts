@@ -251,6 +251,18 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     access: 'tag.create',
     send: (t, cookie) => request(t, 'POST', '/tags', cookie, { type: 'cuisine', name: 'Italian' }),
   },
+  {
+    method: 'get',
+    path: '/me/preferences',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'GET', '/me/preferences', cookie),
+  },
+  {
+    method: 'put',
+    path: '/me/preferences',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'PUT', '/me/preferences', cookie, { unitSystem: 'metric' }),
+  },
 ];
 
 export type Outcome = 'allowed' | 401 | 403 | 404;

@@ -57,6 +57,13 @@
       "when": 1794878544970,
       "tag": "0007_seed_allergens",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794887036619,
+      "tag": "0008_user_preferences",
+      "breakpoints": true
     }
   ]
 }

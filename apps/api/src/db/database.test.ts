@@ -69,6 +69,7 @@ describe('migrateDatabase', () => {
       'setup_claim',
       'tag',
       'user',
+      'user_preference',
       'verification',
     ]);
   });

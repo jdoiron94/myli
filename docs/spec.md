@@ -212,7 +212,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - At the recipe's own servings, in the reader's own system, every line is shown in the unit it was written in: "8 tbsp" stays "8 tbsp".
 - A quantity can be a range ("2–3 cloves"). Both ends scale, and are shown in a unit the smaller end reaches.
 - Lines that aren't scalable never change.
-- Each user picks metric or imperial as a display preference, imperial until they choose. Imperial means the US customary measures American recipes use: a cup is 236.6 ml. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
+- Each user picks metric or imperial as a display preference, imperial until they choose. It's saved to their account, so it follows them from device to device, and viewers have one too: it changes only what they see. Imperial means the US customary measures American recipes use: a cup is 236.6 ml. Conversion stays within one dimension (volume, mass, count). Volume is never converted to weight or back.
 - Named units, like a clove or a can, scale but never convert.
 - Scaling changes only the display. It never changes the stored recipe.
 
@@ -414,7 +414,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | `image` | `recipe_id`, `blob_key`, `mime`, `width`, `height`, `variants` (JSON) |
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |
 | `collection`, `collection_item` | Per user; items are ordered |
-| `user_preference` | `unit_system`, theme |
+| `user_preference` | `user_id`, `unit_system`. No row means the defaults. The theme isn't here: it's chosen per browser (§6). |
 | `shopping_list`, `shopping_list_item` | `normalized_name`, `qty`, `unit`, `display_text`, `checked`, `is_manual`, `sources` (JSON) |
 | `audit_event` | `actor_id`, `action`, `target_type`, `target_id`, `metadata` (JSON), `ip`, `user_agent`, `created_at` |
 | `job` | `type`, `payload` (JSON), `status`, `attempts`, `run_after`, `last_error` |
