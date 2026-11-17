@@ -52,6 +52,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 - The matrix is implemented once, as a policy module in `packages/shared`. The UI uses it to hide controls; the API uses it to enforce. Neither has inline role checks.
 - Pages a role can't use, like the admin pages, aren't linked for it. Opening one anyway says the user doesn't have access, at the same address.
+- The header links to a new recipe, and gathers the admin pages in one Admin menu, which shows only for a role that can open one of them.
 - **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, revisions and public links.
 - No one can act on a recipe they can't see. An admin's "any" in the table means any recipe they can see: shared recipes and their own private ones.
 - A request for a resource the caller may not see returns `404`, so its existence isn't revealed. A request the caller may see but not act on returns `403`.

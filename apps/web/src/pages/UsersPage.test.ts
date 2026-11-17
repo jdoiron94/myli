@@ -541,6 +541,7 @@ describe('an admin whose own role changed meanwhile', () => {
       reactivate: refuse,
     });
     await table();
+    expect(screen.getByRole('button', { name: 'Admin' })).toBeDefined();
 
     // Another admin made them an editor.
     isAdmin = false;
@@ -549,7 +550,7 @@ describe('an admin whose own role changed meanwhile', () => {
 
     await screen.findByRole('heading', { level: 1, name: "You don't have access to this page" });
     expect(router.currentRoute.value.fullPath).toBe('/admin/users');
-    expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
     expect(screen.getByRole('button', { name: `Account: ${demoted.name}` })).toBeDefined();
     await settle();
   });

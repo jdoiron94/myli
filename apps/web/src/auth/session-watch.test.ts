@@ -117,6 +117,7 @@ describe('when the API refuses something (403)', () => {
     apiServer.use(http.get(INVITATIONS_PATH, refused));
     // Another admin made them an editor after the app fetched the session.
     const { router, queryClient } = await renderApp('/', { signedInAs: 'admin' });
+    expect(screen.getByRole('button', { name: 'Admin' })).toBeDefined();
     user = demoted;
 
     await router.push('/admin/invitations?sort=email#top');
@@ -124,7 +125,7 @@ describe('when the API refuses something (403)', () => {
     await screen.findByRole('heading', { level: 1, name: "You don't have access to this page" });
     expect(router.currentRoute.value.fullPath).toBe('/admin/invitations?sort=email#top');
     expect(queryClient.getQueryData(['session'])).toEqual(demoted);
-    expect(screen.queryByRole('link', { name: 'Invitations' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
     expect(asked.count).toBe(2);
   });
 
