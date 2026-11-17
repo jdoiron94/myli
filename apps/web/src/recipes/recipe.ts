@@ -1,3 +1,4 @@
+import type { Visibility } from '@myli/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { api, responseData } from '@/api/client.ts';
 import type { components } from '@/api/schema.ts';
@@ -41,3 +42,26 @@ export const useSaveRecipe = () =>
     async ({ id, body }: { id: string; body: UpdateRecipeRequest }) =>
       responseData(await api.PUT('/recipes/{id}', { params: { path: { id } }, body })).recipe,
   );
+
+/** Makes a recipe private or shared. Only its owner can. */
+export const useChangeVisibility = () =>
+  useRecipeMutation(
+    async ({ id, visibility }: { id: string; visibility: Visibility }) =>
+      responseData(
+        await api.PUT('/recipes/{id}/visibility', {
+          params: { path: { id } },
+          body: { visibility },
+        }),
+      ).recipe,
+  );
+
+/**
+ * Deletes a recipe. Its page is left before the recipe is forgotten (`removeQueries`), so nothing
+ * there loads it again meanwhile.
+ */
+export const useDeleteRecipe = () =>
+  useMutation({
+    mutationFn: async (id: string) => {
+      await api.DELETE('/recipes/{id}', { params: { path: { id } } });
+    },
+  });

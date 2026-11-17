@@ -300,4 +300,41 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(tags.getByRole('definition')).toHaveText(['American', 'wheat']);
     await checkPage(page);
   });
+
+  await test.step('the recipe is shared once asked', async () => {
+    await expect(page.getByText('Private: only you can see it')).toBeVisible();
+    await page.getByRole('button', { name: 'Share with everyone' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Share “Weeknight Bread”?' });
+    await expect(dialog).toBeVisible();
+    await checkPage(page, { popup: true });
+    await dialog.getByRole('button', { name: 'Share' }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'Shared' })).toHaveText(
+      'Shared: everyone on myli can see it now.',
+    );
+    await expect(page.getByText('Private: only you can see it')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Make private' })).toBeFocused();
+  });
+
+  await test.step('the recipe is deleted once asked, which the audit log records', async () => {
+    const address = new URL(page.url()).pathname;
+    const id = address.split('/').at(-1);
+    await page.getByRole('button', { name: 'Delete recipe' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Delete “Weeknight Bread”?' });
+    await expect(dialog).toBeVisible();
+    await checkPage(page, { popup: true });
+    await dialog.getByRole('button', { name: 'Delete recipe' }).click();
+
+    await expect(heading(page, 'Recipes')).toBeVisible();
+    await expect(page.getByRole('status')).toHaveText('Deleted “Weeknight Bread”.');
+    await checkPage(page);
+
+    const response = await page.request.get('/api/v1/audit-events?action=recipe.deleted');
+    expect(response.status()).toBe(200);
+    const { events } = (await response.json()) as { events: { target: { id: string } | null }[] };
+    expect(events.map(({ target }) => target?.id)).toEqual([id]);
+
+    await page.goto(address);
+    await expect(heading(page, 'Recipe not found')).toBeVisible();
+  });
 });
