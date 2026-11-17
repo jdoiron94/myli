@@ -15,9 +15,11 @@ import {
 } from '@/testing.ts';
 
 const URL_ = 'https://www.example.com/a/b';
-/** What the page says the ingredients contain, if anything. */
-const containsLine = () =>
-  screen.queryByText('Contains:')?.parentElement?.textContent.replace(/\s+/g, ' ').trim() ?? null;
+/** What each of the recipe's tags says, in order. */
+const tagChips = () =>
+  within(screen.getByRole('list', { name: 'Tags' }))
+    .getAllByRole('listitem')
+    .map((item) => item.textContent.replace(/\s+/g, ' ').trim());
 const heading = () => screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
 
 /** What a definition list says for each term, its definitions joined with commas. */
@@ -236,7 +238,7 @@ describe('the recipe page', () => {
     expect(screen.queryByText(/^(From|Recipe by)\b/)).toBeNull();
   });
 
-  it('shows the tags in one list, by type, and what the ingredients contain after them', async () => {
+  it('shows what a recipe contains first among its tags, then the rest by type', async () => {
     answerRecipe(
       sampleRecipe({
         tags: [
@@ -251,46 +253,33 @@ describe('the recipe page', () => {
     await renderApp('/recipes/recipe-bread');
 
     await heading();
-    expect(
-      within(screen.getByRole('list', { name: 'Tags' }))
-        .getAllByRole('listitem')
-        .map((item) => item.textContent.trim()),
-    ).toEqual(['Italian', 'Vegetarian', 'Weeknight']);
-    expect(containsLine()).toBe('Contains: milk, wheat');
-    // In the ingredients, after the last of them, as on a food label.
-    const ingredients = screen.getByRole('region', { name: 'Ingredients' });
-    const lines = within(ingredients).getAllByRole('listitem');
-    expect(lines.map((line) => line.textContent.trim())).toEqual([
-      '3 cups all-purpose flour',
-      'salt, to taste',
-    ]);
-    const contains = within(ingredients).getByText('Contains:');
-    expect(
-      lines.every(
-        (line) => line.compareDocumentPosition(contains) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ),
-    ).toBe(true);
+    expect(tagChips()).toEqual(['Contains milk, wheat', 'Italian', 'Vegetarian', 'Weeknight']);
+    const contains = screen.getByText(/^Contains /);
+    expect(contains.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('says what the ingredients contain, even when there are none yet', async () => {
-    answerRecipe(
-      sampleRecipe({ ingredientGroups: [], tags: [{ id: 2, type: 'allergen', name: 'eggs' }] }),
-    );
+  it('shows what a recipe contains when it has no other tags', async () => {
+    answerRecipe(sampleRecipe({ tags: [{ id: 2, type: 'allergen', name: 'eggs' }] }));
     await renderApp('/recipes/recipe-bread');
 
     await heading();
-    expect(screen.getByText('No ingredients yet.')).toBeDefined();
-    expect(containsLine()).toBe('Contains: eggs');
-    expect(screen.queryByRole('list', { name: 'Tags' })).toBeNull();
+    expect(tagChips()).toEqual(['Contains eggs']);
   });
 
-  it('shows neither tags nor allergens for a recipe without them', async () => {
+  it('shows the tags without saying what a recipe contains when it has no allergens', async () => {
+    answerRecipe(sampleRecipe({ tags: [{ id: 3, type: 'cuisine', name: 'Italian' }] }));
+    await renderApp('/recipes/recipe-bread');
+
+    await heading();
+    expect(tagChips()).toEqual(['Italian']);
+  });
+
+  it('shows no tags for a recipe without them', async () => {
     answerRecipe(sampleRecipe({ tags: [] }));
     await renderApp('/recipes/recipe-bread');
 
     await heading();
     expect(screen.queryByRole('list', { name: 'Tags' })).toBeNull();
-    expect(containsLine()).toBeNull();
   });
 
   it('says when a recipe is private', async () => {

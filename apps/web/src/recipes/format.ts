@@ -67,7 +67,7 @@ const SHOWN_TAG_TYPES: readonly Exclude<TagType, 'allergen'>[] = [
 ];
 
 /**
- * A recipe's tags as its page shows them: the allergens apart, since they go with the ingredients,
+ * A recipe's tags as its page shows them: the allergens apart, since they're shown together first,
  * and the rest in one list, by type.
  */
 export function shownTags(tags: readonly Tag[]): { tags: Tag[]; allergens: Tag[] } {

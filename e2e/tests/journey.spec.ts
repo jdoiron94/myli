@@ -296,11 +296,9 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       'Bake at 400°F.',
     ]);
     await expect(main.getByRole('list', { name: 'Tags' }).getByRole('listitem')).toHaveText([
+      'Contains wheat',
       'American',
     ]);
-    await expect(
-      page.getByRole('region', { name: 'Ingredients' }).getByText('Contains:').locator('..'),
-    ).toHaveText('Contains: wheat');
     await checkPage(page);
   });
 
