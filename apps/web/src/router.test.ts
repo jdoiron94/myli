@@ -21,7 +21,7 @@ describe('the router', () => {
   });
 
   it('shows a page-not-found page at any other address, with a link home', async () => {
-    const { router, user } = await renderApp('/recipes/no-such-recipe');
+    const { router, user } = await renderApp('/no-such-page');
 
     await pageHeading('Page not found');
     expect(document.title).toBe('Page not found · myli');
@@ -36,11 +36,11 @@ describe('the router', () => {
 
 describe("the router's sign-in check", () => {
   it('sends signed-out visitors to the sign-in page, to come back afterwards', async () => {
-    const { router } = await renderApp('/recipes/1?sort=newest', { signedInAs: null });
+    const { router } = await renderApp('/no-such-page/1?sort=newest', { signedInAs: null });
 
     await pageHeading('Sign in');
     expect(router.currentRoute.value.path).toBe('/login');
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/recipes/1?sort=newest' });
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/no-such-page/1?sort=newest' });
     expect(document.title).toBe('Sign in · myli');
   });
 
@@ -59,10 +59,10 @@ describe("the router's sign-in check", () => {
   });
 
   it('sends signed-in users away from the sign-in page to where they were going', async () => {
-    const { router } = await renderApp('/login?redirect=/recipes/1%3Fsort%3Dnewest');
+    const { router } = await renderApp('/login?redirect=/no-such-page/1%3Fsort%3Dnewest');
 
     await pageHeading('Page not found');
-    expect(router.currentRoute.value.fullPath).toBe('/recipes/1?sort=newest');
+    expect(router.currentRoute.value.fullPath).toBe('/no-such-page/1?sort=newest');
   });
 
   it('never sends them to another site', async () => {
@@ -82,7 +82,7 @@ describe("the router's sign-in check", () => {
     );
     const { router } = await renderApp('/');
 
-    await router.push('/recipes/1');
+    await router.push('/no-such-page/1');
     await router.push('/');
 
     expect(asked).toBe(1);
@@ -107,7 +107,7 @@ describe("when the session can't be fetched", () => {
   it('tries twice more before giving up', async () => {
     const calls = failSession(2);
 
-    await renderApp('/recipes/1');
+    await renderApp('/no-such-page/1');
 
     await pageHeading('Page not found');
     expect(calls.count).toBe(3);
@@ -115,24 +115,24 @@ describe("when the session can't be fetched", () => {
 
   it('says so, and goes on to the page once it can', async () => {
     const calls = failSession(3);
-    const { router, user } = await renderApp('/recipes/1');
+    const { router, user } = await renderApp('/no-such-page/1');
 
     await pageHeading("Can't reach myli");
     expect(router.currentRoute.value.path).toBe('/unavailable');
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/recipes/1' });
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/no-such-page/1' });
     expect(calls.count).toBe(3);
     expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     await pageHeading('Page not found');
-    expect(router.currentRoute.value.fullPath).toBe('/recipes/1');
+    expect(router.currentRoute.value.fullPath).toBe('/no-such-page/1');
     expect(screen.getByRole('button', { name: 'Account: Ada Lovelace' })).toBeDefined();
   });
 
   it('says when trying again failed too', async () => {
     const calls = failSession(6);
-    const { user } = await renderApp('/recipes/1');
+    const { user } = await renderApp('/no-such-page/1');
     await pageHeading("Can't reach myli");
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
@@ -167,7 +167,7 @@ describe('first-run setup', () => {
   }
   const needed = (value: boolean) => () => HttpResponse.json({ needed: value });
 
-  it.each(['/', '/recipes/1', '/login', '/login?redirect=/recipes/1'])(
+  it.each(['/', '/no-such-page/1', '/login', '/login?redirect=/no-such-page/1'])(
     'is the only page while no user exists, even at %s',
     async (path) => {
       const { router } = await renderApp(path, { signedInAs: null, setupNeeded: true });
@@ -199,10 +199,10 @@ describe('first-run setup', () => {
     const calls = answerSetupWith(needed(true), needed(false));
     const { router } = await renderApp('/setup', { signedInAs: null });
 
-    await router.push('/recipes/1');
+    await router.push('/no-such-page/1');
 
     await pageHeading('Sign in');
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/recipes/1' });
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/no-such-page/1' });
     expect(calls.count).toBe(2);
   });
 
@@ -210,7 +210,7 @@ describe('first-run setup', () => {
     const calls = answerSetupWith(needed(false));
     const { router } = await renderApp('/login', { signedInAs: null });
 
-    await router.push('/recipes/1');
+    await router.push('/no-such-page/1');
     await router.push('/setup');
 
     await pageHeading('Sign in');

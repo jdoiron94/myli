@@ -31,6 +31,10 @@ declare module 'vue-router' {
 
 const APP_NAME = 'myli';
 
+/** The browser tab's title for a page: its name, then the app's. */
+export const documentTitle = (pageTitle?: string) =>
+  pageTitle ? `${pageTitle} · ${APP_NAME}` : APP_NAME;
+
 // Each page is loaded when it's first visited, so the first load only fetches what it shows.
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('./pages/HomePage.vue') },
@@ -65,6 +69,14 @@ export const routes: RouteRecordRaw[] = [
     name: 'users',
     component: () => import('./pages/UsersPage.vue'),
     meta: { title: 'Users', permission: 'user.manage' },
+  },
+  {
+    // The page sets the tab's title to the recipe's once it's loaded.
+    path: '/recipes/:id',
+    name: 'recipe',
+    component: () => import('./pages/RecipePage.vue'),
+    props: true,
+    meta: { title: 'Recipe' },
   },
   {
     path: '/unavailable',
@@ -140,7 +152,7 @@ export function createAppRouter(
 
   // Every page gets its own title (WCAG 2.4.2), which is also what screen readers announce first.
   router.afterEach((to) => {
-    document.title = to.meta.title ? `${to.meta.title} · ${APP_NAME}` : APP_NAME;
+    document.title = documentTitle(to.meta.title);
   });
   return router;
 }
