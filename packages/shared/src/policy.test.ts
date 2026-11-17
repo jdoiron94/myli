@@ -31,6 +31,7 @@ const ROLE_TABLE: Record<RoleAction, RoleRow> = {
   'user.manage': { admin: '✓', editor: '–', viewer: '–' },
   'auditLog.read': { admin: '✓', editor: '–', viewer: '–' },
   'instance.export': { admin: '✓', editor: '–', viewer: '–' },
+  'search.reindex': { admin: '✓', editor: '–', viewer: '–' },
 };
 
 const RECIPES = {

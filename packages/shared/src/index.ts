@@ -102,6 +102,12 @@ export {
 } from './recipe.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
+  REBUILD_STATES,
+  type RebuildState,
+  type SearchIndexStatus,
+  searchIndexStatusSchema,
+} from './search.ts';
+export {
   type SetupRequest,
   setupRequestSchema,
   setupResultSchema,

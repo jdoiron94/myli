@@ -63,7 +63,7 @@ export function createApp({ logger, auth, db, env, search }: AppDeps) {
     auth.handler(withClientIp(c.req.raw, c.var.clientIp)),
   );
   app.use(`${API_BASE_PATH}/*`, sessionMiddleware(auth));
-  app.route(API_BASE_PATH, createV1Router({ db, auth, env }));
+  app.route(API_BASE_PATH, createV1Router({ db, auth, env, search }));
 
   return app;
 }

@@ -1314,6 +1314,47 @@
           "unitSystem"
         ]
       },
+      "SearchIndexStatus": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Whether search works right now."
+          },
+          "rebuild": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running",
+                  "retrying",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "queuedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the rebuild was asked for."
+              }
+            },
+            "required": [
+              "state",
+              "queuedAt"
+            ],
+            "description": "The latest rebuild, or null if there has been none."
+          }
+        },
+        "required": [
+          "available",
+          "rebuild"
+        ]
+      },
       "InvitationList": {
         "type": "object",
         "properties": {
@@ -2468,6 +2509,88 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PreferencesResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/index": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Show the search index",
+        "description": "Admins only. Whether search works, and how the latest rebuild of its index went.",
+        "responses": {
+          "200": {
+            "description": "The search index.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchIndexStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/index/rebuild": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Rebuild the search index",
+        "description": "Admins only. Rebuilds the index from the database in the background, then swaps it in; search keeps working meanwhile. If a rebuild is already waiting or under way, that one stands. While search is unavailable, the rebuild waits for it.",
+        "responses": {
+          "202": {
+            "description": "The search index, with the rebuild asked for.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchIndexStatus"
                 }
               }
             }
