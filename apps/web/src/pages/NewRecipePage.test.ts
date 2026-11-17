@@ -1,9 +1,9 @@
 import { VALIDATION_PROBLEM_TYPE } from '@myli/shared';
 import { screen, waitFor } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { Recipe } from '@/recipes/recipe.ts';
-import { answerRecipe, sampleRecipe } from '@/recipes/testing.ts';
+import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
@@ -50,6 +50,11 @@ async function openForm() {
   await screen.findByRole('heading', { level: 1, name: 'New recipe' });
   return app;
 }
+
+// The editor loads every tag.
+beforeEach(() => {
+  answerTags();
+});
 
 describe('the new recipe page', () => {
   it('creates a recipe from what was filled in, then opens it', async () => {

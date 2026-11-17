@@ -278,7 +278,6 @@ export const recipeFormSchema = z
       .array(stepSchema)
       .transform((steps) => steps.filter((step) => step !== null))
       .pipe(content.steps),
-    // Not in the form yet: carried over as they were, until the editor has fields for them.
     tagIds: content.tagIds,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
     visibility: visibilitySchema,

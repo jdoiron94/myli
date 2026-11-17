@@ -204,7 +204,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
   });
 });
 
-test('an admin writes a recipe, formatting its description and steps', async ({ page }) => {
+test('an admin writes a recipe, with a formatted description, steps and tags', async ({ page }) => {
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
   await signIn(page, ADMIN);
@@ -271,7 +271,17 @@ test('an admin writes a recipe, formatting its description and steps', async ({ 
     await checkPage(page);
   });
 
-  await test.step('the recipe shows the description and steps as they were written', async () => {
+  await test.step('tags are checked, and a new one added', async () => {
+    await page.getByRole('checkbox', { name: 'wheat' }).check();
+    await page.getByRole('textbox', { name: 'New cuisine' }).fill('American');
+    await page.getByRole('button', { name: 'Add cuisine' }).click();
+    const american = page.getByRole('checkbox', { name: 'American' });
+    await expect(american).toBeChecked();
+    await expect(american).toBeFocused();
+    await checkPage(page);
+  });
+
+  await test.step('the recipe shows what was written, as it was written', async () => {
     await page.getByRole('button', { name: 'Create recipe' }).click();
 
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
@@ -285,6 +295,9 @@ test('an admin writes a recipe, formatting its description and steps', async ({ 
       'Mix everything.',
       'Bake at 400°F.',
     ]);
+    const tags = main.locator('dl').filter({ has: page.getByRole('term').getByText('Cuisine') });
+    await expect(tags.getByRole('term')).toHaveText(['Cuisine', 'Contains']);
+    await expect(tags.getByRole('definition')).toHaveText(['American', 'wheat']);
     await checkPage(page);
   });
 });

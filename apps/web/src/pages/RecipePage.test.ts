@@ -4,7 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
-import { answerRecipe, sampleRecipe } from '@/recipes/testing.ts';
+import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
@@ -267,6 +267,7 @@ describe('the recipe page', () => {
     ["someone else's shared recipe", 'editor', testUsers.admin],
   ] as const)('links editors to editing %s', async (_, role, owner) => {
     answerRecipe(sampleRecipe({ owner: { id: owner.id, name: owner.name } }));
+    answerTags();
     const { router, user } = await renderApp('/recipes/recipe-bread', { signedInAs: role });
     await heading();
     await screen.findByRole('radio', { name: 'US customary' });
@@ -275,6 +276,7 @@ describe('the recipe page', () => {
 
     await screen.findByRole('textbox', { name: 'Title' });
     expect(router.currentRoute.value.fullPath).toBe('/recipes/recipe-bread/edit');
+    await screen.findByRole('checkbox', { name: 'Italian' });
   });
 
   it("doesn't offer viewers to edit", async () => {

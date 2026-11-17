@@ -1,7 +1,8 @@
+import { ALLERGENS } from '@myli/shared';
 import { HttpResponse, http } from 'msw';
 import { answerPreferences } from '@/account/testing.ts';
 import { apiServer, problemResponse, testUsers } from '@/testing.ts';
-import type { Recipe } from './recipe.ts';
+import type { Recipe, Tag } from './recipe.ts';
 
 /** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
 export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
@@ -79,4 +80,19 @@ export function answerRecipe(recipe: Recipe) {
     }),
   );
   return requests;
+}
+
+/** The tags of an instance, as GET /tags lists them: by type, then name. */
+export const sampleTags = (): Tag[] => [
+  { id: 20, type: 'cuisine', name: 'Italian' },
+  { id: 21, type: 'cuisine', name: 'Mexican' },
+  { id: 30, type: 'meal_type', name: 'Dinner' },
+  { id: 40, type: 'diet', name: 'Vegetarian' },
+  ...ALLERGENS.map((name, index) => ({ id: index + 1, type: 'allergen' as const, name })),
+  { id: 50, type: 'custom', name: 'Weeknight' },
+];
+
+/** Answers GET /tags, which the recipe editor loads, with these tags. */
+export function answerTags(tags: Tag[] = sampleTags()) {
+  apiServer.use(http.get('/api/v1/tags', () => HttpResponse.json({ tags })));
 }

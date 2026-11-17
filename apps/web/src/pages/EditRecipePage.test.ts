@@ -1,10 +1,10 @@
 import { AUTH_BASE_PATH, type User } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import type { Recipe } from '@/recipes/recipe.ts';
-import { answerRecipe, sampleRecipe } from '@/recipes/testing.ts';
+import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
@@ -51,6 +51,11 @@ async function openEditor(path = '/recipes/recipe-bread/edit', role?: User['role
   await screen.findByRole('textbox', { name: 'Title' });
   return app;
 }
+
+// The editor loads every tag.
+beforeEach(() => {
+  answerTags();
+});
 
 describe('the edit recipe page', () => {
   it('fills the form in with the recipe as it is', async () => {

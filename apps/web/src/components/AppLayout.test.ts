@@ -2,6 +2,7 @@ import { AUTH_BASE_PATH } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { answerTags } from '../recipes/testing.ts';
 import { accessibilityViolations, apiServer, renderApp, testUsers } from '../testing.ts';
 
 describe('the layout', () => {
@@ -170,6 +171,7 @@ describe('the main navigation', () => {
   });
 
   it('links editors to a new recipe only', async () => {
+    answerTags();
     const { router, user } = await renderApp('/');
     const nav = screen.getByRole('navigation', { name: 'Main' });
     expect(
@@ -182,6 +184,7 @@ describe('the main navigation', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'New recipe' });
     expect(router.currentRoute.value.fullPath).toBe('/recipes/new');
+    await screen.findByRole('checkbox', { name: 'Italian' });
   });
 
   it.each([
