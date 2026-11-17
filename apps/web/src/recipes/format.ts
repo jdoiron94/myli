@@ -41,6 +41,11 @@ export function showLine(
   return { amount, name: line.name, note: line.note };
 }
 
+export const UNIT_SYSTEM_LABELS: Readonly<Record<UnitSystem, string>> = {
+  imperial: 'US customary',
+  metric: 'Metric',
+};
+
 export const DIFFICULTY_LABELS: Readonly<Record<Difficulty, string>> = {
   easy: 'Easy',
   medium: 'Medium',

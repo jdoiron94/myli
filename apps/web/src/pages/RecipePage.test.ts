@@ -1,12 +1,24 @@
+import { displayAmount, formatAmount } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { answerPreferences } from '@/account/testing.ts';
 import type { Recipe } from '@/recipes/recipe.ts';
 import { sampleRecipe } from '@/recipes/testing.ts';
-import { accessibilityViolations, apiServer, problemResponse, renderApp } from '@/testing.ts';
+import {
+  accessibilityViolations,
+  apiServer,
+  describedBy,
+  problemResponse,
+  renderApp,
+} from '@/testing.ts';
 
-/** Answers GET /recipes/{id} with this recipe, and counts the requests. */
+/**
+ * Answers GET /recipes/{id} with this recipe, and counts the requests. Also answers the reader's
+ * preferences with imperial, unless the test answers them itself afterwards.
+ */
 function answerRecipe(recipe: Recipe) {
+  answerPreferences();
   const requests: string[] = [];
   apiServer.use(
     http.get('/api/v1/recipes/:id', ({ params }) => {
@@ -281,6 +293,7 @@ describe('the recipe page', () => {
   });
 
   it('offers to try again when the recipe couldn’t be loaded', async () => {
+    answerPreferences();
     let fail = true;
     apiServer.use(
       http.get('/api/v1/recipes/:id', () =>
@@ -325,5 +338,241 @@ describe('the recipe page', () => {
 
     await heading();
     expect(await accessibilityViolations()).toEqual([]);
+  });
+});
+
+describe('scaling a recipe', () => {
+  const ingredients = () =>
+    within(screen.getByRole('region', { name: 'Ingredients' }))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent.trim());
+  const servingsField = () => screen.getByRole('textbox', { name: 'Servings' });
+  const status = () => screen.getByRole('status');
+
+  it('scales the amounts to the servings typed in, and back', async () => {
+    answerRecipe(sampleRecipe());
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+    expect(servingsField()).toHaveProperty('value', '8');
+    expect(status().textContent.trim()).toBe('');
+
+    await user.clear(servingsField());
+    await user.type(servingsField(), '16');
+
+    // 6 cups: moved up to the largest unit where it's a fraction cooks use.
+    expect(ingredients()).toEqual(['1½ quarts all-purpose flour', 'salt, to taste']);
+    expect(status().textContent.replace(/\s+/g, ' ').trim()).toBe(
+      "Amounts for 16 servings, scaled from the recipe's 8.",
+    );
+    // The recipe's own facts don't change.
+    expect(
+      screen.getByText('Servings', { selector: 'dt' }).nextElementSibling?.textContent.trim(),
+    ).toBe('8');
+
+    await user.click(screen.getByRole('button', { name: 'Back to 8 servings' }));
+
+    expect(ingredients()).toEqual(['3 cups all-purpose flour', 'salt, to taste']);
+    expect(servingsField()).toHaveProperty('value', '8');
+    expect(document.activeElement).toBe(servingsField());
+    expect(screen.queryByRole('button', { name: /^Back to/ })).toBeNull();
+    expect(status().textContent.trim()).toBe('');
+  });
+
+  it('steps one serving at a time, as fractions cooks use', async () => {
+    answerRecipe(sampleRecipe());
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    for (let i = 0; i < 4; i++)
+      await user.click(screen.getByRole('button', { name: 'Fewer servings' }));
+
+    expect(servingsField()).toHaveProperty('value', '4');
+    expect(ingredients()).toEqual(['1½ cups all-purpose flour', 'salt, to taste']);
+    expect(status().textContent).toContain('Amounts for 4 servings');
+  });
+
+  it('stops at one serving, keeping focus on the button', async () => {
+    answerRecipe(sampleRecipe({ servings: 2 }));
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+    const fewer = screen.getByRole('button', { name: 'Fewer servings' });
+
+    await user.click(fewer);
+    expect(fewer.getAttribute('aria-disabled')).toBe('true');
+    await user.click(fewer);
+
+    expect(servingsField()).toHaveProperty('value', '1');
+    expect(status().textContent).toContain('Amounts for 1 serving,');
+    expect(document.activeElement).toBe(fewer);
+  });
+
+  it('stops at the most servings a recipe can have', async () => {
+    answerRecipe(sampleRecipe({ servings: 1000 }));
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+    const more = screen.getByRole('button', { name: 'More servings' });
+    expect(more.getAttribute('aria-disabled')).toBe('true');
+
+    await user.click(more);
+    expect(servingsField()).toHaveProperty('value', '1000');
+  });
+
+  // Whole numbers apply as they're typed, so "2.5" applies 2 on the way. Leaving the field shows the
+  // number that applies.
+  it.each([
+    ['0', '8'],
+    ['two', '8'],
+    ['', '8'],
+    ['2.5', '2'],
+    ['1001', '100'],
+  ])('says what’s wrong with %j, and leaves %s applied', async (typed, kept) => {
+    answerRecipe(sampleRecipe());
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    await user.clear(servingsField());
+    if (typed) await user.type(servingsField(), typed);
+
+    expect(servingsField().getAttribute('aria-invalid')).toBe('true');
+    expect(describedBy(servingsField())).toEqual(['Enter a whole number from 1 to 1000.']);
+
+    await user.tab();
+    expect(servingsField()).toHaveProperty('value', kept);
+    expect(servingsField().getAttribute('aria-invalid')).toBeNull();
+    if (kept === '8') expect(ingredients()).toEqual(['3 cups all-purpose flour', 'salt, to taste']);
+  });
+
+  it('starts each recipe at its own servings', async () => {
+    answerRecipe(sampleRecipe());
+    const { router, user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+    await user.click(screen.getByRole('button', { name: 'More servings' }));
+    expect(servingsField()).toHaveProperty('value', '9');
+
+    apiServer.use(
+      http.get('/api/v1/recipes/recipe-rolls', () =>
+        HttpResponse.json({
+          recipe: sampleRecipe({ id: 'recipe-rolls', title: 'Rolls', servings: 12 }),
+        }),
+      ),
+    );
+    await router.push('/recipes/recipe-rolls');
+
+    await screen.findByRole('heading', { level: 1, name: 'Rolls' });
+    expect(servingsField()).toHaveProperty('value', '12');
+    expect(status().textContent.trim()).toBe('');
+  });
+
+  it('has no accessibility violations while scaled', async () => {
+    answerRecipe(sampleRecipe());
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+    await user.click(screen.getByRole('button', { name: 'More servings' }));
+
+    expect(await accessibilityViolations()).toEqual([]);
+  });
+});
+
+describe('the reader’s units', () => {
+  const ingredients = () =>
+    within(screen.getByRole('region', { name: 'Ingredients' }))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent.trim());
+  const inMetric = formatAmount(
+    displayAmount(
+      { qty: 3, qtyMax: null, unit: 'cup' },
+      { system: 'metric', factor: 1, scalable: true },
+    ),
+  );
+
+  it('shows amounts in the unit system the reader saved', async () => {
+    answerRecipe(sampleRecipe());
+    answerPreferences('metric');
+    await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    expect(
+      (await screen.findByRole('radio', { name: 'Metric' })).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(ingredients()[0]).toBe(`${inMetric} all-purpose flour`);
+  });
+
+  it('saves a new choice, showing it at once', async () => {
+    answerRecipe(sampleRecipe());
+    const saved: unknown[] = [];
+    let answer: (() => void) | undefined;
+    apiServer.use(
+      http.put('/api/v1/me/preferences', async ({ request }) => {
+        const body = await request.json();
+        saved.push(body);
+        await new Promise<void>((resolve) => {
+          answer = resolve;
+        });
+        return HttpResponse.json({ preferences: body });
+      }),
+    );
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    await user.click(await screen.findByRole('radio', { name: 'Metric' }));
+
+    // Shown while it's saved...
+    await waitFor(() => {
+      expect(saved).toEqual([{ unitSystem: 'metric' }]);
+    });
+    expect(ingredients()[0]).toBe(`${inMetric} all-purpose flour`);
+    answer?.();
+    // ...and after.
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Metric' }).getAttribute('aria-checked')).toBe(
+        'true',
+      );
+    });
+    expect(ingredients()[0]).toBe(`${inMetric} all-purpose flour`);
+  });
+
+  it('goes back to the saved choice, and says why, when saving fails', async () => {
+    answerRecipe(sampleRecipe());
+    apiServer.use(
+      http.put('/api/v1/me/preferences', () => problemResponse(503, 'Something went wrong.')),
+    );
+    const { user } = await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    await user.click(await screen.findByRole('radio', { name: 'Metric' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain("Your choice of units couldn't be saved.");
+    expect(ingredients()[0]).toBe('3 cups all-purpose flour');
+    expect(screen.getByRole('radio', { name: 'US customary' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+
+  it('waits for the saved choice before showing amounts, so they don’t change under the reader', async () => {
+    answerRecipe(sampleRecipe());
+    let answer: (() => void) | undefined;
+    apiServer.use(
+      http.get('/api/v1/me/preferences', async () => {
+        await new Promise<void>((resolve) => {
+          answer = resolve;
+        });
+        return HttpResponse.json({ preferences: { unitSystem: 'metric' } });
+      }),
+    );
+    await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    const region = screen.getByRole('region', { name: 'Ingredients' });
+    expect(within(region).queryAllByRole('listitem')).toEqual([]);
+    expect(within(region).queryAllByRole('radio')).toEqual([]);
+    await waitFor(() => {
+      expect(answer).toBeDefined();
+    });
+    answer?.();
+
+    await waitFor(() => {
+      expect(ingredients()[0]).toBe(`${inMetric} all-purpose flour`);
+    });
   });
 });

@@ -204,7 +204,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - Headings in someone's markdown sit below the page's own: a `#` in a step never becomes the page's main heading.
 
 **Scaling**
-- Choosing a different serving count scales every scalable quantity by `new / baseline`.
+- Choosing a different serving count scales every scalable quantity by `new / baseline`. A recipe always opens at its own servings: the count chosen isn't saved.
 - **Display rules:**
   - show common fractions (⅛, ¼, ⅓, ½, ⅔, ¾) instead of decimals
   - round to sensible precision for the unit

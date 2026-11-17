@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { DEFAULT_UNIT_SYSTEM, recipeTotalMinutes } from '@myli/shared';
+import { recipeTotalMinutes, scaleFactor } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
-import { computed, watchEffect } from 'vue';
+import { computed, nextTick, ref, useTemplateRef, watch, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
+import { useUnitSystem } from '@/account/preferences.ts';
+import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import MarkdownContent from '@/components/MarkdownContent.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DIFFICULTY_LABELS,
   formatMinutes,
@@ -18,6 +21,8 @@ import {
 } from '@/recipes/format.ts';
 import IngredientList from '@/recipes/IngredientList.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
+import ServingsControl from '@/recipes/ServingsControl.vue';
+import UnitSystemChoice from '@/recipes/UnitSystemChoice.vue';
 import { documentTitle } from '@/router.ts';
 
 const props = defineProps<{ id: string }>();
@@ -45,6 +50,39 @@ watchEffect(() => {
     document.title = documentTitle(heading.value);
   }
 });
+
+// Scaling changes only what's shown (spec §3.2). It starts at the recipe's own servings, and again
+// for each recipe.
+const chosenServings = ref<number>();
+watch(
+  () => props.id,
+  () => {
+    chosenServings.value = undefined;
+  },
+);
+const servings = computed({
+  get: () => chosenServings.value ?? recipe.value?.servings ?? 1,
+  set: (value: number) => {
+    chosenServings.value = value;
+  },
+});
+const scaled = computed(
+  () => recipe.value !== undefined && servings.value !== recipe.value.servings,
+);
+const factor = computed(() =>
+  recipe.value ? scaleFactor(recipe.value.servings, servings.value) : 1,
+);
+const servingsText = (count: number) => `${String(count)} ${count === 1 ? 'serving' : 'servings'}`;
+
+const servingsControl = useTemplateRef('servingsControl');
+/** Back to the recipe's own servings. The button goes, so focus goes to the number instead. */
+async function unscale() {
+  chosenServings.value = undefined;
+  await nextTick();
+  servingsControl.value?.focus();
+}
+
+const units = useUnitSystem();
 
 const updatedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 
@@ -186,12 +224,53 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
             >
               Ingredients
             </h2>
-            <IngredientList
-              v-if="recipe.ingredientGroups.length > 0"
-              :groups="recipe.ingredientGroups"
-              :system="DEFAULT_UNIT_SYSTEM"
-              :factor="1"
-            />
+            <template v-if="recipe.ingredientGroups.length > 0">
+              <div class="mb-4">
+                <ServingsControl
+                  ref="servingsControl"
+                  v-model="servings"
+                />
+                <UnitSystemChoice
+                  v-if="units.ready.value"
+                  class="mt-3"
+                  :model-value="units.system.value"
+                  @update:model-value="units.choose"
+                />
+                <!-- Always there, so screen readers announce what it says as it changes: hiding it while
+                     empty would stop that, so it only loses its margin. -->
+                <p
+                  role="status"
+                  class="text-sm text-muted-foreground not-empty:mt-3"
+                >
+                  <template v-if="scaled">
+                    Amounts for {{ servingsText(servings) }}, scaled from the recipe's
+                    {{ recipe.servings }}.
+                  </template>
+                </p>
+                <Button
+                  v-if="scaled"
+                  variant="outline"
+                  size="sm"
+                  class="mt-2"
+                  @click="unscale"
+                >
+                  Back to {{ servingsText(recipe.servings) }}
+                </Button>
+                <p
+                  v-if="units.failure.value"
+                  role="alert"
+                  class="mt-3 text-sm text-destructive"
+                >
+                  Your choice of units couldn't be saved. {{ failureMessage(units.failure.value) }}
+                </p>
+              </div>
+              <IngredientList
+                v-if="units.ready.value"
+                :groups="recipe.ingredientGroups"
+                :system="units.system.value"
+                :factor="factor"
+              />
+            </template>
             <p
               v-else
               class="text-muted-foreground"
