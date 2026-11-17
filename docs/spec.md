@@ -403,7 +403,8 @@ Search is served by Meilisearch through the API (§4).
   - The API uses a scoped key limited to the actions it needs. The master key is used only to create that key.
 - **Reindexing:**
   - an admin action and a CLI command build a fresh index and swap it in atomically
-  - on startup, the API reindexes if the index is missing or empty
+  - it runs as a background job, one at a time with the index updates, so no update is lost in the swap
+  - each time search is set up (on startup, and again after Meilisearch lost its data), the API reindexes if the index is missing or empty while SQLite has recipes
 - **Degraded mode.**
   - The API starts without Meilisearch and keeps trying to set it up in the background: its key, the index and the index settings. If Meilisearch loses its data, the API sets them up again.
   - `/readyz` reports whether SQLite and Meilisearch are available: `200`, or `503` with `application/problem+json` naming what isn't. `/healthz` only reports that the process is up.

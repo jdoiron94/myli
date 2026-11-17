@@ -8,6 +8,7 @@ import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
 import type { Mailer } from './mail/mailer.ts';
 import { checkSmtpServer, createSmtpMailer, smtpConfigFrom } from './mail/smtp.ts';
+import { queueReindexIfEmpty } from './search/reindex.ts';
 import { createSearchService } from './search/service.ts';
 import { setUpSearch } from './search/setup.ts';
 import { seedFirstAdmin } from './setup/seed.ts';
@@ -53,8 +54,13 @@ if (smtp) {
 }
 
 // Search is set up in the background: everything else works while Meilisearch is unavailable.
+// Each time, an empty index is rebuilt from SQLite, as after Meilisearch lost its data.
 const search = createSearchService({
-  setUp: () => setUpSearch({ url: env.MEILI_URL, masterKey: env.MEILI_MASTER_KEY }),
+  setUp: async () => {
+    const client = await setUpSearch({ url: env.MEILI_URL, masterKey: env.MEILI_MASTER_KEY });
+    await queueReindexIfEmpty(db, client, logger);
+    return client;
+  },
   logger,
 });
 search.start();
