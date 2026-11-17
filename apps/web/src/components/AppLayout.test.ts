@@ -124,23 +124,9 @@ describe('the account menu', () => {
 });
 
 describe('the main navigation', () => {
-  it('links admins to the invitations, marking the link of the page they are on', async () => {
-    apiServer.use(http.get('/api/v1/invitations', () => HttpResponse.json({ invitations: [] })));
-    const { router, user } = await renderApp('/', { signedInAs: 'admin' });
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    const link = within(nav).getByRole('link', { name: 'Invitations' });
-    expect(link.getAttribute('aria-current')).toBeNull();
-
-    await user.click(link);
-
-    await screen.findByText('No open invitations.');
-    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations');
-    expect(link.getAttribute('aria-current')).toBe('page');
-    expect(await accessibilityViolations()).toEqual([]);
-  });
-
-  it('links admins to a new recipe, the invitations and the users', async () => {
+  const answerAdminPages = () => {
     apiServer.use(
+      http.get('/api/v1/invitations', () => HttpResponse.json({ invitations: [] })),
       http.get('/api/v1/users', () =>
         HttpResponse.json({
           users: [
@@ -149,59 +135,111 @@ describe('the main navigation', () => {
         }),
       ),
     );
-    const { router, user } = await renderApp('/', { signedInAs: 'admin' });
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    const links = within(nav).getAllByRole('link');
-    expect(links.map((link) => link.textContent.trim())).toEqual([
-      'New recipe',
-      'Invitations',
-      'Users',
-    ]);
+  };
+  const nav = () => screen.getByRole('navigation', { name: 'Main' });
+  const adminButton = () => within(nav()).getByRole('button', { name: 'Admin' });
+  const iconOf = (element: Element) => {
+    const icon = element.querySelector('svg');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    return icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1];
+  };
 
-    await user.click(within(nav).getByRole('link', { name: 'Users' }));
-
-    await screen.findByText(testUsers.admin.email);
-    expect(router.currentRoute.value.fullPath).toBe('/admin/users');
-    expect(within(nav).getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe(
-      'page',
-    );
+  it('links admins to a new recipe, and gathers the admin pages in one menu', async () => {
+    const { user } = await renderApp('/', { signedInAs: 'admin' });
     expect(
-      within(nav).getByRole('link', { name: 'Invitations' }).getAttribute('aria-current'),
-    ).toBeNull();
-  });
-
-  it('marks each link with an icon, hidden from screen readers, which read the page’s name', async () => {
-    await renderApp('/', { signedInAs: 'admin' });
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-
-    const shown = within(nav)
-      .getAllByRole('link')
-      .map((link) => {
-        const icon = link.querySelector('svg');
-        expect(icon?.getAttribute('aria-hidden')).toBe('true');
-        return [
-          link.textContent.trim(),
-          icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1],
-        ];
-      });
-    expect(shown).toEqual([
-      ['New recipe', 'plus'],
-      ['Invitations', 'mail'],
-      ['Users', 'user-cog'],
-    ]);
-  });
-
-  it('links editors to a new recipe only', async () => {
-    answerTags();
-    const { router, user } = await renderApp('/');
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    expect(
-      within(nav)
+      within(nav())
         .getAllByRole('link')
         .map((link) => link.textContent.trim()),
     ).toEqual(['New recipe']);
 
-    await user.click(within(nav).getByRole('link', { name: 'New recipe' }));
+    await user.click(adminButton());
+
+    const items = within(await screen.findByRole('menu')).getAllByRole('menuitem');
+    expect(items.map((item) => [item.textContent.trim(), iconOf(item)])).toEqual([
+      ['Invitations', 'mail'],
+      ['Users', 'user-cog'],
+    ]);
+    // See the theme menu's test for `region`.
+    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
+  });
+
+  it('goes to the page picked, focusing its heading, and marks it as the current one', async () => {
+    answerAdminPages();
+    const { router, user } = await renderApp('/', { signedInAs: 'admin' });
+    expect(adminButton().hasAttribute('data-current')).toBe(false);
+
+    await user.click(adminButton());
+    await user.click(await screen.findByRole('menuitem', { name: 'Invitations' }));
+
+    await screen.findByText('No open invitations.');
+    expect(router.currentRoute.value.fullPath).toBe('/admin/invitations');
+    const heading = screen.getByRole('heading', { level: 1, name: 'Invitations' });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(heading);
+    });
+    expect(adminButton().hasAttribute('data-current')).toBe(true);
+
+    await user.click(adminButton());
+    const current = await screen.findByRole('menuitem', { name: 'Invitations' });
+    expect(current.getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('menuitem', { name: 'Users' }).getAttribute('aria-current')).toBeNull();
+    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
+  });
+
+  it('works from the keyboard, and leaves focus on the button when the page picked is this one', async () => {
+    answerAdminPages();
+    const { router, user } = await renderApp('/', { signedInAs: 'admin' });
+
+    adminButton().focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menu');
+    await user.keyboard('{ArrowDown}{Enter}');
+
+    await screen.findByText(testUsers.admin.email);
+    expect(router.currentRoute.value.fullPath).toBe('/admin/users');
+    const heading = screen.getByRole('heading', { level: 1, name: 'Users' });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(heading);
+    });
+
+    adminButton().focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menu');
+    await user.keyboard('{ArrowDown}{Enter}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(adminButton());
+    });
+  });
+
+  it('marks each link with an icon, hidden from screen readers, which read the page’s name', async () => {
+    await renderApp('/', { signedInAs: 'admin' });
+
+    expect(
+      [...within(nav()).getAllByRole('link'), adminButton()].map((element) => [
+        element.textContent.trim(),
+        iconOf(element),
+      ]),
+    ).toEqual([
+      ['New recipe', 'plus'],
+      ['Admin', 'shield'],
+    ]);
+  });
+
+  it('links editors to a new recipe only, with no admin menu', async () => {
+    answerTags();
+    const { router, user } = await renderApp('/');
+    expect(
+      within(nav())
+        .getAllByRole('link')
+        .map((link) => link.textContent.trim()),
+    ).toEqual(['New recipe']);
+    expect(within(nav()).queryByRole('button')).toBeNull();
+
+    await user.click(within(nav()).getByRole('link', { name: 'New recipe' }));
 
     await screen.findByRole('heading', { level: 1, name: 'New recipe' });
     expect(router.currentRoute.value.fullPath).toBe('/recipes/new');
@@ -216,7 +254,6 @@ describe('the main navigation', () => {
 
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'New recipe' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Invitations' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
   });
 });

@@ -2,27 +2,37 @@
 import { MailIcon, PlusIcon, UserCogIcon } from '@lucide/vue';
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
-import { computed, nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
+import { type Component, computed, nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
 import { RouterLink, RouterView, START_LOCATION, useRouter } from 'vue-router';
 import { sessionQuery, useSignOut } from '@/auth/session.ts';
 import AccountMenu from './AccountMenu.vue';
+import AdminMenu from './AdminMenu.vue';
 import ThemeMenu from './ThemeMenu.vue';
 
 const main = useTemplateRef('main');
 const router = useRouter();
 const { data: signedInUser } = useQuery(sessionQuery);
 const signOut = useSignOut();
-/** The pages in the header, with their icons, each linked only for someone whose role allows it. */
-const NAV_PAGES = [
-  { name: 'new-recipe', icon: PlusIcon },
+/**
+ * The pages in the header, with their icons: links, then the admin pages in one menu. Each shows
+ * only for someone whose role allows its `meta.permission`.
+ */
+const NAV_PAGES = [{ name: 'new-recipe', icon: PlusIcon }] as const;
+const ADMIN_PAGES = [
   { name: 'invitations', icon: MailIcon },
   { name: 'users', icon: UserCogIcon },
 ] as const;
-const navLinks = computed(() =>
-  NAV_PAGES.map(({ name, icon }) => ({ icon, route: router.resolve({ name }) })).filter(
-    ({ route }) => !route.meta.permission || can(signedInUser.value ?? null, route.meta.permission),
-  ),
-);
+
+function allowed(pages: readonly { name: string; icon: Component }[]) {
+  return pages
+    .map(({ name, icon }) => ({ icon, route: router.resolve({ name }) }))
+    .filter(
+      ({ route }) =>
+        !route.meta.permission || can(signedInUser.value ?? null, route.meta.permission),
+    );
+}
+const navLinks = computed(() => allowed(NAV_PAGES));
+const adminLinks = computed(() => allowed(ADMIN_PAGES));
 
 function focusMain() {
   main.value?.focus();
@@ -68,7 +78,7 @@ onBeforeUnmount(stopForgetting);
           myli
         </RouterLink>
         <nav
-          v-if="signedInUser && navLinks.length > 0"
+          v-if="signedInUser && navLinks.length + adminLinks.length > 0"
           aria-label="Main"
           class="flex gap-1 sm:gap-4"
         >
@@ -87,6 +97,10 @@ onBeforeUnmount(stopForgetting);
             />
             <span class="sr-only sm:not-sr-only">{{ link.route.meta.title }}</span>
           </RouterLink>
+          <AdminMenu
+            v-if="adminLinks.length > 0"
+            :pages="adminLinks"
+          />
         </nav>
       </div>
       <!-- min-w-0: on a narrow screen, the account button's name is cut short rather than the header

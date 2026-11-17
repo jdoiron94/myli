@@ -20,6 +20,15 @@ const heading = (page: Page, name: string) => page.getByRole('heading', { level:
 // `exact`, so "Show password" doesn't match too.
 const passwordField = (page: Page) => page.getByLabel('Password', { exact: true });
 
+const adminMenuButton = (page: Page) =>
+  page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Admin' });
+
+/** Opens an admin page from the header's Admin menu. */
+async function openAdminPage(page: Page, name: string) {
+  await adminMenuButton(page).click();
+  await page.getByRole('menuitem', { name }).click();
+}
+
 async function signIn(page: Page, { email, password }: { email: string; password: string }) {
   await expect(heading(page, 'Sign in')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue(email);
@@ -72,11 +81,12 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
   let link = '';
   await test.step('the admin invites someone as an admin, and gets the link to share', async () => {
-    await page
-      .getByRole('navigation', { name: 'Main' })
-      .getByRole('link', { name: 'Invitations' })
-      .click();
+    await adminMenuButton(page).click();
+    await expect(page.getByRole('menuitem', { name: 'Invitations' })).toBeVisible();
+    await checkPage(page, { popup: true });
+    await page.getByRole('menuitem', { name: 'Invitations' }).click();
     await expect(heading(page, 'Invitations')).toBeVisible();
+    await expect(heading(page, 'Invitations')).toBeFocused();
     await expect(page.getByText('No open invitations.')).toBeVisible();
     await checkPage(page);
 
@@ -120,10 +130,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
   });
 
   await test.step('the admin sees them on the Users page', async () => {
-    await page
-      .getByRole('navigation', { name: 'Main' })
-      .getByRole('link', { name: 'Users' })
-      .click();
+    await openAdminPage(page, 'Users');
 
     await expect(heading(page, 'Users')).toBeVisible();
     await expect(page.getByRole('table', { name: 'Users' })).toContainText(MEMBER.email);
@@ -132,10 +139,7 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
   await test.step('deactivating them signs them out everywhere', async () => {
     // They're on the Users page too, as an admin.
-    await member
-      .getByRole('navigation', { name: 'Main' })
-      .getByRole('link', { name: 'Users' })
-      .click();
+    await openAdminPage(member, 'Users');
     await expect(member.getByRole('table', { name: 'Users' })).toBeVisible();
 
     await page.getByRole('button', { name: `Deactivate ${MEMBER.name}` }).click();
@@ -189,10 +193,11 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
     await expect(heading(member, "You don't have access to this page")).toBeVisible();
     await expect(member).toHaveURL('/admin/users');
-    // An editor's header links only to a new recipe.
+    // An editor's header links only to a new recipe, with no Admin menu.
     await expect(member.getByRole('navigation', { name: 'Main' }).getByRole('link')).toHaveText([
       'New recipe',
     ]);
+    await expect(adminMenuButton(member)).toHaveCount(0);
     await checkPage(member);
   });
 
