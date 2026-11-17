@@ -40,7 +40,8 @@ export async function ensureApiKey(
   return (await master.createKey(API_KEY)).key;
 }
 
-function succeeded(task: Task, what: string, allowedError?: string) {
+/** Throws unless Meilisearch did what the task asked (or failed with `allowedError`). */
+export function succeeded(task: Task, what: string, allowedError?: string) {
   if (task.status === 'succeeded') return;
   if (task.status === 'failed' && task.error?.code === allowedError) return;
   throw new Error(`Meilisearch could not ${what}: ${task.error?.message ?? task.status}`);
