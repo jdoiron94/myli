@@ -43,8 +43,45 @@ async function settle(page: Page) {
 }
 
 /**
+ * What can be clicked but doesn't show the pointer: enabled buttons, radios and checkboxes among
+ * them, and the labels that toggle those, as they're shown (only in the popup, if one is open).
+ */
+function withoutPointer(page: Page, popup: boolean) {
+  return page.evaluate(
+    ({ popup, popups }) => {
+      const root = popup ? document.querySelector(popups) : document;
+      if (!root) return ['(no popup)'];
+      const enabled = (element: Element | null) =>
+        element !== null &&
+        !element.matches(':disabled') &&
+        element.getAttribute('aria-disabled') !== 'true';
+      const clickable = [
+        ...[...root.querySelectorAll('button, [role="button"]')].filter(enabled),
+        ...[...root.querySelectorAll('label[for]')].filter((label) => {
+          const control = document.getElementById(label.getAttribute('for') ?? '');
+          return (
+            control?.matches('button:is([role="checkbox"], [role="radio"])') === true &&
+            enabled(control)
+          );
+        }),
+      ];
+      return clickable
+        .filter(
+          (element) => element.checkVisibility() && getComputedStyle(element).cursor !== 'pointer',
+        )
+        .map(
+          (element) =>
+            `${element.tagName.toLowerCase()} “${element.getAttribute('aria-label') ?? element.textContent.trim()}”`,
+        );
+    },
+    { popup, popups: POPUPS },
+  );
+}
+
+/**
  * Checks the page as it is now with axe (in Chromium), in the light and dark themes, color contrast
  * included (which jsdom can't measure), and at a phone's width, where it mustn't scroll sideways.
+ * Everything that can be clicked must show the pointer, too.
  *
  * With a dialog or menu open, pass `popup: true` to check only that, having checked the page with
  * it closed. While it's open, reka-ui hides the rest of the page from assistive technology
@@ -59,6 +96,9 @@ export async function checkPage(page: Page, { popup = false }: { popup?: boolean
       await setScheme(page, scheme);
       expect(await violations(page, popup), `axe, ${scheme} theme`).toEqual([]);
     }
+    expect(await withoutPointer(page, popup), 'what can be clicked without the pointer').toEqual(
+      [],
+    );
     await page.setViewportSize(PHONE);
     await setScheme(page, 'light');
     const overflow = await page.evaluate(
