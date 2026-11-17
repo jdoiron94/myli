@@ -11,7 +11,7 @@ import type { Env } from './env.ts';
 import type { Logger } from './logger.ts';
 import { onError, onNotFound, problemResponse } from './problems.ts';
 import { requestLogging } from './request-logging.ts';
-import type { SearchService } from './search/service.ts';
+import type { SearchAccess } from './search/service.ts';
 import { type AppSettings, createV1Router } from './v1.ts';
 
 export interface AppDeps {
@@ -19,7 +19,7 @@ export interface AppDeps {
   auth: Auth;
   db: Db;
   env: AppSettings & Pick<Env, 'TRUSTED_PROXIES'>;
-  search: Pick<SearchService, 'isReady'>;
+  search: SearchAccess;
 }
 
 /**

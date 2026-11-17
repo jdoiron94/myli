@@ -316,10 +316,13 @@ Search is served by Meilisearch through the API (§4).
 
 | Filter | Behavior |
 |---|---|
-| Cuisine, meal type, diet, custom tags | Include or exclude |
+| Cuisine, meal type | Include any of, or exclude |
+| Diet, custom tags | Include all of, or exclude |
 | Allergens | Exclude only ("contains none of") |
 | Difficulty | One or more of easy, medium, hard |
-| Total time | Numeric range in minutes |
+| Total time | Numeric range in minutes. Recipes without a total time match no range. |
+
+Different filters all apply. Excluding values leaves out recipes with any of them.
 
 **Sorting**
 
@@ -328,12 +331,13 @@ Search is served by Meilisearch through the API (§4).
 | Relevance | Default when there's a search query |
 | Rating | Bayesian average, recomputed when a rating changes |
 | Recently added | Date first published |
-| Total time | Ascending or descending |
+| Total time | Ascending or descending. Recipes without a total time come last either way. |
 
 **Results**
 - The full search state (query, filters, sort, page) lives in the URL, so searches can be bookmarked and shared.
-- Results are paginated and show a count for each filter value.
+- Results are paginated, 24 to a page, and show a count for each filter value. A filter that takes any of its values (cuisine, meal type, difficulty) is counted without its own choices, so each of its other values shows what adding it would give.
 - Results include only recipes the caller may see (§2). Drafts are never searchable.
+- Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should.
 
 ### 3.5 Shopping lists (editors and admins)
 

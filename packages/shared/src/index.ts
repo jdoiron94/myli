@@ -104,7 +104,20 @@ export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
   REBUILD_STATES,
   type RebuildState,
+  type RecipeSearchHit,
+  type RecipeSearchQuery,
+  type RecipeSearchResult,
+  recipeSearchHitSchema,
+  recipeSearchQuerySchema,
+  recipeSearchResultSchema,
+  SEARCH_FACETS,
+  SEARCH_PAGE_MAX,
+  SEARCH_PAGE_SIZE,
+  SEARCH_SCOPES,
+  SEARCH_SORTS,
+  type SearchFacet,
   type SearchIndexStatus,
+  type SearchSort,
   searchIndexStatusSchema,
 } from './search.ts';
 export {

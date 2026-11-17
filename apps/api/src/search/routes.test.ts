@@ -12,7 +12,9 @@ function send(t: TestApp, method: 'GET' | 'POST', path: string, cookie: string) 
 }
 
 async function setUp(available = true) {
-  const t = createTestApp({ search: { isReady: () => Promise.resolve(available) } });
+  const t = createTestApp({
+    search: { isReady: () => Promise.resolve(available), client: undefined },
+  });
   const { cookie } = await signedInAs(t, 'admin');
   const status = async () => {
     const res = await send(t, 'GET', '/search/index', cookie);

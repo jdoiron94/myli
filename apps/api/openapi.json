@@ -1314,6 +1314,174 @@
           "unitSystem"
         ]
       },
+      "RecipeSearchResult": {
+        "type": "object",
+        "properties": {
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeSearchHit"
+            }
+          },
+          "totalHits": {
+            "type": "integer",
+            "description": "How many recipes match, across every page."
+          },
+          "page": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          },
+          "facets": {
+            "type": "object",
+            "properties": {
+              "cuisine": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "mealType": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "diet": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "tag": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "allergen": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "difficulty": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              }
+            },
+            "required": [
+              "cuisine",
+              "mealType",
+              "diet",
+              "tag",
+              "allergen",
+              "difficulty"
+            ],
+            "description": "How many recipes each filter value would give. A filter that takes any of its values (cuisine, meal, difficulty) is counted without its own choices, so its other values' counts say what adding them would give."
+          }
+        },
+        "required": [
+          "hits",
+          "totalHits",
+          "page",
+          "totalPages",
+          "facets"
+        ]
+      },
+      "RecipeSearchHit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "difficulty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "easy",
+              "medium",
+              "hard",
+              null
+            ]
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cuisine": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mealType": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diet": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Its other tags."
+          },
+          "allergens": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "milk",
+                "eggs",
+                "fish",
+                "shellfish",
+                "tree nuts",
+                "peanuts",
+                "wheat",
+                "soy",
+                "sesame"
+              ]
+            }
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "difficulty",
+          "totalMinutes",
+          "cuisine",
+          "mealType",
+          "diet",
+          "tags",
+          "allergens",
+          "visibility"
+        ]
+      },
       "SearchIndexStatus": {
         "type": "object",
         "properties": {
@@ -2519,6 +2687,315 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/recipes": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search recipes",
+        "description": "Any signed-in user. Finds only recipes the caller may see: shared ones, and their own private ones. Filters on different things all hold; within one, cuisines, meals and difficulties take any of their values, and diets and other tags all of them. Repeat a parameter for more than one value.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "What to look for. Typos are forgiven."
+            },
+            "required": false,
+            "description": "What to look for. Typos are forgiven.",
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "ingredients"
+              ],
+              "default": "all",
+              "description": "Where to look for it: everywhere, or only in ingredient names."
+            },
+            "required": false,
+            "description": "Where to look for it: everywhere, or only in ingredient names.",
+            "name": "in",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "Recipes of any of these cuisines."
+            },
+            "required": false,
+            "description": "Recipes of any of these cuisines.",
+            "name": "cuisine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "Recipes for any of these meals."
+            },
+            "required": false,
+            "description": "Recipes for any of these meals.",
+            "name": "mealType",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "Recipes that fit all of these diets."
+            },
+            "required": false,
+            "description": "Recipes that fit all of these diets.",
+            "name": "diet",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "Recipes with all of these other tags."
+            },
+            "required": false,
+            "description": "Recipes with all of these other tags.",
+            "name": "tag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "No recipes of these cuisines."
+            },
+            "required": false,
+            "description": "No recipes of these cuisines.",
+            "name": "excludeCuisine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "No recipes for these meals."
+            },
+            "required": false,
+            "description": "No recipes for these meals.",
+            "name": "excludeMealType",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "No recipes that fit these diets."
+            },
+            "required": false,
+            "description": "No recipes that fit these diets.",
+            "name": "excludeDiet",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "maxItems": 20,
+              "description": "No recipes with these other tags."
+            },
+            "required": false,
+            "description": "No recipes with these other tags.",
+            "name": "excludeTag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "milk",
+                  "eggs",
+                  "fish",
+                  "shellfish",
+                  "tree nuts",
+                  "peanuts",
+                  "wheat",
+                  "soy",
+                  "sesame"
+                ]
+              },
+              "maxItems": 20,
+              "description": "No recipes that contain any of these."
+            },
+            "required": false,
+            "description": "No recipes that contain any of these.",
+            "name": "excludeAllergen",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "easy",
+                  "medium",
+                  "hard"
+                ]
+              },
+              "maxItems": 20,
+              "description": "Recipes of any of these difficulties."
+            },
+            "required": false,
+            "description": "Recipes of any of these difficulties.",
+            "name": "difficulty",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100000,
+              "description": "Recipes that take at least this long in all."
+            },
+            "required": false,
+            "description": "Recipes that take at least this long in all.",
+            "name": "minMinutes",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100000,
+              "description": "Recipes that take at most this long in all."
+            },
+            "required": false,
+            "description": "Recipes that take at most this long in all.",
+            "name": "maxMinutes",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "relevance",
+                "rating",
+                "newest",
+                "quickest",
+                "slowest"
+              ],
+              "description": "How to order them. Relevance with a query, newest without one."
+            },
+            "required": false,
+            "description": "How to order them. Relevance with a query, newest without one.",
+            "name": "sort",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 42,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of matching recipes, with the count of each filter value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeSearchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Search is unavailable. Everything else works.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

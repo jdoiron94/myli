@@ -1010,6 +1010,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search recipes
+         * @description Any signed-in user. Finds only recipes the caller may see: shared ones, and their own private ones. Filters on different things all hold; within one, cuisines, meals and difficulties take any of their values, and diets and other tags all of them. Repeat a parameter for more than one value.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description What to look for. Typos are forgiven. */
+                    q?: string;
+                    /** @description Where to look for it: everywhere, or only in ingredient names. */
+                    in?: "all" | "ingredients";
+                    /** @description Recipes of any of these cuisines. */
+                    cuisine?: string[];
+                    /** @description Recipes for any of these meals. */
+                    mealType?: string[];
+                    /** @description Recipes that fit all of these diets. */
+                    diet?: string[];
+                    /** @description Recipes with all of these other tags. */
+                    tag?: string[];
+                    /** @description No recipes of these cuisines. */
+                    excludeCuisine?: string[];
+                    /** @description No recipes for these meals. */
+                    excludeMealType?: string[];
+                    /** @description No recipes that fit these diets. */
+                    excludeDiet?: string[];
+                    /** @description No recipes with these other tags. */
+                    excludeTag?: string[];
+                    /** @description No recipes that contain any of these. */
+                    excludeAllergen?: ("milk" | "eggs" | "fish" | "shellfish" | "tree nuts" | "peanuts" | "wheat" | "soy" | "sesame")[];
+                    /** @description Recipes of any of these difficulties. */
+                    difficulty?: ("easy" | "medium" | "hard")[];
+                    /** @description Recipes that take at least this long in all. */
+                    minMinutes?: number | null;
+                    /** @description Recipes that take at most this long in all. */
+                    maxMinutes?: number | null;
+                    /** @description How to order them. Relevance with a query, newest without one. */
+                    sort?: "relevance" | "rating" | "newest" | "quickest" | "slowest";
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description One page of matching recipes, with the count of each filter value. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeSearchResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Search is unavailable. Everything else works. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search/index": {
         parameters: {
             query?: never;
@@ -1833,6 +1931,49 @@ export interface components {
              * @enum {string}
              */
             unitSystem: "imperial" | "metric";
+        };
+        RecipeSearchResult: {
+            hits: components["schemas"]["RecipeSearchHit"][];
+            /** @description How many recipes match, across every page. */
+            totalHits: number;
+            page: number;
+            totalPages: number;
+            /** @description How many recipes each filter value would give. A filter that takes any of its values (cuisine, meal, difficulty) is counted without its own choices, so its other values' counts say what adding them would give. */
+            facets: {
+                cuisine: {
+                    [key: string]: number;
+                };
+                mealType: {
+                    [key: string]: number;
+                };
+                diet: {
+                    [key: string]: number;
+                };
+                tag: {
+                    [key: string]: number;
+                };
+                allergen: {
+                    [key: string]: number;
+                };
+                difficulty: {
+                    [key: string]: number;
+                };
+            };
+        };
+        RecipeSearchHit: {
+            id: string;
+            title: string;
+            /** @enum {string|null} */
+            difficulty: "easy" | "medium" | "hard" | null;
+            totalMinutes: number | null;
+            cuisine: string[];
+            mealType: string[];
+            diet: string[];
+            /** @description Its other tags. */
+            tags: string[];
+            allergens: ("milk" | "eggs" | "fish" | "shellfish" | "tree nuts" | "peanuts" | "wheat" | "soy" | "sesame")[];
+            /** @enum {string} */
+            visibility: "private" | "shared";
         };
         SearchIndexStatus: {
             /** @description Whether search works right now. */
