@@ -272,6 +272,116 @@ describe('the ingredients editor', () => {
     });
   });
 
+  describe('correcting how a line is read', () => {
+    const corrections = (position: number) =>
+      within(screen.getByRole('group', { name: `How ingredient ${String(position)} is read` }));
+    const part = (name: string, position = 1) =>
+      corrections(position).getByRole('textbox', { name });
+    const scales = (position = 1) =>
+      corrections(position).getByRole('checkbox', { name: 'Changes with servings' });
+
+    it('starts from what myli read, with focus on the amount', async () => {
+      const { user } = await newRecipe();
+      await user.type(line(1), '1½–2 cups flour, sifted{Enter}salt to taste');
+      expect(screen.queryByRole('group', { name: /^How ingredient/ })).toBeNull();
+
+      await user.click(button('Correct how ingredient 1 is read'));
+      await user.click(button('Correct how ingredient 2 is read'));
+
+      expect(part('Amount')).toHaveProperty('value', '1½');
+      expect(part('Up to')).toHaveProperty('value', '2');
+      expect(part('Unit')).toHaveProperty('value', 'cup');
+      expect(part('Ingredient')).toHaveProperty('value', 'flour');
+      expect(part('Note')).toHaveProperty('value', 'sifted');
+      expect(scales().getAttribute('aria-checked')).toBe('true');
+      expect(part('Amount', 2)).toHaveProperty('value', '');
+      expect(part('Note', 2)).toHaveProperty('value', 'to taste');
+      expect(scales(2).getAttribute('aria-checked')).toBe('false');
+      expect(document.activeElement).toBe(part('Amount', 2));
+      expect(describedBy(part('Amount'))).toEqual(['Like 2 or 1½. Empty for none.']);
+      expect(await accessibilityViolations()).toEqual([]);
+    });
+
+    it('reads and saves the line as corrected, keeping what was typed', async () => {
+      const { sent, opened } = answerCreate();
+      const { user } = await newRecipe();
+      await user.type(line(1), 'a few sprigs of thyme');
+      expect(button('Correct how ingredient 1 is read')).toBeDefined();
+
+      await user.click(button('Correct how ingredient 1 is read'));
+      await user.type(part('Amount'), '3');
+      await user.type(part('Unit'), 'sprig');
+      await user.clear(part('Ingredient'));
+      await user.type(part('Ingredient'), 'thyme');
+      await user.click(scales());
+
+      expect(describedBy(line(1))).toEqual([
+        "Reads as: 3 sprigs thyme. Doesn't change with servings. Corrected by hand.",
+      ]);
+      await user.click(button('Create recipe'));
+
+      await opened();
+      expect(sent).toEqual([
+        [
+          {
+            label: null,
+            ingredients: [
+              {
+                rawText: 'a few sprigs of thyme',
+                qty: 3,
+                qtyMax: null,
+                unit: 'sprig',
+                name: 'thyme',
+                note: null,
+                scalable: false,
+              },
+            ],
+          },
+        ],
+      ]);
+    });
+
+    it('says what’s wrong with a part, at that part', async () => {
+      const { user } = await newRecipe();
+      await user.type(line(1), '2 cups flour');
+      await user.click(button('Correct how ingredient 1 is read'));
+      await user.clear(part('Amount'));
+      await user.type(part('Amount'), 'lots');
+      await user.clear(part('Ingredient'));
+
+      await user.click(button('Create recipe'));
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(part('Amount'));
+      });
+      expect(describedBy(part('Amount'))).toEqual([
+        'Enter an amount, like 2, 1½ or 0.5.',
+        'Like 2 or 1½. Empty for none.',
+      ]);
+      expect(describedBy(part('Ingredient'))).toEqual(['Name the ingredient.']);
+      expect(await accessibilityViolations()).toEqual([]);
+    });
+
+    it('drops the corrections when asked to read the line again, back on the line', async () => {
+      const { user } = await newRecipe();
+      await user.type(line(1), 'a few sprigs of thyme');
+      await user.click(button('Correct how ingredient 1 is read'));
+      await user.type(part('Amount'), '3');
+
+      await user.click(button('Read ingredient 1 again'));
+
+      expect(screen.queryByRole('group', { name: /^How ingredient/ })).toBeNull();
+      expect(describedBy(line(1))).toEqual(['Reads as: a few sprigs of thyme.']);
+      expect(document.activeElement).toBe(line(1));
+    });
+
+    it('offers nothing to correct on a blank line', async () => {
+      await newRecipe();
+
+      expect(screen.queryByRole('button', { name: /^Correct how/ })).toBeNull();
+    });
+  });
+
   describe('editing a recipe', () => {
     const thyme = {
       rawText: 'a few sprigs of thyme',

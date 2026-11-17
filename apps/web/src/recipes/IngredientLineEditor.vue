@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ArrowDownIcon, ArrowUpIcon, XIcon } from '@lucide/vue';
 import { useField } from 'vee-validate';
-import { computed, useId, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, useId, useTemplateRef, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { showLineAsWritten } from './format.ts';
-import { type LineDetails, readLine } from './recipe-form.ts';
+import LineCorrections from './LineCorrections.vue';
+import { type LineDetails, quantityText, readLine } from './recipe-form.ts';
 
 /**
  * One ingredient line in the editor: typed as it would be written, with how myli reads it under it,
@@ -74,24 +75,45 @@ function paste(event: ClipboardEvent) {
   if (lines.length > 0) emit('paste', lines);
 }
 
-/** Back to what the parser reads from the line, dropping the corrections. */
-function readAgain() {
-  details.value = null;
+const root = useTemplateRef('root');
+const input = useTemplateRef<InstanceType<typeof Input>>('input');
+const focusLine = () => {
+  (input.value?.$el as HTMLInputElement | undefined)?.focus();
+};
+
+/** Starts correcting from what the parser reads, with focus on the first part. */
+async function correct() {
+  const read = reading.value;
+  details.value = {
+    qty: quantityText(read.qty),
+    qtyMax: quantityText(read.qtyMax),
+    unit: read.unit ?? '',
+    name: read.name,
+    note: read.note ?? '',
+    scalable: read.scalable,
+  };
+  await nextTick();
+  root.value?.querySelector<HTMLElement>('[data-corrections] input')?.focus();
 }
 
-const input = useTemplateRef<InstanceType<typeof Input>>('input');
-defineExpose({
-  focus: () => {
-    (input.value?.$el as HTMLInputElement | undefined)?.focus();
-  },
-});
+/** Back to what the parser reads from the line, dropping the corrections. */
+async function readAgain() {
+  details.value = null;
+  await nextTick();
+  focusLine();
+}
+
+defineExpose({ focus: focusLine });
 
 const first = computed(() => props.position === 1);
 const last = computed(() => props.position === props.count);
 </script>
 
 <template>
-  <li class="space-y-1">
+  <li
+    ref="root"
+    class="space-y-1"
+  >
     <div class="flex items-center gap-1">
       <label
         :for="id"
@@ -165,15 +187,30 @@ const last = computed(() => props.position === props.count);
         {{ ' ' }}Corrected by hand.
       </template>
     </p>
+    <template v-if="details">
+      <LineCorrections
+        :path="path"
+        :position="position"
+      />
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        class="h-auto px-0"
+        @click="readAgain"
+      >
+        Read ingredient {{ position }} again
+      </Button>
+    </template>
     <Button
-      v-if="details"
+      v-else-if="rawText.trim() !== ''"
       type="button"
       variant="link"
       size="sm"
       class="h-auto px-0"
-      @click="readAgain"
+      @click="correct"
     >
-      Read ingredient {{ position }} again
+      Correct how ingredient {{ position }} is read
     </Button>
   </li>
 </template>
