@@ -1028,6 +1028,8 @@ export interface paths {
                     q?: string;
                     /** @description Where to look for it: everywhere, or only in ingredient names. */
                     in?: "all" | "ingredients";
+                    /** @description Recipes with all of these ingredients, or a name that means the same (scallion, green onion). Names are read as recipes’ are: "Scallions" is "scallion". */
+                    ingredient?: string[];
                     /** @description Recipes of any of these cuisines. */
                     cuisine?: string[];
                     /** @description Recipes for any of these meals. */
@@ -1069,6 +1071,75 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["RecipeSearchResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Search is unavailable. Everything else works. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/ingredients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest ingredients
+         * @description Any signed-in user. Ingredient names that recipes the caller may see use, starting like the query, the most used first: for the `ingredient` filter of recipe search.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description The start of an ingredient name. Typos are forgiven. Empty for the most used. */
+                    q?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Up to ten ingredient names. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["IngredientSuggestions"];
                     };
                 };
                 /** @description The request failed validation. */
@@ -1974,6 +2045,14 @@ export interface components {
             allergens: ("milk" | "eggs" | "fish" | "shellfish" | "tree nuts" | "peanuts" | "wheat" | "soy" | "sesame")[];
             /** @enum {string} */
             visibility: "private" | "shared";
+        };
+        IngredientSuggestions: {
+            ingredients: {
+                /** @description As recipes’ ingredient names are read, for the `ingredient` filter. */
+                name: string;
+                /** @description How many recipes the caller may see use it. */
+                recipes: number;
+            }[];
         };
         SearchIndexStatus: {
             /** @description Whether search works right now. */

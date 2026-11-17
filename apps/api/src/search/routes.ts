@@ -1,5 +1,7 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import {
+  ingredientSuggestionQuerySchema,
+  ingredientSuggestionsSchema,
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
   type RebuildState,
@@ -15,7 +17,7 @@ import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
 import { job } from '../db/schema.ts';
 import { errorResponses } from '../problems.ts';
-import { searchRecipes } from './query.ts';
+import { searchRecipes, suggestIngredients } from './query.ts';
 import { queueReindex, reindexRecipesJob } from './reindex.ts';
 import type { SearchAccess, SearchService } from './service.ts';
 
@@ -40,6 +42,29 @@ const getRecipes = createRoute({
     200: {
       description: 'One page of matching recipes, with the count of each filter value.',
       content: { 'application/json': { schema: recipeSearchResultSchema } },
+    },
+    503: {
+      description: 'Search is unavailable. Everything else works.',
+      content: { [PROBLEM_CONTENT_TYPE]: { schema: problemDetailsSchema } },
+    },
+    ...errorResponses,
+  },
+});
+
+const getIngredients = createRoute({
+  method: 'get',
+  path: '/search/ingredients',
+  tags: ['Search'],
+  summary: 'Suggest ingredients',
+  description:
+    'Any signed-in user. Ingredient names that recipes the caller may see use, starting like the ' +
+    'query, the most used first: for the `ingredient` filter of recipe search.',
+  middleware: [requireSession] as const,
+  request: { query: ingredientSuggestionQuerySchema },
+  responses: {
+    200: {
+      description: 'Up to ten ingredient names.',
+      content: { 'application/json': { schema: ingredientSuggestionsSchema } },
     },
     503: {
       description: 'Search is unavailable. Everything else works.',
@@ -118,6 +143,15 @@ export function registerSearchRoutes(
       c.req.valid('query'),
     );
     return c.json(found, 200);
+  });
+
+  app.openapi(getIngredients, async (c) => {
+    const ingredients = await suggestIngredients(
+      { db, client: search.client, logger: c.var.logger },
+      c.var.user,
+      c.req.valid('query').q,
+    );
+    return c.json({ ingredients }, 200);
   });
 
   app.openapi(getIndex, async (c) => c.json(await indexStatus(db, search), 200));

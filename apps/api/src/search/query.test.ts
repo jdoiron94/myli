@@ -72,6 +72,18 @@ describe('searchFilter', () => {
     ]);
   });
 
+  it('requires every ingredient chosen, each by any name that means the same', () => {
+    expect(searchFilter(query({ ingredient: ['Scallions', 'tofu'] }), 'me')).toEqual([
+      ACCESS,
+      'normalizedIngredientNames IN ["scallion", "green onion", "spring onion"]',
+      'normalizedIngredientNames IN ["tofu"]',
+    ]);
+  });
+
+  it('refuses an ingredient that reads as nothing', () => {
+    expect(recipeSearchQuerySchema.safeParse({ ingredient: '(chopped)' }).success).toBe(false);
+  });
+
   it('bounds the total time, at either end or both', () => {
     expect(searchFilter(query({ minMinutes: '10' }), 'me')).toEqual([ACCESS, 'totalMinutes >= 10']);
     expect(searchFilter(query({ minMinutes: '0', maxMinutes: '30' }), 'me')).toEqual([

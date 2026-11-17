@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeIngredientName } from './ingredients.ts';
 import { DIFFICULTIES, RECIPE_LIMITS } from './recipe.ts';
 import { ALLERGENS, TAG_NAME_MAX_LENGTH } from './tags.ts';
 import { VISIBILITIES } from './visibility.ts';
@@ -60,6 +61,12 @@ const listParam = <T extends z.ZodType>(item: T, description: string) =>
     .describe(description);
 
 const tagName = z.string().trim().min(1).max(TAG_NAME_MAX_LENGTH);
+/** Read as recipes' ingredient names are, so "Scallions" finds "scallion". */
+const ingredientName = z
+  .string()
+  .max(RECIPE_LIMITS.ingredientName)
+  .transform(normalizeIngredientName)
+  .pipe(z.string().min(1, 'Enter an ingredient.'));
 const minutes = z.coerce.number().int().min(0).max(RECIPE_LIMITS.minutes);
 
 export const recipeSearchQuerySchema = z
@@ -69,6 +76,10 @@ export const recipeSearchQuerySchema = z
       .enum(SEARCH_SCOPES)
       .default('all')
       .describe('Where to look for it: everywhere, or only in ingredient names.'),
+    ingredient: listParam(
+      ingredientName,
+      'Recipes with all of these ingredients, or a name that means the same (scallion, green onion). Names are read as recipes’ are: "Scallions" is "scallion".',
+    ),
     cuisine: listParam(tagName, 'Recipes of any of these cuisines.'),
     mealType: listParam(tagName, 'Recipes for any of these meals.'),
     diet: listParam(tagName, 'Recipes that fit all of these diets.'),
@@ -146,3 +157,30 @@ export const recipeSearchResultSchema = z
   .meta({ id: 'RecipeSearchResult' });
 
 export type RecipeSearchResult = z.infer<typeof recipeSearchResultSchema>;
+
+/** Ingredient suggestions at most, the most used first. */
+export const INGREDIENT_SUGGESTIONS_MAX = 10;
+
+export const ingredientSuggestionQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(RECIPE_LIMITS.ingredientName)
+    .default('')
+    .describe('The start of an ingredient name. Typos are forgiven. Empty for the most used.'),
+});
+
+export const ingredientSuggestionsSchema = z
+  .object({
+    ingredients: z.array(
+      z.object({
+        name: z
+          .string()
+          .describe('As recipes’ ingredient names are read, for the `ingredient` filter.'),
+        recipes: z.number().int().describe('How many recipes the caller may see use it.'),
+      }),
+    ),
+  })
+  .meta({ id: 'IngredientSuggestions' });
+
+export type IngredientSuggestions = z.infer<typeof ingredientSuggestionsSchema>;

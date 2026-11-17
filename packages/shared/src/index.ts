@@ -102,6 +102,10 @@ export {
 } from './recipe.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
+  INGREDIENT_SUGGESTIONS_MAX,
+  type IngredientSuggestions,
+  ingredientSuggestionQuerySchema,
+  ingredientSuggestionsSchema,
   REBUILD_STATES,
   type RebuildState,
   type RecipeSearchHit,

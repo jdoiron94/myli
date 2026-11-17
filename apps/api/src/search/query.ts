@@ -1,5 +1,7 @@
 import {
   can,
+  INGREDIENT_SUGGESTIONS_MAX,
+  type IngredientSuggestions,
   type PolicyUser,
   type RecipeSearchHit,
   type RecipeSearchQuery,
@@ -8,25 +10,30 @@ import {
   SEARCH_PAGE_SIZE,
   type SearchFacet,
 } from '@myli/shared';
-import { and, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import {
   MeilisearchRequestError,
   MeilisearchRequestTimeOutError,
   type MultiSearchParams,
   type MultiSearchQuery,
   type MultiSearchResponse,
+  type SearchForFacetValuesParams,
+  type SearchForFacetValuesResponse,
 } from 'meilisearch';
 import type { Db } from '../db/database.ts';
-import { recipe } from '../db/schema.ts';
+import { recipe, recipeIngredient } from '../db/schema.ts';
 import type { Logger } from '../logger.ts';
 import { HttpProblem } from '../problems.ts';
 import type { RecipeSearchDocument } from './document.ts';
-import { RECIPES_INDEX } from './settings.ts';
+import { RECIPES_INDEX, synonymGroup } from './settings.ts';
 import { isMeilisearchError } from './setup.ts';
 
 /** What searching needs from Meilisearch. The API's client has it; tests can stand in for it. */
 export interface SearchClient {
   multiSearch(params: MultiSearchParams): Promise<MultiSearchResponse>;
+  index(uid: string): {
+    searchForFacetValues(params: SearchForFacetValuesParams): Promise<SearchForFacetValuesResponse>;
+  };
 }
 
 export const SEARCH_UNAVAILABLE =
@@ -83,6 +90,10 @@ export function searchFilter(
     if (values?.length) filters.push(`${attribute} NOT IN ${list(values)}`);
   };
 
+  // Every ingredient chosen, each by any name that means the same.
+  for (const name of query.ingredient ?? []) {
+    filters.push(`normalizedIngredientNames IN ${list(synonymGroup(name))}`);
+  }
   anyOf('cuisine', query.cuisine);
   anyOf('mealType', query.mealType);
   anyOf('difficulty', query.difficulty);
@@ -136,17 +147,36 @@ const isUnreachable = (error: unknown) =>
   isMeilisearchError(error, 'index_not_found') ||
   isMeilisearchError(error, 'invalid_api_key');
 
+interface SearchDeps {
+  db: Db;
+  client: SearchClient | undefined;
+  logger: Logger;
+}
+
+/** Asks Meilisearch, answering 503 while it's unavailable. Other failures are left as they are. */
+async function ask<T>(
+  { client, logger }: SearchDeps,
+  request: (client: SearchClient) => Promise<T>,
+) {
+  if (!client) throw new HttpProblem(503, SEARCH_UNAVAILABLE);
+  try {
+    return await request(client);
+  } catch (error) {
+    if (!isUnreachable(error)) throw error;
+    logger.warn({ err: error }, 'search is unavailable');
+    throw new HttpProblem(503, SEARCH_UNAVAILABLE);
+  }
+}
+
 /**
  * One page of the recipes the caller may see that match the query, with each filter value's count
  * (spec §3.4). Throws a 503 while Meilisearch can't be reached.
  */
 export async function searchRecipes(
-  { db, client, logger }: { db: Db; client: SearchClient | undefined; logger: Logger },
+  deps: SearchDeps,
   user: PolicyUser,
   query: RecipeSearchQuery,
 ): Promise<RecipeSearchResult> {
-  if (!client) throw new HttpProblem(503, SEARCH_UNAVAILABLE);
-
   const base = {
     indexUid: RECIPES_INDEX,
     q: query.q ?? '',
@@ -174,14 +204,7 @@ export async function searchRecipes(
     })),
   ];
 
-  let results: MultiSearchResponse['results'];
-  try {
-    ({ results } = await client.multiSearch({ queries }));
-  } catch (error) {
-    if (!isUnreachable(error)) throw error;
-    logger.warn({ err: error }, 'search is unavailable');
-    throw new HttpProblem(503, SEARCH_UNAVAILABLE);
-  }
+  const { results } = await ask(deps, (client) => client.multiSearch({ queries }));
 
   const [main, ...counted] = results;
   const distribution = Object.assign(
@@ -194,7 +217,7 @@ export async function searchRecipes(
   ) as RecipeSearchResult['facets'];
 
   return {
-    hits: visibleHits(db, user, (main?.hits ?? []) as SearchedRecipe[]),
+    hits: visibleHits(deps.db, user, (main?.hits ?? []) as SearchedRecipe[]),
     totalHits: main?.totalHits ?? 0,
     page: main?.page ?? query.page,
     totalPages: main?.totalPages ?? 0,
@@ -242,4 +265,52 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSe
       },
     ];
   });
+}
+
+/**
+ * The ingredient names recipes the caller may see use, starting like `q` (or the most used, for an
+ * empty one), for picking ingredients to search by (spec §3.4).
+ */
+export async function suggestIngredients(
+  deps: SearchDeps,
+  user: PolicyUser,
+  q: string,
+): Promise<IngredientSuggestions['ingredients']> {
+  const { facetHits } = await ask(deps, (client) =>
+    client.index(RECIPES_INDEX).searchForFacetValues({
+      facetName: 'normalizedIngredientNames' satisfies Attribute,
+      facetQuery: q,
+      filter: accessFilter(user.id),
+    }),
+  );
+  const names = new Set(
+    visibleIngredientNames(
+      deps.db,
+      user,
+      facetHits.map(({ value }) => value),
+    ),
+  );
+  return facetHits
+    .filter(({ value }) => names.has(value))
+    .slice(0, INGREDIENT_SUGGESTIONS_MAX)
+    .map(({ value, count }) => ({ name: value, recipes: count }));
+}
+
+/**
+ * Those of `names` that a recipe the caller may see uses, as SQLite has them now. As with search
+ * results, the index can be behind, and a private recipe's ingredients must not show.
+ */
+function visibleIngredientNames(db: Db, user: PolicyUser, names: string[]): string[] {
+  if (names.length === 0) return [];
+  const rows = db
+    .selectDistinct({
+      name: recipeIngredient.normalizedName,
+      ownerId: recipe.ownerId,
+      visibility: recipe.visibility,
+    })
+    .from(recipeIngredient)
+    .innerJoin(recipe, eq(recipe.id, recipeIngredient.recipeId))
+    .where(and(inArray(recipeIngredient.normalizedName, names), isNull(recipe.deletedAt)))
+    .all();
+  return rows.filter((row) => can(user, 'recipe.read', row)).map(({ name }) => name);
 }

@@ -16,7 +16,7 @@ import { createLogger } from '../logger.ts';
 import { createRecipe } from '../recipes/recipes.ts';
 import { sampleRecipeRequest } from '../recipes/testing.ts';
 import { findOrCreateTag } from '../tags/tags.ts';
-import { searchRecipes } from './query.ts';
+import { searchRecipes, suggestIngredients } from './query.ts';
 import { rebuildRecipeIndex } from './reindex.ts';
 import { setUpSearch } from './setup.ts';
 import { MEILI_MASTER_KEY, meilisearchContainer, meilisearchUrl } from './testing.ts';
@@ -192,13 +192,13 @@ afterAll(async () => {
   await container.stop();
 });
 
+const deps = () => ({ db, client, logger: createLogger('fatal', { write: () => undefined }) });
+
 async function search(params: Record<string, unknown>, as = 'me'): Promise<RecipeSearchResult> {
-  return searchRecipes(
-    { db, client, logger: createLogger('fatal', { write: () => undefined }) },
-    { id: as, role: 'editor' },
-    recipeSearchQuerySchema.parse(params),
-  );
+  return searchRecipes(deps(), { id: as, role: 'editor' }, recipeSearchQuerySchema.parse(params));
 }
+
+const suggest = (q: string, as = 'me') => suggestIngredients(deps(), { id: as, role: 'editor' }, q);
 
 const titles = async (params: Record<string, unknown>, as?: string) =>
   (await search(params, as)).hits.map(({ title }) => title);
@@ -360,5 +360,38 @@ describe('pages', () => {
       'Paging 29',
       'Paging 30',
     ]);
+  });
+});
+
+describe('ingredients', () => {
+  it('requires every ingredient chosen, finding names that mean the same', async () => {
+    expect(await titles({ ingredient: ['basil', 'flour'] })).toEqual(['Margherita Pizza']);
+    expect(await titles({ ingredient: 'Scallions' })).toEqual(['Green Curry']);
+    expect(await titles({ ingredient: ['basil', 'lime'] })).toEqual([]);
+  });
+
+  it('finds names that mean the same in text search too', async () => {
+    expect(await titles({ q: 'scallion', in: 'ingredients' })).toEqual(['Green Curry']);
+  });
+
+  it('suggests what recipes the caller may see use, with how many', async () => {
+    expect(await suggest('bas')).toEqual([{ name: 'basil', recipes: 2 }]);
+    expect(await suggest('bas', 'other')).toEqual([{ name: 'basil', recipes: 3 }]);
+    expect(await suggest('mozarella')).toEqual([{ name: 'mozzarella', recipes: 1 }]);
+    expect((await suggest('oat')).map(({ name }) => name).sort()).toEqual(['oat', 'oat milk']);
+    expect(await suggest('oat', 'other')).toEqual([]);
+  });
+
+  it('suggests the most used first, with no query', async () => {
+    const suggested = await suggest('');
+
+    // Basil and flour are in two recipes each, the rest in one, and ties come in any order.
+    expect(
+      suggested
+        .slice(0, 2)
+        .map(({ name }) => name)
+        .sort(),
+    ).toEqual(['basil', 'flour']);
+    expect(suggested.map(({ recipes }) => recipes)).toEqual([2, 2, 1, 1, 1, 1, 1, 1, 1, 1]);
   });
 });

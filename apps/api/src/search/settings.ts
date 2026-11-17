@@ -6,6 +6,31 @@ export const RECIPES_INDEX = 'recipes';
 
 type Attribute = keyof RecipeSearchDocument;
 
+/**
+ * Ingredient names that mean the same thing (spec §3.4), as `normalizeIngredientName` writes them:
+ * mostly American and British names. Text search treats each as the others, and so does choosing
+ * an ingredient. Only names that are the same thing everywhere: "cornflour" is cornstarch in
+ * Britain but not in America, so it isn't here.
+ */
+export const INGREDIENT_SYNONYMS: readonly (readonly string[])[] = [
+  ['scallion', 'green onion', 'spring onion'],
+  ['chickpea', 'garbanzo bean'],
+  ['zucchini', 'courgette'],
+  ['eggplant', 'aubergine'],
+  ['bell pepper', 'capsicum'],
+  ['powdered sugar', 'confectioners sugar', 'icing sugar'],
+  ['baking soda', 'bicarbonate of soda'],
+  ['arugula', 'rocket'],
+  ['shrimp', 'prawn'],
+  ['cilantro', 'coriander leaf'],
+  ['all purpose flour', 'plain flour'],
+];
+
+/** The names that mean the same as `name`, itself included. */
+export function synonymGroup(name: string): readonly string[] {
+  return INGREDIENT_SYNONYMS.find((group) => group.includes(name)) ?? [name];
+}
+
 /** The recipe index's settings, applied at startup (spec §4). */
 export const RECIPES_SETTINGS = {
   // Most important first: a match in the title ranks above one in the steps.
@@ -36,6 +61,10 @@ export const RECIPES_SETTINGS = {
     'totalMinutes',
   ] satisfies Attribute[],
   sortableAttributes: ['ratingScore', 'publishedAt', 'totalMinutes'] satisfies Attribute[],
+  // Ingredient suggestions come most used first, rather than alphabetically.
+  faceting: {
+    sortFacetValuesBy: { ['normalizedIngredientNames' satisfies Attribute]: 'count' },
+  },
   // Meilisearch's defaults, written out so a new version can't change them unnoticed.
   rankingRules: [
     'words',
@@ -47,10 +76,11 @@ export const RECIPES_SETTINGS = {
     'exactness',
   ],
   // Each name finds the others. Meilisearch needs every direction listed.
-  synonyms: {
-    scallion: ['green onion'],
-    'green onion': ['scallion'],
-  },
+  synonyms: Object.fromEntries(
+    INGREDIENT_SYNONYMS.flatMap((group) =>
+      group.map((name) => [name, group.filter((other) => other !== name)]),
+    ),
+  ),
 } satisfies Settings;
 
 /**
