@@ -323,7 +323,7 @@ describe('GET /search/ingredients', () => {
   }
 
   it('suggests names that recipes the caller may see use, starting like the query', async () => {
-    const { client, facetSearches } = fakeSearchClient({
+    const { client, facetSearches, sent } = fakeSearchClient({
       facetSearch: () => [
         { value: 'basil', count: 3 },
         { value: 'bay leaf', count: 2 },
@@ -350,18 +350,68 @@ describe('GET /search/ingredients', () => {
         { name: 'bay leaf', recipes: 2 },
       ],
     });
+    const filter = `deleted = false AND (visibility = "shared" OR ownerId = "${user.id}")`;
     expect(facetSearches).toEqual([
-      {
-        facetName: 'normalizedIngredientNames',
-        facetQuery: 'ba',
-        filter: `deleted = false AND (visibility = "shared" OR ownerId = "${user.id}")`,
-      },
+      { facetName: 'normalizedIngredientNames', facetQuery: 'ba', filter },
+    ]);
+    expect(sent).toEqual([
+      [
+        {
+          indexUid: 'recipes',
+          q: 'ba',
+          attributesToSearchOn: ['ingredientNames'],
+          filter,
+          facets: ['normalizedIngredientNames'],
+          hitsPerPage: 0,
+        },
+      ],
+    ]);
+  });
+
+  it('suggests names with any word that starts like the query, most used first', async () => {
+    const { client } = fakeSearchClient({
+      // Facet search matches only the start of a name.
+      facetSearch: () => [{ value: 'flour', count: 1 }],
+      // The recipes with a word like "flour" in their ingredients, and every name they use.
+      search: (query) => ({
+        indexUid: query.indexUid,
+        query: query.q ?? '',
+        processingTimeMs: 0,
+        hits: [],
+        facetDistribution: {
+          normalizedIngredientNames: {
+            'bread flour': 2,
+            salt: 3,
+            cornflour: 1,
+            'flour tortilla': 1,
+            flour: 1,
+          },
+        },
+        totalHits: 3,
+        hitsPerPage: 0,
+        page: 1,
+        totalPages: 0,
+      }),
+    });
+    const { t, user, get } = await setUp({ client });
+    recipeUsing(t, user.id, 'shared', ['bread flour', 'salt']);
+    recipeUsing(t, user.id, 'shared', ['bread flour', 'salt', 'cornflour']);
+    recipeUsing(t, user.id, 'shared', ['flour', 'flour tortilla', 'salt']);
+
+    const { ingredients } = ingredientSuggestionsSchema.parse(
+      await (await get('/search/ingredients?q=%20Flour%20')).json(),
+    );
+
+    expect(ingredients).toEqual([
+      { name: 'bread flour', recipes: 2 },
+      { name: 'flour', recipes: 1 },
+      { name: 'flour tortilla', recipes: 1 },
     ]);
   });
 
   it('suggests ten at most, and the most used with no query', async () => {
-    const names = Array.from({ length: 12 }, (_, n) => `spice ${String(n)}`);
-    const { client, facetSearches } = fakeSearchClient({
+    const names = Array.from({ length: 12 }, (_, n) => `spice ${String(n).padStart(2, '0')}`);
+    const { client, facetSearches, sent } = fakeSearchClient({
       facetSearch: () => names.map((value) => ({ value, count: 1 })),
     });
     const { t, user, get } = await setUp({ client });
@@ -373,6 +423,8 @@ describe('GET /search/ingredients', () => {
 
     expect(ingredients.map(({ name }) => name)).toEqual(names.slice(0, 10));
     expect(facetSearches[0]?.facetQuery).toBe('');
+    // With nothing typed, there's nothing to find inside a name.
+    expect(sent).toEqual([]);
   });
 
   it('answers 503 while search is unavailable, or can’t be reached', async () => {

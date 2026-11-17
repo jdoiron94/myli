@@ -307,7 +307,7 @@ Search is served by Meilisearch through the API (§4).
 - Search can be limited to ingredient names only.
 
 **Ingredient search**
-- **Autocomplete:** Meilisearch facet search over the `normalized_name` values that recipes the caller may see actually use, most used first, ten at most. Typos are forgiven.
+- **Autocomplete:** the `normalized_name` values that recipes the caller may see actually use, most used first, ten at most. A name is suggested when any of its words starts like what's typed ("flour" suggests "bread flour"). Meilisearch's facet search finds names by their start, typos forgiven; it can't look inside a name, so a search on ingredient names adds those with a later word that matches.
 - **Several ingredients:** picking more than one requires **all** of them (AND).
 - **Synonyms:** configured in code as groups of names that mean the same, mostly American and British names (scallion ↔ green onion ↔ spring onion, zucchini ↔ courgette). Text search and picking an ingredient both treat each name as the others.
 - **Known limitation:** without a catalog, "garlic" and "garlic clove" are different values. Accepted trade-off.
