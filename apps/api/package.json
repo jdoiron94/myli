@@ -20,7 +20,7 @@
     "better-auth": "catalog:",
     "better-sqlite3": "13.0.3",
     "drizzle-orm": "0.45.4",
-    "hono": "4.13.17",
+    "hono": "4.13.18",
     "meilisearch": "0.62.0",
     "nodemailer": "10.3.1",
     "pino": "10.4.0",
