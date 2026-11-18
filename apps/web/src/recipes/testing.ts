@@ -1,8 +1,9 @@
 import { ALLERGENS } from '@myli/shared';
+import { within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { answerPreferences } from '@/account/testing.ts';
 import { apiServer, problemResponse, testUsers } from '@/testing.ts';
-import type { Recipe, Tag } from './recipe.ts';
+import type { Recipe, RecipeSummary, Tag } from './recipe.ts';
 
 /** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
 export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
@@ -95,4 +96,38 @@ export const sampleTags = (): Tag[] => [
 /** Answers GET /tags, which the recipe editor loads, with these tags. */
 export function answerTags(tags: Tag[] = sampleTags()) {
   apiServer.use(http.get('/api/v1/tags', () => HttpResponse.json({ tags })));
+}
+
+/** A recipe as a list or search results give it, for its card. */
+export const sampleSummary = (overrides: Partial<RecipeSummary> = {}): RecipeSummary => ({
+  id: 'curry',
+  title: 'Green Curry',
+  difficulty: 'medium',
+  totalMinutes: 40,
+  cuisine: ['Thai'],
+  mealType: ['Dinner'],
+  diet: ['Vegan'],
+  tags: ['Weeknight'],
+  allergens: [],
+  visibility: 'shared',
+  ...overrides,
+});
+
+/**
+ * What a recipe card says: its title, the line of facts under it, and its tags. Read part by part,
+ * since Vue drops the spaces between elements that a browser would read.
+ */
+export function cardParts(card: HTMLElement) {
+  const text = (element: Element | null | undefined) =>
+    element?.textContent.replace(/\s+/g, ' ').trim();
+  const tags = within(card).queryByRole('list', { name: 'Tags' });
+  return {
+    title: text(within(card).getByRole('heading', { level: 2 })),
+    facts: [...card.querySelectorAll('p span')].map((span) => text(span)).join(' '),
+    tags: tags
+      ? within(tags)
+          .getAllByRole('listitem')
+          .map((item) => text(item))
+      : [],
+  };
 }

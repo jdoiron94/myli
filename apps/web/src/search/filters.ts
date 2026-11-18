@@ -2,7 +2,7 @@ import type { RecipeSearchQuery } from '@myli/shared';
 import { formatMinutes } from '@/recipes/format.ts';
 import type { SearchResult } from './search.ts';
 
-/** How the filters on home narrow a search (spec §3.4), apart from the words searched for. */
+/** How the search page's filters narrow a search (spec §3.4), apart from the words searched for. */
 
 type Facets = SearchResult['facets'];
 

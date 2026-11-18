@@ -92,6 +92,21 @@ export function answerSearch(result = NO_SEARCH_RESULTS) {
   apiServer.use(http.get(SEARCH_PATH, () => HttpResponse.json(result)));
 }
 
+const RECIPE_LIST_PATH = `${API_BASE_PATH}/recipes`;
+
+/** What listing recipes gives when there are none. */
+export const NO_RECIPES: components['schemas']['RecipeList'] = {
+  recipes: [],
+  total: 0,
+  page: 1,
+  totalPages: 0,
+};
+
+/** Answers `GET /recipes` with `list`, whatever page it's asked for: no recipes, unless given. */
+export function answerRecipeList(list = NO_RECIPES) {
+  apiServer.use(http.get(RECIPE_LIST_PATH, () => HttpResponse.json(list)));
+}
+
 /** Whether the current test already answers `method path` itself. */
 function answered(method: string, path: string) {
   return apiServer
@@ -114,8 +129,8 @@ export interface RenderAppOptions {
 /**
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
  * while the router is still making its first navigation, which waits for the session and, when no
- * one is signed in, for whether setup is needed. It answers both from the options, and recipe
- * search with no recipes, unless the test already answers them itself. Queries retry without
+ * one is signed in, for whether setup is needed. It answers both from the options, and the recipe
+ * list and search with no recipes, unless the test already answers them itself. Queries retry without
  * waiting in between.
  */
 export async function renderApp(
@@ -124,7 +139,8 @@ export async function renderApp(
 ) {
   if (!answered('GET', SESSION_PATH)) answerSession(signedInAs ? testUsers[signedInAs] : null);
   if (!answered('GET', SETUP_PATH)) answerSetup(setupNeeded);
-  // Home searches for recipes.
+  // Home lists recipes, and search searches for them.
+  if (!answered('GET', RECIPE_LIST_PATH)) answerRecipeList();
   if (!answered('GET', SEARCH_PATH)) answerSearch();
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';

@@ -144,13 +144,14 @@ describe('the main navigation', () => {
     return icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1];
   };
 
-  it('links admins to a new recipe, and gathers the admin pages in one menu', async () => {
+  const linkNames = () =>
+    within(nav())
+      .getAllByRole('link')
+      .map((link) => link.textContent.trim());
+
+  it('links admins to search and a new recipe, and gathers the admin pages in one menu', async () => {
     const { user } = await renderApp('/', { signedInAs: 'admin' });
-    expect(
-      within(nav())
-        .getAllByRole('link')
-        .map((link) => link.textContent.trim()),
-    ).toEqual(['New recipe']);
+    expect(linkNames()).toEqual(['Search', 'New recipe']);
 
     await user.click(adminButton());
 
@@ -225,19 +226,16 @@ describe('the main navigation', () => {
         iconOf(element),
       ]),
     ).toEqual([
+      ['Search', 'search'],
       ['New recipe', 'plus'],
       ['Admin', 'shield'],
     ]);
   });
 
-  it('links editors to a new recipe only, with no admin menu', async () => {
+  it('links editors to search and a new recipe, with no admin menu', async () => {
     answerTags();
     const { router, user } = await renderApp('/');
-    expect(
-      within(nav())
-        .getAllByRole('link')
-        .map((link) => link.textContent.trim()),
-    ).toEqual(['New recipe']);
+    expect(linkNames()).toEqual(['Search', 'New recipe']);
     expect(within(nav()).queryByRole('button')).toBeNull();
 
     await user.click(within(nav()).getByRole('link', { name: 'New recipe' }));
@@ -247,14 +245,23 @@ describe('the main navigation', () => {
     await screen.findByRole('checkbox', { name: 'Italian' });
   });
 
-  it.each([
-    ['a viewer', 'viewer'],
-    ['no one signed in', null],
-  ] as const)("isn't there for %s, who has no page to go to yet", async (_, role) => {
-    await renderApp(role ? '/' : '/login', { signedInAs: role });
+  it('links viewers to search only, since they can’t write recipes', async () => {
+    const { router, user } = await renderApp('/', { signedInAs: 'viewer' });
+    expect(linkNames()).toEqual(['Search']);
+    expect(within(nav()).queryByRole('button')).toBeNull();
+
+    await user.click(within(nav()).getByRole('link', { name: 'Search' }));
+
+    await screen.findByRole('heading', { level: 1, name: 'Search' });
+    expect(router.currentRoute.value.fullPath).toBe('/search');
+    await screen.findByText('No recipes yet.');
+  });
+
+  it('isn’t there for no one signed in', async () => {
+    await renderApp('/login', { signedInAs: null });
 
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'New recipe' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Search' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
   });
 });

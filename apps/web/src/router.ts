@@ -39,6 +39,12 @@ export const documentTitle = (pageTitle?: string) =>
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('./pages/HomePage.vue') },
   {
+    path: '/search',
+    name: 'search',
+    component: () => import('./pages/SearchPage.vue'),
+    meta: { title: 'Search' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('./pages/LoginPage.vue'),

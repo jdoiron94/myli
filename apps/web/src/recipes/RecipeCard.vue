@@ -3,13 +3,13 @@ import { LockIcon, TriangleAlertIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { DIFFICULTY_LABELS, formatMinutes } from '@/recipes/format.ts';
-import type { SearchHit } from './search.ts';
+import type { RecipeSummary } from './recipe.ts';
 
 /**
- * One recipe in the search results. The whole card goes to the recipe, through its title's link,
+ * One recipe in a list or in search results. The whole card goes to the recipe, through its title's link,
  * so the link's name is just the title.
  */
-const props = defineProps<{ recipe: SearchHit }>();
+const props = defineProps<{ recipe: RecipeSummary }>();
 
 const facts = computed(() =>
   [
