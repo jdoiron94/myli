@@ -12,7 +12,14 @@ import {
   renderApp,
 } from '@/testing.ts';
 import type { Recipe, UpdateRecipeRequest } from './recipe.ts';
-import { answerRecipe, answerTags, sampleImage, sampleRecipe } from './testing.ts';
+import {
+  answerRecipe,
+  answerTags,
+  answerUploads,
+  photoFile,
+  sampleImage,
+  sampleRecipe,
+} from './testing.ts';
 
 const photosGroup = () => screen.getByRole('group', { name: 'Photos' });
 const fileInput = () => {
@@ -39,30 +46,6 @@ const problems = () =>
       const items = [...alert.querySelectorAll('li')];
       return (items.length > 0 ? items : [alert]).map((item) => item.textContent.trim());
     });
-
-const photoFile = (name: string, type = 'image/jpeg', size = 1000) =>
-  new File([new Uint8Array(size)], name, { type });
-
-/**
- * Answers uploads with `answer`, given how many there have been, by default the photos `upload-1`,
- * `upload-2` and so on. Keeps the type and size of each.
- */
-function answerUploads(answer?: (count: number) => Response | Promise<Response>) {
-  const sent: { type: string | null; size: number }[] = [];
-  apiServer.use(
-    http.post('/api/v1/images', async ({ request }) => {
-      sent.push({
-        type: request.headers.get('content-type'),
-        size: (await request.arrayBuffer()).byteLength,
-      });
-      const count = sent.length;
-      return answer
-        ? answer(count)
-        : HttpResponse.json({ image: sampleImage(`upload-${String(count)}`) }, { status: 201 });
-    }),
-  );
-  return sent;
-}
 
 /** The edit page for `recipe`. Keeps the photos each save sends. */
 async function editPhotos(recipe: Recipe, answerSave?: () => Response) {

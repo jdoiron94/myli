@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { IMAGE_UPLOAD_TYPES } from '@myli/shared';
 import { useTemplateRef } from 'vue';
-import { Button } from '@/components/ui/button';
+import { Button, type ButtonVariants } from '@/components/ui/button';
 
 /** A button that opens the device's picker for photos. Its attributes go on the button. */
 defineOptions({ inheritAttrs: false });
-defineProps<{
+const {
+  multiple,
+  unavailable,
+  variant = 'outline',
+  size = 'sm',
+} = defineProps<{
   multiple?: boolean;
   /** Shown, but does nothing, as when the recipe has as many photos as it can. */
   unavailable?: boolean;
+  variant?: ButtonVariants['variant'];
+  size?: ButtonVariants['size'];
 }>();
 const emit = defineEmits<{ picked: [files: File[]] }>();
 
@@ -27,8 +34,8 @@ function picked() {
   <Button
     v-bind="$attrs"
     type="button"
-    variant="outline"
-    size="sm"
+    :variant="variant"
+    :size="size"
     class="aria-disabled:opacity-50"
     :aria-disabled="unavailable ? true : undefined"
     @click="unavailable || input?.click()"

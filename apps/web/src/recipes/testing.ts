@@ -148,3 +148,28 @@ export function cardParts(card: HTMLElement) {
       : [],
   };
 }
+
+/** A file to pick as a photo: its bytes aren't an image, which only the API would check. */
+export const photoFile = (name: string, type = 'image/jpeg', size = 1000) =>
+  new File([new Uint8Array(size)], name, { type });
+
+/**
+ * Answers uploads with `answer`, given how many there have been, by default the photos `upload-1`,
+ * `upload-2` and so on. Keeps the type and size of each.
+ */
+export function answerUploads(answer?: (count: number) => Response | Promise<Response>) {
+  const sent: { type: string | null; size: number }[] = [];
+  apiServer.use(
+    http.post('/api/v1/images', async ({ request }) => {
+      sent.push({
+        type: request.headers.get('content-type'),
+        size: (await request.arrayBuffer()).byteLength,
+      });
+      const count = sent.length;
+      return answer
+        ? answer(count)
+        : HttpResponse.json({ image: sampleImage(`upload-${String(count)}`) }, { status: 201 });
+    }),
+  );
+  return sent;
+}

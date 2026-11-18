@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { ArrowLeftIcon, ArrowRightIcon, ImagePlusIcon, XIcon } from '@lucide/vue';
 import { RECIPE_LIMITS } from '@myli/shared';
-import {
-  useField,
-  useFieldArray,
-  useFieldError,
-  useFormErrors,
-  useSetFormErrors,
-} from 'vee-validate';
+import { useField, useFieldArray, useFieldError, useFormErrors } from 'vee-validate';
 import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
 import { failureMessage } from '@/api/failure.ts';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldError, FieldLegend, FieldSet } from '@/components/ui/field';
+import { useForgetErrors } from '@/lib/forms.ts';
 import PhotoPicker from './PhotoPicker.vue';
 import type { PhotoLibrary } from './photo-library.ts';
 import { EDITOR_PHOTO_SIZES, photoFileProblem } from './photos.ts';
@@ -24,7 +19,7 @@ const photos = useFieldArray<string>('imageIds');
 const { value: cover } = useField<string | null>('coverImageId');
 const listError = useFieldError('imageIds');
 const formErrors = useFormErrors();
-const setFormErrors = useSetFormErrors();
+const forgetRefusals = useForgetErrors((path) => path.startsWith('imageIds['));
 
 const id = useId();
 const root = useTemplateRef('root');
@@ -44,15 +39,6 @@ const TOO_MANY = `A recipe can have up to ${String(RECIPE_LIMITS.images)} photos
 const progress = ref<{ at: number; of: number }>();
 /** What went wrong with the files picked last, each with its name. */
 const problems = ref<string[]>([]);
-
-/**
- * The API's refusals are for the photos at each place when it answered: once the photos change,
- * they'd be on the wrong ones. Saving again says again what's still wrong.
- */
-function forgetRefusals() {
-  const stale = Object.keys(formErrors.value).filter((path) => path.startsWith('imageIds['));
-  if (stale.length > 0) setFormErrors(Object.fromEntries(stale.map((path) => [path, undefined])));
-}
 
 /** Uploads the files picked one after another, in order, refusing what the API would. */
 async function add(files: File[]) {
