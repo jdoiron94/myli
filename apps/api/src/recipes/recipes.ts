@@ -6,10 +6,11 @@ import {
   type UpdateRecipeRequest,
   type Visibility,
 } from '@myli/shared';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
-import { recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
+import { image, recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
+import { deleteBlobsJob, toImage } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
 import { indexRecipeJob } from '../search/indexing.ts';
 import { byTypeThenName } from '../tags/tags.ts';
@@ -44,6 +45,7 @@ function contentColumns(content: RecipeContent) {
     cookMin: content.cookMinutes,
     totalMin: content.totalMinutes,
     difficulty: content.difficulty,
+    coverImageId: content.coverImageId,
     nutritionCalories: nutrition.calories,
     nutritionProteinG: nutrition.proteinGrams,
     nutritionCarbsG: nutrition.carbsGrams,
@@ -74,7 +76,12 @@ function writeParts(tx: Tx, recipeId: string, content: RecipeContent): void {
   );
   if (lines.length > 0) tx.insert(recipeIngredient).values(lines).run();
 
-  const steps = content.steps.map((step, position) => ({ recipeId, position, bodyMd: step.body }));
+  const steps = content.steps.map((step, position) => ({
+    recipeId,
+    position,
+    bodyMd: step.body,
+    imageId: step.imageId,
+  }));
   if (steps.length > 0) tx.insert(recipeStep).values(steps).run();
 
   const tags = content.tagIds.map((tagId) => ({ recipeId, tagId }));
@@ -95,19 +102,96 @@ function missingTagIndexes(tx: Tx, tagIds: readonly number[]): number[] {
   return tagIds.flatMap((id, index) => (found.has(id) ? [] : [index]));
 }
 
+/** Each photo the content names, where it names it, and its place among the recipe's photos. */
+function photoUses(content: RecipeContent) {
+  return [
+    ...content.imageIds.map((id, index) => ({
+      id,
+      path: ['imageIds', index] as PropertyKey[],
+      position: index,
+    })),
+    ...content.steps.flatMap(({ imageId }, index) =>
+      imageId === null
+        ? []
+        : [{ id: imageId, path: ['steps', index, 'imageId'] as PropertyKey[], position: null }],
+    ),
+  ];
+}
+
+type PhotoUse = ReturnType<typeof photoUses>[number];
+
+/**
+ * Where the content names photos it can't use: ones that don't exist, belong to another recipe, or
+ * are someone else's uploads no recipe was saved with. `recipeId` is `null` for a new recipe.
+ */
+function unusablePhotos(
+  tx: Tx,
+  recipeId: string | null,
+  editorId: string,
+  uses: readonly PhotoUse[],
+): PropertyKey[][] {
+  if (uses.length === 0) return [];
+  const rows = new Map(
+    tx
+      .select({ id: image.id, recipeId: image.recipeId, uploaderId: image.uploaderId })
+      .from(image)
+      .where(
+        inArray(
+          image.id,
+          uses.map(({ id }) => id),
+        ),
+      )
+      .all()
+      .map((row) => [row.id, row]),
+  );
+  return uses
+    .filter(({ id }) => {
+      const row = rows.get(id);
+      if (!row) return true;
+      return row.recipeId === null ? row.uploaderId !== editorId : row.recipeId !== recipeId;
+    })
+    .map(({ path }) => path);
+}
+
+/**
+ * Gives the recipe the photos it names, each in its place, and deletes those it named before and
+ * no longer does, their blobs in a job. Until Phase 2 keeps revisions, nothing else refers to them.
+ * Runs after the recipe's cover and steps are written, so none of them still refers to one.
+ */
+function writePhotos(tx: Tx, recipeId: string, uses: readonly PhotoUse[]): void {
+  for (const { id, position } of uses) {
+    tx.update(image).set({ recipeId, position }).where(eq(image.id, id)).run();
+  }
+  const kept = uses.map(({ id }) => id);
+  const dropped = tx
+    .delete(image)
+    .where(and(eq(image.recipeId, recipeId), notInArray(image.id, kept)))
+    .returning({ variants: image.variants })
+    .all();
+  const keys = dropped.flatMap(({ variants }) => variants.map(({ key }) => key));
+  if (keys.length > 0) enqueueJob(tx, deleteBlobsJob, { keys });
+}
+
 export type SaveResult =
   | { ok: true; id: string }
   | { ok: false; reason: 'missing-tags'; missingTags: number[] }
+  | { ok: false; reason: 'unusable-images'; paths: PropertyKey[][] }
   | { ok: false; reason: 'not-found' };
 
 /** A live (not deleted) recipe's row. */
 const live = (id: string) => and(eq(recipe.id, id), isNull(recipe.deletedAt));
 
-/** Creates a recipe owned by `ownerId`, unless one of its tags doesn't exist. */
+/**
+ * Creates a recipe owned by `ownerId`, unless one of its tags doesn't exist or it names a photo
+ * that isn't one of their uploads no recipe was saved with.
+ */
 export function createRecipe(db: Db, ownerId: string, request: CreateRecipeRequest): SaveResult {
   return db.transaction((tx): SaveResult => {
     const missingTags = missingTagIndexes(tx, request.tagIds);
     if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
+    const photos = photoUses(request);
+    const unusable = unusablePhotos(tx, null, ownerId, photos);
+    if (unusable.length > 0) return { ok: false, reason: 'unusable-images', paths: unusable };
 
     const { id } = tx
       .insert(recipe)
@@ -115,19 +199,29 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
       .returning({ id: recipe.id })
       .get();
     writeParts(tx, id, request);
+    writePhotos(tx, id, photos);
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
 }
 
 /**
- * Saves a recipe's content over what it had, lines, steps and tags included. Its owner and
- * visibility stay. The last save wins until Phase 2's concurrency check.
+ * Saves a recipe's content over what it had, lines, steps, tags and photos included, as edited by
+ * `editorId`, whose uploads it can add. Its owner and visibility stay. The last save wins until
+ * Phase 2's concurrency check.
  */
-export function updateRecipe(db: Db, id: string, content: RecipeContent): SaveResult {
+export function updateRecipe(
+  db: Db,
+  id: string,
+  content: RecipeContent,
+  editorId: string,
+): SaveResult {
   return db.transaction((tx): SaveResult => {
     const missingTags = missingTagIndexes(tx, content.tagIds);
     if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
+    const photos = photoUses(content);
+    const unusable = unusablePhotos(tx, id, editorId, photos);
+    if (unusable.length > 0) return { ok: false, reason: 'unusable-images', paths: unusable };
 
     const [updated] = tx
       .update(recipe)
@@ -141,6 +235,7 @@ export function updateRecipe(db: Db, id: string, content: RecipeContent): SaveRe
     tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
     tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
     writeParts(tx, id, content);
+    writePhotos(tx, id, photos);
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
@@ -233,12 +328,23 @@ export function loadRecipe(db: Db | Tx, id: string): Recipe | undefined {
     });
   }
 
+  const photos = db.select().from(image).where(eq(image.recipeId, id)).all();
+  const photoById = new Map(photos.map((photo) => [photo.id, toImage(photo)]));
+  const images = photos
+    .flatMap((photo) => (photo.position === null ? [] : [{ ...photo, position: photo.position }]))
+    .sort((a, b) => a.position - b.position)
+    .map(toImage);
+
   const steps = db
-    .select({ body: recipeStep.bodyMd })
+    .select({ body: recipeStep.bodyMd, imageId: recipeStep.imageId })
     .from(recipeStep)
     .where(eq(recipeStep.recipeId, id))
     .orderBy(asc(recipeStep.position))
-    .all();
+    .all()
+    .map(({ body, imageId }) => ({
+      body,
+      image: (imageId === null ? undefined : photoById.get(imageId)) ?? null,
+    }));
 
   const tags = db
     .select({ id: tag.id, type: tag.type, name: tag.name, nameKey: tag.nameKey })
@@ -275,6 +381,8 @@ export function loadRecipe(db: Db | Tx, id: string): Recipe | undefined {
     ingredientGroups: groups,
     steps,
     tags,
+    images,
+    coverImageId: row.coverImageId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

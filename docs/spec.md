@@ -244,7 +244,8 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **In the editor,** every tag of each type shows as a checkbox, so picking one is a click and what exists is in view. Under each type but the allergens, editors can add a new tag, which is checked straight away; a name the type already has checks that tag instead.
 
 **Images**
-- Several images per recipe, one marked as the cover. Each step can have one image.
+- Up to 20 images per recipe, in order, one marked as the cover. Each step can have one image of its own. An image is used once: in the recipe's images or one step's.
+- A recipe is saved with the images it has: its own, or uploads of whoever saves it that no recipe was saved with yet. An upload of someone else's, or another recipe's image, is refused at the field that names it. An image the recipe no longer has is deleted when it's saved, until Phase 2's revisions keep older versions.
 - Editors and admins upload them as the file itself, not in a form.
 - **On upload:**
   - check the real file type from the file's first bytes (JPEG, PNG, WebP)
@@ -443,7 +444,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | `recipe_step` | `recipe_id`, `position`, `body_md`, `image_id` |
 | `recipe_revision` | `recipe_id`, `snapshot_json`, `author_id`, `message`, `created_at` |
 | `tag`, `recipe_tag` | `tag.type`, `tag.name`, `tag.name_key` (the name without case or extra spaces; unique per type). The allergen tags are seeded by a migration. |
-| `image` | `recipe_id` (null until a recipe is saved with it), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
+| `image` | `recipe_id` (null until a recipe is saved with it), `position` (among the recipe's images; null for a step's), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |
 | `collection`, `collection_item` | Per user; items are ordered |
 | `user_preference` | `user_id`, `unit_system`. No row means the defaults. The theme isn't here: it's chosen per browser (§6). |

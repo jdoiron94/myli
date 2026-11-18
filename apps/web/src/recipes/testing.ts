@@ -3,9 +3,21 @@ import { within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { answerPreferences } from '@/account/testing.ts';
 import { apiServer, problemResponse, testUsers } from '@/testing.ts';
-import type { Recipe, RecipeSummary, Tag } from './recipe.ts';
+import type { Image, Recipe, RecipeSummary, Tag } from './recipe.ts';
 
 /** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
+/** A 1600×1200 photo, with the sizes the API makes of one that wide. */
+export const sampleImage = (id: string): Image => ({
+  id,
+  width: 1600,
+  height: 1200,
+  variants: [
+    { width: 640, height: 480 },
+    { width: 1280, height: 960 },
+    { width: 1600, height: 1200 },
+  ],
+});
+
 export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
     id: 'recipe-bread',
@@ -57,8 +69,13 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
         ],
       },
     ],
-    steps: [{ body: 'Mix everything.' }, { body: 'Bake at **400°F**.' }],
+    steps: [
+      { body: 'Mix everything.', image: null },
+      { body: 'Bake at **400°F**.', image: null },
+    ],
     tags: [],
+    images: [],
+    coverImageId: null,
     createdAt: '2026-11-10T09:00:00.000Z',
     updatedAt: '2026-11-12T09:00:00.000Z',
     ...overrides,

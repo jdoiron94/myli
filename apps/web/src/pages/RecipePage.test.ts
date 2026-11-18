@@ -165,7 +165,12 @@ describe('the recipe page', () => {
 
   it('numbers the steps, rendering their markdown', async () => {
     answerRecipe(
-      sampleRecipe({ steps: [{ body: 'Roll it up.\n# Not a heading' }, { body: 'Bake.' }] }),
+      sampleRecipe({
+        steps: [
+          { body: 'Roll it up.\n# Not a heading', image: null },
+          { body: 'Bake.', image: null },
+        ],
+      }),
     );
     await renderApp('/recipes/recipe-bread');
 

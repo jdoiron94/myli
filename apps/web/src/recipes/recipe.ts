@@ -6,6 +6,7 @@ import type { components } from '@/api/schema.ts';
 export type Recipe = components['schemas']['Recipe'];
 export type IngredientLine = components['schemas']['IngredientLine'];
 export type Tag = components['schemas']['Tag'];
+export type Image = components['schemas']['Image'];
 export type RecipeSummary = components['schemas']['RecipeSummary'];
 export type RecipeList = components['schemas']['RecipeList'];
 export type CreateRecipeRequest = components['schemas']['CreateRecipeRequest'];

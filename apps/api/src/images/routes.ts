@@ -6,6 +6,7 @@ import {
   IMAGE_UPLOAD_TYPES,
   imageFileParamsSchema,
   imageResultSchema,
+  type PolicyRecipe,
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
 } from '@myli/shared';
@@ -20,7 +21,8 @@ import type { Db } from '../db/database.ts';
 import { image } from '../db/schema.ts';
 import { mediaType } from '../json-only.ts';
 import { errorResponses, HttpProblem, InvalidFields } from '../problems.ts';
-import { imageAccess, saveUpload } from './images.ts';
+import { findRecipeAccess } from '../recipes/recipes.ts';
+import { saveUpload } from './images.ts';
 import { MAX_PIXELS, processImage } from './process.ts';
 
 export const NOT_AN_IMAGE_DETAIL = 'Upload a JPEG, PNG or WebP image.';
@@ -73,6 +75,19 @@ const postImage = createRoute({
     ...errorResponses,
   },
 });
+
+/**
+ * What decides who may see an image, under `recipe.read`: the recipe it belongs to, or until a
+ * recipe is saved with it, its uploader alone, as for a private recipe of theirs. `undefined` when
+ * its recipe was deleted.
+ */
+function imageAccess(
+  db: Db,
+  row: { recipeId: string | null; uploaderId: string },
+): PolicyRecipe | undefined {
+  if (row.recipeId === null) return { ownerId: row.uploaderId, visibility: 'private' };
+  return findRecipeAccess(db, row.recipeId);
+}
 
 /** A size's address never changes what it serves (ADR 0004), so browsers keep it for good. */
 export const IMAGE_CACHE_CONTROL = 'private, max-age=31536000, immutable';

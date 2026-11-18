@@ -51,8 +51,13 @@ export function sampleRecipeContent(
         ],
       },
     ],
-    steps: [{ body: 'Mix everything.' }, { body: 'Bake at **400°F**.' }],
+    steps: [
+      { body: 'Mix everything.', imageId: null },
+      { body: 'Bake at **400°F**.', imageId: null },
+    ],
     tagIds: [],
+    imageIds: [],
+    coverImageId: null,
     ...overrides,
   };
 }

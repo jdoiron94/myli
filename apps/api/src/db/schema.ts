@@ -11,6 +11,7 @@ import {
 } from '@myli/shared';
 import { sql } from 'drizzle-orm';
 import {
+  type AnySQLiteColumn,
   check,
   index,
   integer,
@@ -277,6 +278,8 @@ export const recipe = sqliteTable(
     /** Set only when someone overrides the total; otherwise it's prep + cook. */
     totalMin: integer('total_min'),
     difficulty: text('difficulty', { enum: DIFFICULTIES }),
+    /** The photo lists show it with: one of its photos, or `null` when it has none. */
+    coverImageId: text('cover_image_id').references((): AnySQLiteColumn => image.id),
     nutritionCalories: real(NUTRITION_COLUMNS.calories),
     nutritionProteinG: real(NUTRITION_COLUMNS.proteinGrams),
     nutritionCarbsG: real(NUTRITION_COLUMNS.carbsGrams),
@@ -369,6 +372,7 @@ export const recipeStep = sqliteTable(
       .references(() => recipe.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     bodyMd: text('body_md').notNull(),
+    imageId: text('image_id').references((): AnySQLiteColumn => image.id),
   },
   (table) => [uniqueIndex('recipe_step_position_idx').on(table.recipeId, table.position)],
 );
@@ -448,6 +452,8 @@ export const image = sqliteTable(
       .$defaultFn(() => crypto.randomUUID()),
     /** `null` until a recipe is saved with it. */
     recipeId: text('recipe_id').references(() => recipe.id),
+    /** Its place among the recipe's photos, from 0. `null` for a step's photo, or while unsaved. */
+    position: integer('position'),
     /** Until it belongs to a recipe, the only one who may see it or use it. */
     uploaderId: text('uploader_id')
       .notNull()

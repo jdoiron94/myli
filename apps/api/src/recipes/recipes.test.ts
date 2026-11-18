@@ -74,10 +74,13 @@ describe('POST /recipes', () => {
     const request = sampleRecipeRequest({ tagIds: [tagId(t, 'wheat')] });
     const created = await recipeFrom(await send(t, 'POST', '/recipes', cookie, request));
 
-    // toEqual skips properties that are undefined: the request's tagIds become the tags.
+    // toEqual skips properties that are undefined: the request's IDs become what they name.
     expect(created).toEqual({
       ...request,
       tagIds: undefined,
+      imageIds: undefined,
+      images: [],
+      steps: request.steps.map(({ body }) => ({ body, image: null })),
       id: expect.any(String),
       owner: { id: user.id, name: user.name },
       ingredientGroups: request.ingredientGroups.map((group) => ({
@@ -231,7 +234,7 @@ describe('POST /recipes', () => {
       '#/source/url',
     ],
     ['the same tag twice', { tagIds: [1, 1] }, '#/tagIds'],
-    ['a step without words', { steps: [{ body: ' ' }] }, '#/steps/0/body'],
+    ['a step without words', { steps: [{ body: ' ', imageId: null }] }, '#/steps/0/body'],
     [
       'an empty ingredient group',
       { ingredientGroups: [{ label: null, ingredients: [] }] },
@@ -381,7 +384,7 @@ describe('PUT /recipes/{id}', () => {
           ],
         },
       ],
-      steps: [{ body: 'Wait a day.' }],
+      steps: [{ body: 'Wait a day.', imageId: null }],
       tagIds: [tagId(t, 'wheat')],
     });
     const res = await save(t, created.id, cookie, content);

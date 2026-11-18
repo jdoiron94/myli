@@ -4,7 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import type { Recipe } from '@/recipes/recipe.ts';
-import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
+import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
@@ -88,6 +88,12 @@ describe('the edit recipe page', () => {
   it('saves the changes over the whole recipe, keeping what the form has no fields for', async () => {
     const recipe = sampleRecipe({
       tags: [{ id: 3, type: 'cuisine', name: 'Italian' }],
+      images: [sampleImage('photo-a'), sampleImage('photo-b')],
+      coverImageId: 'photo-b',
+      steps: [
+        { body: 'Mix everything.', image: sampleImage('photo-c') },
+        { body: 'Bake at **400°F**.', image: null },
+      ],
     });
     const { saved, reads } = storeRecipe(recipe);
     const { router, user } = await openEditor();
@@ -140,8 +146,13 @@ describe('the edit recipe page', () => {
             ],
           },
         ],
-        steps: recipe.steps,
+        steps: [
+          { body: 'Mix everything.', imageId: 'photo-c' },
+          { body: 'Bake at **400°F**.', imageId: null },
+        ],
         tagIds: [3],
+        imageIds: ['photo-a', 'photo-b'],
+        coverImageId: 'photo-b',
       },
     ]);
     // The recipe's page loads it again, as it does each time it opens.

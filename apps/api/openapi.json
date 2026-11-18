@@ -608,10 +608,21 @@
               "properties": {
                 "body": {
                   "type": "string"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Image"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
-                "body"
+                "body",
+                "image"
               ]
             }
           },
@@ -621,6 +632,20 @@
               "$ref": "#/components/schemas/Tag"
             },
             "description": "By type, then name."
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            },
+            "description": "Its photos, in order."
+          },
+          "coverImageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One of `images`, or `null` when there are none."
           },
           "createdAt": {
             "type": "string",
@@ -649,6 +674,8 @@
           "ingredientGroups",
           "steps",
           "tags",
+          "images",
+          "coverImageId",
           "createdAt",
           "updatedAt"
         ]
@@ -722,6 +749,46 @@
           "normalizedName",
           "note",
           "scalable"
+        ]
+      },
+      "Image": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "description": "Of the upload, in pixels, turned upright."
+          },
+          "height": {
+            "type": "integer"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "integer"
+                },
+                "height": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "width",
+                "height"
+              ]
+            },
+            "description": "The sizes it’s served at, narrowest first, each from /images/{id}/{width}."
+          }
+        },
+        "required": [
+          "id",
+          "width",
+          "height",
+          "variants"
         ]
       },
       "Tag": {
@@ -858,14 +925,43 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 10000
+                },
+                "imageId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "description": "Its photo, if it has one."
                 }
               },
               "required": [
-                "body"
+                "body",
+                "imageId"
               ]
             },
             "maxItems": 100,
             "description": "In order. Each body is markdown."
+          },
+          "imageIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 20,
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted."
+          },
+          "coverImageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The photo shown for it in lists: one of `imageIds`, or `null` when there are none."
           },
           "tagIds": {
             "type": "array",
@@ -893,6 +989,8 @@
           "nutrition",
           "ingredientGroups",
           "steps",
+          "imageIds",
+          "coverImageId",
           "tagIds",
           "visibility"
         ]
@@ -1308,14 +1406,43 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 10000
+                },
+                "imageId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "description": "Its photo, if it has one."
                 }
               },
               "required": [
-                "body"
+                "body",
+                "imageId"
               ]
             },
             "maxItems": 100,
             "description": "In order. Each body is markdown."
+          },
+          "imageIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 20,
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted."
+          },
+          "coverImageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The photo shown for it in lists: one of `imageIds`, or `null` when there are none."
           },
           "tagIds": {
             "type": "array",
@@ -1340,6 +1467,8 @@
           "nutrition",
           "ingredientGroups",
           "steps",
+          "imageIds",
+          "coverImageId",
           "tagIds"
         ]
       },
@@ -1363,46 +1492,6 @@
         },
         "required": [
           "image"
-        ]
-      },
-      "Image": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "width": {
-            "type": "integer",
-            "description": "Of the upload, in pixels, turned upright."
-          },
-          "height": {
-            "type": "integer"
-          },
-          "variants": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "width": {
-                  "type": "integer"
-                },
-                "height": {
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "width",
-                "height"
-              ]
-            },
-            "description": "The sizes it’s served at, narrowest first, each from /images/{id}/{width}."
-          }
-        },
-        "required": [
-          "id",
-          "width",
-          "height",
-          "variants"
         ]
       },
       "TagList": {
