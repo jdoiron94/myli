@@ -4,6 +4,7 @@ import { RECIPE_LIMITS } from '@myli/shared';
 import { useField, useFieldArray, useFieldError, useFormErrors } from 'vee-validate';
 import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
 import { failureMessage } from '@/api/failure.ts';
+import FormTextField from '@/components/FormTextField.vue';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldError, FieldLegend, FieldSet } from '@/components/ui/field';
 import { useForgetErrors } from '@/lib/forms.ts';
@@ -11,25 +12,26 @@ import PhotoPicker from './PhotoPicker.vue';
 import type { PhotoLibrary } from './photo-library.ts';
 import { EDITOR_PHOTO_SIZES, photoFileProblem } from './photos.ts';
 import RecipePhoto from './RecipePhoto.vue';
+import type { PhotoValues } from './recipe-form.ts';
 
-/** The recipe's photos, in order, and which one is its cover (spec §3.2 Images). */
+/** The recipe's photos, in order, each with its alt text, and which is its cover (spec §3.2). */
 const props = defineProps<{ library: PhotoLibrary }>();
 
-const photos = useFieldArray<string>('imageIds');
+const photos = useFieldArray<PhotoValues>('images');
 const { value: cover } = useField<string | null>('coverImageId');
-const listError = useFieldError('imageIds');
+const listError = useFieldError('images');
 const formErrors = useFormErrors();
-const forgetRefusals = useForgetErrors((path) => path.startsWith('imageIds['));
+const forgetRefusals = useForgetErrors((path) => /^images\[\d+\]\.id$/.test(path));
 
 const id = useId();
 const root = useTemplateRef('root');
 const shown = computed(() =>
   photos.fields.value.map((field, index) => ({
     key: field.key,
-    id: field.value,
-    image: props.library.get(field.value),
+    id: field.value.id,
+    image: props.library.get(field.value.id),
     // Set by the API's refusal of a save, for the photo at this place.
-    error: formErrors.value[`imageIds[${String(index)}]`],
+    error: formErrors.value[`images[${String(index)}].id`],
   })),
 );
 const full = () => shown.value.length >= RECIPE_LIMITS.images;
@@ -55,7 +57,7 @@ async function add(files: File[]) {
     progress.value = { at: index + 1, of: accepted.length };
     try {
       const image = await props.library.upload(file);
-      photos.push(image.id);
+      photos.push({ id: image.id, alt: '' });
       // The first photo is the cover until another is chosen.
       cover.value ??= image.id;
     } catch (error) {
@@ -100,6 +102,7 @@ async function remove(index: number) {
       <FieldLegend>Photos</FieldLegend>
       <FieldDescription>
         JPEG, PNG or WebP, up to 10 MB each. The cover shows at the top of the recipe and in lists.
+        Alt text says what a photo shows, for people who can’t see it.
       </FieldDescription>
       <ul
         v-if="shown.length > 0"
@@ -115,6 +118,7 @@ async function remove(index: number) {
             v-if="photo.image"
             :image="photo.image"
             :sizes="EDITOR_PHOTO_SIZES"
+            alt=""
             class="aspect-[4/3] w-full rounded-md object-cover"
           />
           <div class="flex flex-wrap items-center justify-between gap-1">
@@ -174,6 +178,11 @@ async function remove(index: number) {
           <FieldError
             :id="`${id}-${index}-error`"
             :errors="photo.error ? [photo.error] : []"
+          />
+          <FormTextField
+            :name="`images[${index}].alt`"
+            :label="`Alt text for photo ${index + 1}`"
+            multiline
           />
         </li>
       </ul>

@@ -78,6 +78,13 @@
       "when": 1795016233118,
       "tag": "0010_recipe_images",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1795020199978,
+      "tag": "0011_image_alt_text",
+      "breakpoints": true
     }
   ]
 }

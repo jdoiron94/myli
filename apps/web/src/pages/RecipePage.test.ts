@@ -167,11 +167,15 @@ describe('the recipe page', () => {
   it('shows the cover first, each step’s photo in its step, and the other photos last', async () => {
     answerRecipe(
       sampleRecipe({
-        images: [sampleImage('a'), sampleImage('b'), sampleImage('c')],
+        images: [
+          sampleImage('a', 'The crumb, up close.'),
+          sampleImage('b', 'A crusty loaf on a board.'),
+          sampleImage('c'),
+        ],
         coverImageId: 'b',
         steps: [
           { body: 'Mix everything.', image: null },
-          { body: 'Shape it.', image: sampleImage('d') },
+          { body: 'Shape it.', image: sampleImage('d', 'Dough shaped into a round.') },
         ],
       }),
     );
@@ -184,12 +188,35 @@ describe('the recipe page', () => {
         src: photo.getAttribute('src'),
         sizes: photo.getAttribute('sizes'),
         loading: photo.getAttribute('loading'),
+        alt: photo.getAttribute('alt'),
       })),
     ).toEqual([
-      { src: '/api/v1/images/b/1280', sizes: COVER_SIZES, loading: 'eager' },
-      { src: '/api/v1/images/d/1280', sizes: STEP_PHOTO_SIZES, loading: 'lazy' },
-      { src: '/api/v1/images/a/1280', sizes: GALLERY_SIZES, loading: 'lazy' },
-      { src: '/api/v1/images/c/1280', sizes: GALLERY_SIZES, loading: 'lazy' },
+      {
+        src: '/api/v1/images/b/1280',
+        sizes: COVER_SIZES,
+        loading: 'eager',
+        alt: 'A crusty loaf on a board.',
+      },
+      {
+        src: '/api/v1/images/d/1280',
+        sizes: STEP_PHOTO_SIZES,
+        loading: 'lazy',
+        alt: 'Dough shaped into a round.',
+      },
+      {
+        src: '/api/v1/images/a/1280',
+        sizes: GALLERY_SIZES,
+        loading: 'lazy',
+        alt: 'The crumb, up close.',
+      },
+      // Left out for screen readers, without alt text.
+      { src: '/api/v1/images/c/1280', sizes: GALLERY_SIZES, loading: 'lazy', alt: '' },
+    ]);
+    // The other photos come under a heading of their own.
+    const gallery = screen.getByRole('region', { name: 'Photos' });
+    expect([...gallery.querySelectorAll('img')].map((photo) => photo.alt)).toEqual([
+      'The crumb, up close.',
+      '',
     ]);
     expect(photos[0]?.getAttribute('srcset')).toBe(
       '/api/v1/images/b/640 640w, /api/v1/images/b/1280 1280w, /api/v1/images/b/1600 1600w',
@@ -213,6 +240,7 @@ describe('the recipe page', () => {
     await heading();
 
     expect(document.querySelector('article img')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Photos' })).toBeNull();
   });
 
   it('numbers the steps, rendering their markdown', async () => {

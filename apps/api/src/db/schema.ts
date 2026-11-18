@@ -454,6 +454,8 @@ export const image = sqliteTable(
     recipeId: text('recipe_id').references(() => recipe.id),
     /** Its place among the recipe's photos, from 0. `null` for a step's photo, or while unsaved. */
     position: integer('position'),
+    /** What it shows, for people who can't see it, as the recipe was saved with it. */
+    altText: text('alt_text').notNull().default(''),
     /** Until it belongs to a recipe, the only one who may see it or use it. */
     uploaderId: text('uploader_id')
       .notNull()

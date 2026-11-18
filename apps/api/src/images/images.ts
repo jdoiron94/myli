@@ -62,11 +62,13 @@ export function coversOf(db: Db, recipeIds: readonly string[]): Map<string, Imag
 /** An image as the API answers with it. */
 export const toImage = (row: {
   id: string;
+  altText: string;
   width: number;
   height: number;
   variants: StoredImageVariant[];
 }): Image => ({
   id: row.id,
+  alt: row.altText,
   width: row.width,
   height: row.height,
   variants: row.variants.map(({ width, height }) => ({ width, height })),
@@ -118,5 +120,6 @@ export async function saveUpload(
     await Promise.allSettled(stored.map((key) => deps.blobs.delete(key)));
     throw error;
   }
-  return toImage({ id, width: upload.width, height: upload.height, variants });
+  // Described once a recipe is saved with it.
+  return toImage({ id, altText: '', width: upload.width, height: upload.height, variants });
 }

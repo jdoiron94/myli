@@ -127,8 +127,8 @@ describe('the steps editor', () => {
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([
       [
-        { body: 'Bake. Then cool.', imageId: null },
-        { body: 'Mix.', imageId: null },
+        { body: 'Bake. Then cool.', image: null },
+        { body: 'Mix.', image: null },
       ],
     ]);
   });
@@ -144,8 +144,8 @@ describe('the steps editor', () => {
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([
       [
-        { body: 'Bake **hot**.', imageId: null },
-        { body: 'Mix.', imageId: null },
+        { body: 'Bake **hot**.', image: null },
+        { body: 'Mix.', image: null },
       ],
     ]);
     const steps = screen.getByRole('region', { name: 'Steps' });
@@ -228,9 +228,9 @@ describe('a step’s photo', () => {
         if (answerSave) return answerSave();
         stored = {
           ...stored,
-          steps: steps.map(({ body, imageId }) => ({
+          steps: steps.map(({ body, image }) => ({
             body,
-            image: imageId === null ? null : sampleImage(imageId),
+            image: image && sampleImage(image.id, image.alt),
           })),
         };
         return HttpResponse.json({ recipe: stored });
@@ -249,7 +249,12 @@ describe('a step’s photo', () => {
       ],
     });
 
-  it('is uploaded for the step, moves with it, and is saved with it', async () => {
+  const altField = (position: number) =>
+    screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: `Alt text for step ${String(position)}’s photo`,
+    });
+
+  it('is uploaded for the step, moves with it, and is saved with it and its alt text', async () => {
     const sent = answerUploads();
     const { user, saved } = await editStepPhotos(twoSteps());
 
@@ -261,22 +266,26 @@ describe('a step’s photo', () => {
     expect(sent).toEqual([{ type: 'image/jpeg', size: 1000 }]);
     // One photo a step: removing it is how to change it.
     expect(screen.queryByRole('button', { name: 'Add a photo to step 2' })).toBeNull();
+    // Its field says what it shows, so the photo isn't described twice.
+    expect(stepItem(2).querySelector('img')?.alt).toBe('');
+    await user.type(altField(2), 'Dough shaped into a round.');
     await user.click(button('Move step 2 up'));
     expect(stepPhotos()).toEqual(['upload-1', null]);
+    expect(altField(1).value).toBe('Dough shaped into a round.');
     expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(button('Save changes'));
     await screen.findByRole('radio', { name: 'US customary' });
     expect(saved).toEqual([
       [
-        { body: 'Shape.', imageId: 'upload-1' },
-        { body: 'Mix.', imageId: null },
+        { body: 'Shape.', image: { id: 'upload-1', alt: 'Dough shaped into a round.' } },
+        { body: 'Mix.', image: null },
       ],
     ]);
     const shown = within(screen.getByRole('region', { name: 'Steps' })).getAllByRole('listitem');
-    expect(shown[0]?.querySelector('img')?.getAttribute('src')).toBe(
-      '/api/v1/images/upload-1/1280',
-    );
+    const photo = shown[0]?.querySelector('img');
+    expect(photo?.getAttribute('src')).toBe('/api/v1/images/upload-1/1280');
+    expect(photo?.alt).toBe('Dough shaped into a round.');
   });
 
   it('is removed when asked, focusing the button to add one in its place', async () => {
@@ -291,8 +300,8 @@ describe('a step’s photo', () => {
     await screen.findByRole('radio', { name: 'US customary' });
     expect(saved).toEqual([
       [
-        { body: 'Mix.', imageId: null },
-        { body: 'Shape.', imageId: null },
+        { body: 'Mix.', image: null },
+        { body: 'Shape.', image: null },
       ],
     ]);
   });
@@ -322,7 +331,7 @@ describe('a step’s photo', () => {
     const { user } = await editStepPhotos(twoSteps('photo'), () =>
       problemResponse(422, 'The request is invalid.', {
         type: VALIDATION_PROBLEM_TYPE,
-        errors: [{ in: 'body', pointer: '#/steps/1/imageId', detail }],
+        errors: [{ in: 'body', pointer: '#/steps/1/image/id', detail }],
       }),
     );
 

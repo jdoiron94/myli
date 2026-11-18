@@ -50,6 +50,8 @@ describe('POST /images', () => {
     const { image: uploaded } = imageResultSchema.parse(await res.json());
     expect(uploaded).toEqual({
       id: expect.any(String),
+      // Described when a recipe is saved with it.
+      alt: '',
       width: 1600,
       height: 1200,
       variants: [

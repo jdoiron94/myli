@@ -30,6 +30,9 @@ export const imageVariantSchema = z.object({
 export const imageSchema = z
   .object({
     id: z.string(),
+    alt: z
+      .string()
+      .describe('What it shows, for people who can’t see it. Empty when it isn’t described.'),
     width: z.number().int().describe('Of the upload, in pixels, turned upright.'),
     height: z.number().int(),
     variants: z

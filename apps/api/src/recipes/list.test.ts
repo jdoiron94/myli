@@ -143,7 +143,10 @@ describe('GET /recipes', () => {
     t.db.update(recipe).set({ coverImageId: cover }).where(eq(recipe.id, withCover)).run();
 
     expect((await list()).recipes.map(({ id, cover }) => [id, cover])).toEqual([
-      [withCover, { id: cover, width: 64, height: 48, variants: [{ width: 64, height: 48 }] }],
+      [
+        withCover,
+        { id: cover, alt: '', width: 64, height: 48, variants: [{ width: 64, height: 48 }] },
+      ],
       [without, null],
     ]);
   });

@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
-import type { Recipe } from '@/recipes/recipe.ts';
+import type { Recipe, UpdateRecipeRequest } from '@/recipes/recipe.ts';
 import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
@@ -35,10 +35,22 @@ function storeRecipe(recipe: Recipe, refuse?: () => Response) {
       return HttpResponse.json({ recipe: stored });
     }),
     http.put('/api/v1/recipes/:id', async ({ request }) => {
-      const body = (await request.json()) as Partial<Recipe>;
+      const json: unknown = await request.json();
+      const body = json as UpdateRecipeRequest;
       saved.push(body);
       if (refuse) return refuse();
-      stored = { ...stored, ...body, updatedAt: '2026-11-17T09:00:00.000Z' };
+      // As the API answers: each photo whole, with the alt text it was sent.
+      const photo = ({ id, alt }: { id: string; alt: string }) => sampleImage(id, alt);
+      stored = {
+        ...stored,
+        ...(json as Partial<Recipe>),
+        images: body.images.map(photo),
+        steps: body.steps.map((step) => ({
+          body: step.body,
+          image: step.image && photo(step.image),
+        })),
+        updatedAt: '2026-11-17T09:00:00.000Z',
+      };
       return HttpResponse.json({ recipe: stored });
     }),
   );
@@ -88,7 +100,7 @@ describe('the edit recipe page', () => {
   it('saves the changes over the whole recipe, keeping what the form has no fields for', async () => {
     const recipe = sampleRecipe({
       tags: [{ id: 3, type: 'cuisine', name: 'Italian' }],
-      images: [sampleImage('photo-a'), sampleImage('photo-b')],
+      images: [sampleImage('photo-a', 'A loaf on a board.'), sampleImage('photo-b')],
       coverImageId: 'photo-b',
       steps: [
         { body: 'Mix everything.', image: sampleImage('photo-c') },
@@ -147,11 +159,14 @@ describe('the edit recipe page', () => {
           },
         ],
         steps: [
-          { body: 'Mix everything.', imageId: 'photo-c' },
-          { body: 'Bake at **400°F**.', imageId: null },
+          { body: 'Mix everything.', image: { id: 'photo-c', alt: '' } },
+          { body: 'Bake at **400°F**.', image: null },
         ],
         tagIds: [3],
-        imageIds: ['photo-a', 'photo-b'],
+        images: [
+          { id: 'photo-a', alt: 'A loaf on a board.' },
+          { id: 'photo-b', alt: '' },
+        ],
         coverImageId: 'photo-b',
       },
     ]);

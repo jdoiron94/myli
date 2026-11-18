@@ -84,7 +84,7 @@ describe('home', () => {
   it('shows each recipe’s cover at the top of its card, if it has one', async () => {
     answerLists(() =>
       listOf([
-        sampleSummary({ cover: sampleImage('cover') }),
+        sampleSummary({ cover: sampleImage('cover', 'A bowl of green curry.') }),
         sampleSummary({ id: 'buns', title: 'Cardamom Buns' }),
       ]),
     );
@@ -94,6 +94,7 @@ describe('home', () => {
     const photos = cards.map((card) => card.querySelector('img'));
     expect(photos[0]?.getAttribute('src')).toBe('/api/v1/images/cover/1280');
     expect(photos[0]?.getAttribute('sizes')).toBe(CARD_SIZES);
+    expect(photos[0]?.getAttribute('alt')).toBe('A bowl of green curry.');
     expect(photos[0]).toBe(cards[0]?.firstElementChild);
     expect(photos[1]).toBeNull();
     expect(await accessibilityViolations()).toEqual([]);
