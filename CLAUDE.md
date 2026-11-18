@@ -86,7 +86,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Web pages** that need a role-only action set `meta.permission` (e.g. `'user.invite'`), which the router checks with `can()`. Someone without it sees the no-access page at the same address. Links to such a page show only when `can()` allows it: the header's links (`NAV_PAGES` in `AppLayout.vue`) and its Admin menu (`ADMIN_PAGES`, rendered by `AdminMenu.vue`) read each page's `meta.permission` and `meta.title` from the router. A new admin page goes in `ADMIN_PAGES`, not in the header itself.
   - A page whose action depends on the recipe, like editing it, can't be checked by the router. It checks `can()` once the recipe is loaded, against the session query, so a role taken away while it's open takes the page away too, and says so in its one heading (`EditRecipePage.vue`). Links to it show only when `can()` allows it.
 - **Viewers are strictly read-only.**
-- **Private recipes must never leak** through direct ID access, search results, revision endpoints, public links or deactivating their owner. Each of those paths has a test.
+- **Private recipes must never leak** through direct ID access, search results, revision endpoints, public links, their photos or deactivating their owner. Each of those paths has a test.
 
 ### Database
 - The Drizzle schema in `apps/api/src/db/schema.ts` is authoritative. After changing it, run `pnpm db:generate` and commit the new migration in `apps/api/drizzle/` (`pnpm test` fails if a schema change has no migration).
@@ -154,6 +154,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Uploads** (`POST /images`, `apps/api/src/images/`) are refused past `IMAGE_MAX_BYTES` by `bodyLimit` before the body is read, checked by their first bytes (`sniffImageType()`), and refused past `MAX_PIXELS` from the header, before decoding. sharp turns them upright, strips all their metadata (EXIF, location included) and resizes them to `IMAGE_WIDTHS` as WebP. The upload itself is never kept.
   - An upload belongs to no recipe, and only its uploader may see or use it, until a recipe is saved with it. `discardUnsavedImageJob`, queued with it, deletes it after a day if none was.
   - Blobs are deleted by `deleteBlobsJob`, queued in the transaction that deletes the row referring to them, never inline.
+  - Photos are served only through the API (`GET /images/{id}/{width}`), to whoever may read their recipe: `imageAccess()` gives what `recipe.read` decides on, which for an unsaved upload is its uploader alone, as for a private recipe of theirs. Anyone else gets the same 404 as for an unknown photo. What an address serves never changes, so it's cached for good (`IMAGE_CACHE_CONTROL`).
 - Outbound fetches (URL import) go through the SSRF guard.
 - **The client's address** is `c.var.clientIp`, set by `clientAddress()` (`apps/api/src/client-ip.ts`). It's the connection's address, unless the connection comes from a proxy listed in `TRUSTED_PROXIES`; then it's the rightmost address in `X-Forwarded-For` that isn't a trusted proxy.
   - The audit log records it. Before a request reaches Better Auth, `withClientIp()` sets `X-Forwarded-For` to exactly that address (or removes it), so the IP Better Auth stores on sessions and rate-limits by is the same one.

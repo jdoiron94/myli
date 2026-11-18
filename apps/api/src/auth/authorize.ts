@@ -20,7 +20,7 @@ export function forbidden(): HttpProblem {
  * the user may not see, so the two can't be told apart (spec §2). Handlers use it too, for IDs
  * they can't find.
  */
-export function notFound(kind: 'Recipe' | 'Comment'): HttpProblem {
+export function notFound(kind: 'Recipe' | 'Comment' | 'Image'): HttpProblem {
   return new HttpProblem(404, `${kind} not found.`);
 }
 

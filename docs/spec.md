@@ -54,7 +54,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - The matrix is implemented once, as a policy module in `packages/shared`. The UI uses it to hide controls; the API uses it to enforce. Neither has inline role checks.
 - Pages a role can't use, like the admin pages, aren't linked for it. Opening one anyway says the user doesn't have access, at the same address.
 - The header links to search for everyone, and to a new recipe for those who can write one. It gathers the admin pages in one Admin menu, which shows only for a role that can open one of them.
-- **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, revisions and public links.
+- **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, revisions, public links and their photos.
 - No one can act on a recipe they can't see. An admin's "any" in the table means any recipe they can see: shared recipes and their own private ones.
 - A request for a resource the caller may not see returns `404`, so its existence isn't revealed. A request the caller may see but not act on returns `403`.
 
@@ -252,6 +252,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - turn it upright, and strip its metadata (EXIF, location included)
   - generate resized variants: WebP, 640, 1280 and 2048 pixels wide, never wider than the upload. The upload itself isn't kept.
 - Until a recipe is saved with it, only its uploader can see or use an upload. One no recipe was saved with is deleted after a day.
+- Served only through the API, to whoever may see the recipe, never from a public address. Browsers keep each size for good, since what its address serves never changes.
 - Stored through the `BlobStore` abstraction (§6).
 
 **Personal organization (editors and admins)**

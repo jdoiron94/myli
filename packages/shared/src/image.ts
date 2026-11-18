@@ -35,3 +35,9 @@ export const imageSchema = z
 export type Image = z.infer<typeof imageSchema>;
 
 export const imageResultSchema = z.object({ image: imageSchema }).meta({ id: 'ImageResult' });
+
+/** One size of one image: `/images/{id}/{width}`, a width from its `variants`. */
+export const imageFileParamsSchema = z.object({
+  id: z.string().min(1).max(100),
+  width: z.coerce.number().int().min(1).max(100_000),
+});

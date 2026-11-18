@@ -23,6 +23,7 @@ export {
   IMAGE_WIDTHS,
   type Image,
   type ImageUploadType,
+  imageFileParamsSchema,
   imageResultSchema,
   imageSchema,
   imageVariantSchema,

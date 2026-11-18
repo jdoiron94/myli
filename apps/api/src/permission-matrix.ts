@@ -15,7 +15,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { createUserWithPassword } from './auth/users.ts';
-import { testImage } from './images/testing.ts';
+import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
 import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './recipes/testing.ts';
 import { signedInAs, type TestApp } from './testing.ts';
@@ -254,6 +254,13 @@ export const ENDPOINTS: readonly EndpointCase[] = [
         headers: { ...(cookie !== undefined && { cookie }), 'content-type': 'image/jpeg' },
         body: await testImage(64, 48),
       }),
+  },
+  {
+    method: 'get',
+    path: '/images/{id}/{width}',
+    access: { recipe: 'recipe.read' },
+    send: async (t, cookie, recipeId) =>
+      request(t, 'GET', `/images/${await insertRecipeImage(t, recipeId)}/64`, cookie),
   },
   {
     method: 'get',

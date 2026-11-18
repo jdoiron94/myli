@@ -1,17 +1,26 @@
-import { API_BASE_PATH, imageResultSchema, validationProblemSchema } from '@myli/shared';
+import {
+  API_BASE_PATH,
+  type Image,
+  imageResultSchema,
+  validationProblemSchema,
+} from '@myli/shared';
+import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { createMemoryBlobStore } from '../blobs/memory.ts';
 import type { BlobStore } from '../blobs/store.ts';
-import { image, job } from '../db/schema.ts';
+import { image, job, recipe } from '../db/schema.ts';
 import { JSON_ONLY_DETAIL } from '../json-only.ts';
-import { createTestApp, signedInAs } from '../testing.ts';
+import { createLogger } from '../logger.ts';
+import { insertRecipe } from '../recipes/testing.ts';
+import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { UNSAVED_IMAGE_TTL_MS } from './images.ts';
-import { NOT_AN_IMAGE_DETAIL, TOO_LARGE_DETAIL } from './routes.ts';
-import { testImage } from './testing.ts';
+import { IMAGE_CACHE_CONTROL, NOT_AN_IMAGE_DETAIL, TOO_LARGE_DETAIL } from './routes.ts';
+import { insertRecipeImage, testImage } from './testing.ts';
 
-async function setUp(blobs = createMemoryBlobStore()) {
-  const t = createTestApp({ blobs });
+async function setUp(blobs = createMemoryBlobStore(), logged: string[] = []) {
+  const logger = createLogger('error', { write: (line: string) => void logged.push(line) });
+  const t = createTestApp({ blobs, logger });
   const { user, cookie } = await signedInAs(t, 'editor');
   const upload = (
     body: RequestInit['body'],
@@ -25,7 +34,7 @@ async function setUp(blobs = createMemoryBlobStore()) {
       // A stream has to say it's sent while the response may already be coming.
       ...(body instanceof ReadableStream && { duplex: 'half' }),
     });
-  return { t, user, blobs, upload };
+  return { t, user, cookie, blobs, upload };
 }
 
 describe('POST /images', () => {
@@ -153,5 +162,81 @@ describe('POST /images', () => {
     expect(memory.keys()).toEqual([]);
     expect(t.db.select().from(image).all()).toEqual([]);
     expect(t.db.select().from(job).all()).toEqual([]);
+  });
+});
+
+describe('GET /images/{id}/{width}', () => {
+  async function uploaded(
+    upload: (body: Uint8Array) => Response | Promise<Response>,
+  ): Promise<Image> {
+    const res = await upload(await testImage(1600, 1200));
+    return imageResultSchema.parse(await res.json()).image;
+  }
+  const get = (t: TestApp, path: string, cookie: string) =>
+    t.app.request(`${API_BASE_PATH}/images/${path}`, { headers: { cookie } });
+  const expectNotFound = async (res: Response) => {
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ detail: 'Image not found.' });
+  };
+
+  it('gives the uploader each size of their upload, to be cached for good', async () => {
+    const { t, cookie, upload } = await setUp();
+    const { id, variants } = await uploaded(upload);
+
+    for (const { width, height } of variants) {
+      const res = await get(t, `${id}/${String(width)}`, cookie);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe('image/webp');
+      expect(res.headers.get('cache-control')).toBe(IMAGE_CACHE_CONTROL);
+      const bytes = Buffer.from(await res.arrayBuffer());
+      expect(res.headers.get('content-length')).toBe(String(bytes.byteLength));
+      const metadata = await sharp(bytes).metadata();
+      expect([metadata.format, metadata.width, metadata.height]).toEqual(['webp', width, height]);
+    }
+  });
+
+  it('shows an upload no recipe was saved with to no one else, admins included', async () => {
+    const { t, upload } = await setUp();
+    const { id } = await uploaded(upload);
+
+    for (const role of ['admin', 'editor', 'viewer'] as const) {
+      const { cookie } = await signedInAs(t, role);
+      await expectNotFound(await get(t, `${id}/640`, cookie));
+    }
+    await expectNotFound(await get(t, 'no-such-image/640', (await signedInAs(t, 'admin')).cookie));
+  });
+
+  it('follows its recipe: gone with it when the recipe is deleted', async () => {
+    const { t, user, cookie } = await setUp();
+    const recipeId = insertRecipe(t.db, user.id);
+    const id = await insertRecipeImage(t, recipeId);
+    expect((await get(t, `${id}/64`, cookie)).status).toBe(200);
+
+    t.db.update(recipe).set({ deletedAt: new Date() }).where(eq(recipe.id, recipeId)).run();
+
+    await expectNotFound(await get(t, `${id}/64`, cookie));
+  });
+
+  it('has no size but those it was made at', async () => {
+    const { t, cookie, upload } = await setUp();
+    const { id } = await uploaded(upload);
+
+    await expectNotFound(await get(t, `${id}/2048`, cookie));
+    await expectNotFound(await get(t, `${id}/641`, cookie));
+    expect((await get(t, `${id}/wide`, cookie)).status).toBe(422);
+  });
+
+  it('logs a file its row says is there but the store lost, and answers 404', async () => {
+    const logged: string[] = [];
+    const { t, cookie, blobs, upload } = await setUp(createMemoryBlobStore(), logged);
+    const { id } = await uploaded(upload);
+    await blobs.delete(`images/${id}/640.webp`);
+
+    await expectNotFound(await get(t, `${id}/640`, cookie));
+
+    expect(logged.map((line) => JSON.parse(line) as unknown)).toMatchObject([
+      { msg: 'image blob missing', imageId: id, key: `images/${id}/640.webp` },
+    ]);
   });
 });
