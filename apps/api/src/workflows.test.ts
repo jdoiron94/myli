@@ -141,6 +141,15 @@ describe('the CI workflow', () => {
     for (const name of Object.keys(NOT_CHECKS)) expect(scripts, name).toHaveProperty(name);
   });
 
+  it('runs on pull requests to main and by hand, but not on release-please’s', () => {
+    const ci = workflow('ci.yml');
+
+    expect(ci.on).toEqual({ pull_request: { branches: ['main'] }, workflow_dispatch: null });
+    for (const [name, job] of Object.entries(ci.jobs)) {
+      expect(job.if, name).toBe("${{ !startsWith(github.head_ref, 'release-please--') }}");
+    }
+  });
+
   it('reports known vulnerabilities, and never fails because of them', () => {
     const audits = allSteps.filter(({ run }) => run?.includes('pnpm audit'));
 
