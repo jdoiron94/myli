@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.4.0](https://github.com/jdoiron94/myli/compare/v0.3.0...v0.4.0) (2026-11-18)
+
+
+### Features
+
+* **api:** save recipes with their photos ([6d6d879](https://github.com/jdoiron94/myli/commit/6d6d879ebd41043aae4714a7d05118093c041575))
+* **api:** serve photos to whoever may see their recipe ([fa3bf33](https://github.com/jdoiron94/myli/commit/fa3bf333bd7ba6d80ca92e9e1535b1447d146301))
+* **api:** store blobs behind an interface, in a directory by default ([099c6ba](https://github.com/jdoiron94/myli/commit/099c6ba36ec2f4041d9e6fd112f54290481bf71c))
+* **api:** upload photos, resized to WebP with their metadata stripped ([8fa2a93](https://github.com/jdoiron94/myli/commit/8fa2a93485c4101325fe3405d6093707f9fe1d3a))
+* describe each photo with alt text ([b44553f](https://github.com/jdoiron94/myli/commit/b44553f31aed70dac47255d5a81bc85cab41d1f2))
+* show each recipe's cover on its card ([edfef8b](https://github.com/jdoiron94/myli/commit/edfef8b214910bdd182291f276d992b1eb82076b))
+* **web:** give a step a photo in the editor ([0c236e9](https://github.com/jdoiron94/myli/commit/0c236e9410fd04e2cd0b67a4118faab5c285a873))
+* **web:** show a recipe's photos in a slideshow at the top of its page ([2ae2277](https://github.com/jdoiron94/myli/commit/2ae227707fe89522e5a6ded0c8de80469b7cd4f1))
+* **web:** show a recipe's photos on its page ([16d8380](https://github.com/jdoiron94/myli/commit/16d83804ae328f81b852caf646cef90a7692f4ed))
+* **web:** upload a recipe's photos in its editor ([36e9989](https://github.com/jdoiron94/myli/commit/36e998972e97c07f65bafcec538a87549de75dc2))
+
+
+### Bug Fixes
+
+* **deps:** update hono to 4.13.18 ([0a817ba](https://github.com/jdoiron94/myli/commit/0a817ba27b6c2c12ec6a2a5f060a6d2606eb67e3))
+* **web:** keep a step's photo as far from either side on phones ([667cc45](https://github.com/jdoiron94/myli/commit/667cc455535f5ce409cb984e246f3043f93720b3))
+* **web:** show the editor's photos one to a row on phones ([a9307e9](https://github.com/jdoiron94/myli/commit/a9307e903bec17616fb8849be99817058ff24d5e))
+
 ## [0.3.0](https://github.com/jdoiron94/myli/compare/v0.2.0...v0.3.0) (2026-11-18)
 
 
