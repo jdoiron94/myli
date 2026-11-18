@@ -274,6 +274,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - It runs the same commands as here, nothing CI-only. Every root script that's a check must run in it, and `workflows.test.ts` (in `apps/api/src`) fails otherwise; the scripts that aren't checks are listed there, with why.
 - A failed end-to-end run keeps `e2e/test-results/` as an artifact for 7 days.
 - The jobs share their setup, `.github/actions/setup`: pnpm from `packageManager`, Node from `.node-version`, `pnpm install --frozen-lockfile`, and Playwright's browsers when asked.
+  - The browsers are installed without `--with-deps`: the runner's image has the libraries they load, and the packages it added (fonts and codecs no test needs) came from an Ubuntu mirror that took up to 13 minutes. If a browser won't launch for a missing library, install that one package there.
 - **`pnpm audit` never fails CI.** It lists advisories in the run's summary, with a warning. Don't make it, or any other vulnerability scan, a gate.
 - **Supply chain,** in every workflow (`workflows.test.ts` checks each):
   - Actions are pinned by commit SHA, with the version in a comment: `actions/checkout@<sha> # v7.0.1`.
