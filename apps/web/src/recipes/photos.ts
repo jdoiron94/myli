@@ -58,10 +58,10 @@ export const COVER_SIZES = '(min-width: 64rem) 992px, calc(100vw - 2rem)';
 
 /**
  * A step's photo: the steps' column, 3/5 of the grid after its 3rem gap from `md` up, less the
- * list's 1.75rem indent.
+ * list's 1.75rem indent, and on phones, the content's whole width.
  */
 export const STEP_PHOTO_SIZES =
-  '(min-width: 64rem) 538px, (min-width: 48rem) calc((100vw - 5rem) * 0.6 - 1.75rem), calc(100vw - 3.75rem)';
+  '(min-width: 64rem) 538px, (min-width: 48rem) calc((100vw - 5rem) * 0.6 - 1.75rem), calc(100vw - 2rem)';
 
 /** The recipe page's other photos: three to a row from `md` up, two on phones, 0.75rem apart. */
 export const GALLERY_SIZES =

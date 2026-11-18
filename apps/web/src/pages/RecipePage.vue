@@ -354,12 +354,13 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
               <MarkdownContent
                 :source="step.body"
               />
-              <!-- Shown whole, never cropped, as it may show how something's done. -->
+              <!-- Shown whole, never cropped, as it may show how something's done. On phones it
+                   takes back the list's indent (1.75rem), so it's as far from either side. -->
               <RecipePhoto
                 v-if="step.image"
                 :image="step.image"
                 :sizes="STEP_PHOTO_SIZES"
-                class="mt-3 h-auto max-h-[32rem] w-auto max-w-full rounded-md"
+                class="-ms-7 mt-3 block h-auto max-h-[32rem] w-auto max-w-[calc(100%_+_1.75rem)] rounded-md md:ms-0 md:max-w-full"
               />
             </li>
           </ol>

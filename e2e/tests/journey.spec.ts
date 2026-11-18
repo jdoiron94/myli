@@ -389,9 +389,20 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     // everything else.
     const photos = main.locator('img');
     await expect(photos).toHaveCount(3);
-    await loaded(
-      page.getByRole('region', { name: 'Steps' }).getByRole('listitem').nth(1).locator('img'),
-    );
+    const stepPhoto = page
+      .getByRole('region', { name: 'Steps' })
+      .getByRole('listitem')
+      .nth(1)
+      .locator('img');
+    await loaded(stepPhoto);
+    // On a phone, as far from either side of the page, though its step is indented.
+    await atPhoneWidth(page, async () => {
+      const { left, right } = await stepPhoto.evaluate((img) => {
+        const box = img.getBoundingClientRect();
+        return { left: box.left, right: document.documentElement.clientWidth - box.right };
+      });
+      expect(left).toBeCloseTo(right, 0);
+    });
     const [cover, , other] = await photos.all();
     if (!cover || !other) throw new Error('expected the cover and another photo');
     await loaded(cover);
