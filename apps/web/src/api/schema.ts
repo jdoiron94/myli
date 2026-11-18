@@ -465,7 +465,50 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List recipes
+         * @description The recipes the caller may see: shared ones, and their own private ones. Newest first, one page at a time. Unlike search, it reads the database, so it works while search is unavailable.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description One page of them. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeList"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Create a recipe
@@ -1949,6 +1992,28 @@ export interface components {
             /** @description False for lines like "salt to taste", which never scale. */
             scalable: boolean;
         };
+        RecipeList: {
+            recipes: components["schemas"]["RecipeSummary"][];
+            /** @description How many recipes the caller may see, across every page. */
+            total: number;
+            page: number;
+            totalPages: number;
+        };
+        RecipeSummary: {
+            id: string;
+            title: string;
+            /** @enum {string|null} */
+            difficulty: "easy" | "medium" | "hard" | null;
+            totalMinutes: number | null;
+            cuisine: string[];
+            mealType: string[];
+            diet: string[];
+            /** @description Its other tags. */
+            tags: string[];
+            allergens: ("milk" | "eggs" | "fish" | "shellfish" | "tree nuts" | "peanuts" | "wheat" | "soy" | "sesame")[];
+            /** @enum {string} */
+            visibility: "private" | "shared";
+        };
         UpdateRecipeRequest: {
             title: string;
             /** @description Markdown. */
@@ -2004,7 +2069,7 @@ export interface components {
             unitSystem: "imperial" | "metric";
         };
         RecipeSearchResult: {
-            hits: components["schemas"]["RecipeSearchHit"][];
+            hits: components["schemas"]["RecipeSummary"][];
             /** @description How many recipes match, across every page. */
             totalHits: number;
             page: number;
@@ -2030,21 +2095,6 @@ export interface components {
                     [key: string]: number;
                 };
             };
-        };
-        RecipeSearchHit: {
-            id: string;
-            title: string;
-            /** @enum {string|null} */
-            difficulty: "easy" | "medium" | "hard" | null;
-            totalMinutes: number | null;
-            cuisine: string[];
-            mealType: string[];
-            diet: string[];
-            /** @description Its other tags. */
-            tags: string[];
-            allergens: ("milk" | "eggs" | "fish" | "shellfish" | "tree nuts" | "peanuts" | "wheat" | "soy" | "sesame")[];
-            /** @enum {string} */
-            visibility: "private" | "shared";
         };
         IngredientSuggestions: {
             ingredients: {

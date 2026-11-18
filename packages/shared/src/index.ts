@@ -100,6 +100,14 @@ export {
   type UpdateRecipeRequest,
   updateRecipeRequestSchema,
 } from './recipe.ts';
+export {
+  RECIPES_PER_PAGE,
+  type RecipeList,
+  type RecipeSummary,
+  recipeListQuerySchema,
+  recipeListSchema,
+  recipeSummarySchema,
+} from './recipe-list.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
   INGREDIENT_SUGGESTIONS_MAX,
@@ -108,15 +116,12 @@ export {
   ingredientSuggestionsSchema,
   REBUILD_STATES,
   type RebuildState,
-  type RecipeSearchHit,
   type RecipeSearchQuery,
   type RecipeSearchResult,
-  recipeSearchHitSchema,
   recipeSearchQuerySchema,
   recipeSearchResultSchema,
   SEARCH_FACETS,
   SEARCH_PAGE_MAX,
-  SEARCH_PAGE_SIZE,
   SEARCH_SCOPES,
   SEARCH_SORTS,
   type SearchFacet,

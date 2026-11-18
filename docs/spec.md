@@ -344,6 +344,9 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - Results include only recipes the caller may see (§2). Drafts are never searchable.
 - Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should. Nor is it counted, so the count matches what's shown.
 
+**Browsing**
+- Every recipe the reader may see can also be listed straight from the database, newest first, 24 to a page (`GET /recipes`), so browsing works while search is unavailable.
+
 ### 3.5 Shopping lists (editors and admins)
 
 - **Lists are personal.** Each user can keep several named lists. No live syncing.

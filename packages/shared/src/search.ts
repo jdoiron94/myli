@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { normalizeIngredientName } from './ingredients.ts';
 import { DIFFICULTIES, RECIPE_LIMITS } from './recipe.ts';
+import { RECIPES_PER_PAGE, recipeSummarySchema } from './recipe-list.ts';
 import { ALLERGENS, TAG_NAME_MAX_LENGTH } from './tags.ts';
-import { VISIBILITIES } from './visibility.ts';
 
 /**
  * Where the latest rebuild of the search index stands: waiting for its turn, under way, waiting to
@@ -27,11 +27,8 @@ export const searchIndexStatusSchema = z
 
 export type SearchIndexStatus = z.infer<typeof searchIndexStatusSchema>;
 
-/** Recipes on one page of search results. Divides into rows of two, three and four. */
-export const SEARCH_PAGE_SIZE = 24;
-
 /** The deepest page a search goes to. Meilisearch counts results up to its own limit (1000). */
-export const SEARCH_PAGE_MAX = Math.ceil(1000 / SEARCH_PAGE_SIZE);
+export const SEARCH_PAGE_MAX = Math.ceil(1000 / RECIPES_PER_PAGE);
 
 /**
  * How results are ordered (spec §3.4). Relevance is the default with a query, newest without one.
@@ -106,23 +103,6 @@ export const recipeSearchQuerySchema = z
 
 export type RecipeSearchQuery = z.infer<typeof recipeSearchQuerySchema>;
 
-export const recipeSearchHitSchema = z
-  .object({
-    id: z.string(),
-    title: z.string(),
-    difficulty: z.enum(DIFFICULTIES).nullable(),
-    totalMinutes: z.number().int().nullable(),
-    cuisine: z.array(z.string()),
-    mealType: z.array(z.string()),
-    diet: z.array(z.string()),
-    tags: z.array(z.string()).describe('Its other tags.'),
-    allergens: z.array(z.enum(ALLERGENS)),
-    visibility: z.enum(VISIBILITIES),
-  })
-  .meta({ id: 'RecipeSearchHit' });
-
-export type RecipeSearchHit = z.infer<typeof recipeSearchHitSchema>;
-
 /** The filters results can be counted by: each value's number of recipes. */
 export const SEARCH_FACETS = [
   'cuisine',
@@ -139,7 +119,7 @@ const counts = z.record(z.string(), z.number().int());
 
 export const recipeSearchResultSchema = z
   .object({
-    hits: z.array(recipeSearchHitSchema),
+    hits: z.array(recipeSummarySchema),
     totalHits: z.number().int().describe('How many recipes match, across every page.'),
     page: z.number().int(),
     totalPages: z.number().int(),
