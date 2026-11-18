@@ -290,7 +290,6 @@ export const recipeFormSchema = z
       .transform((steps) => steps.filter((step) => step !== null))
       .pipe(content.steps),
     tagIds: content.tagIds,
-    // Carried through unchanged until the editor has photos of its own (increment 25).
     imageIds: content.imageIds,
     coverImageId: content.coverImageId,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
@@ -301,8 +300,8 @@ export const recipeFormSchema = z
 export type RecipeFormValues = z.input<typeof recipeFormSchema>;
 export type RecipeFormResult = z.output<typeof recipeFormSchema>;
 
-/** Every field of the form, by its path, for the API's field errors. */
-export const RECIPE_FORM_FIELDS = [
+/** Every text field of the form, by its path. */
+export const RECIPE_TEXT_FIELDS = [
   'title',
   'description',
   'servings',
@@ -319,6 +318,19 @@ export const RECIPE_FORM_FIELDS = [
   ...NUTRIENTS.map((name) => `nutrition.${name}` as const),
   'visibility',
 ] as const;
+
+/** The recipe's photos, which the API refuses one by one when it can't use them. */
+const PHOTO_FIELDS = [
+  'imageIds',
+  ...Array.from(
+    { length: RECIPE_LIMITS.images },
+    (_, index) => `imageIds[${String(index)}]` as const,
+  ),
+  'coverImageId',
+] as const;
+
+/** Every field of the form, by its path, for the API's field errors. */
+export const RECIPE_FORM_FIELDS = [...RECIPE_TEXT_FIELDS, ...PHOTO_FIELDS] as const;
 
 const typed = (value: number | null) => (value === null ? '' : String(value));
 

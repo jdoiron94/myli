@@ -2,6 +2,8 @@ import {
   API_BASE_PATH,
   type Image,
   imageResultSchema,
+  NOT_AN_IMAGE_DETAIL,
+  TOO_LARGE_DETAIL,
   validationProblemSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
@@ -15,7 +17,7 @@ import { createLogger } from '../logger.ts';
 import { insertRecipe } from '../recipes/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { UNSAVED_IMAGE_TTL_MS } from './images.ts';
-import { IMAGE_CACHE_CONTROL, NOT_AN_IMAGE_DETAIL, TOO_LARGE_DETAIL } from './routes.ts';
+import { IMAGE_CACHE_CONTROL } from './routes.ts';
 import { insertRecipeImage, testImage } from './testing.ts';
 
 async function setUp(blobs = createMemoryBlobStore(), logged: string[] = []) {

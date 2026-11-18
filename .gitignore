@@ -6,6 +6,8 @@ e2e/playwright-report/
 .env
 .env.*
 !.env.example
+# The API's local data: its database and uploaded photos (`pnpm dev`).
+apps/api/data/
 *.db
 *.db-shm
 *.db-wal

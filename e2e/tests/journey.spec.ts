@@ -1,6 +1,7 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { checkPage } from './accessibility.ts';
 import { expect, test } from './fixtures.ts';
+import { solidPng } from './images.ts';
 
 const ADMIN = {
   name: 'Grace Hopper',
@@ -19,6 +20,18 @@ test.describe.configure({ mode: 'serial' });
 const heading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 // `exact`, so "Show password" doesn't match too.
 const passwordField = (page: Page) => page.getByLabel('Password', { exact: true });
+
+/** Waits for a photo to load, from the API: scrolled to, since photos load once they're near. */
+async function loaded(photo: Locator) {
+  await photo.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+}
+
+/** Whether a photo that loaded is taller than it's wide, as the file it came from was. */
+const portrait = (photo: Locator) =>
+  photo.evaluate((img: HTMLImageElement) => img.naturalHeight > img.naturalWidth);
 
 const adminMenuButton = (page: Page) =>
   page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Admin' });
@@ -300,6 +313,22 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await checkPage(page);
   });
 
+  await test.step('photos are uploaded from the device, and the cover chosen', async () => {
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Add photos' }).click();
+    await (await chooser).setFiles([
+      { name: 'loaf.png', mimeType: 'image/png', buffer: solidPng(1600, 1200, [194, 120, 74]) },
+      { name: 'crumb.png', mimeType: 'image/png', buffer: solidPng(1200, 1600, [240, 220, 180]) },
+    ]);
+
+    const photos = page.getByRole('group', { name: 'Photos' }).locator('img');
+    await expect(photos).toHaveCount(2);
+    await expect(page.getByRole('radio', { name: 'Cover: photo 1' })).toBeChecked();
+    for (const photo of await photos.all()) await loaded(photo);
+    await page.getByRole('radio', { name: 'Cover: photo 2' }).check();
+    await checkPage(page);
+  });
+
   await test.step('tags are checked, and a new one added', async () => {
     await page.getByRole('checkbox', { name: 'wheat' }).check();
     await page.getByRole('textbox', { name: 'New cuisine' }).fill('American');
@@ -328,6 +357,12 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       'Contains wheat',
       'American',
     ]);
+    // The cover chosen, the upright one, at the top, and the other after everything else.
+    const [cover, other] = await main.locator('img').all();
+    if (!cover || !other) throw new Error('expected two photos');
+    await loaded(cover);
+    await loaded(other);
+    expect([await portrait(cover), await portrait(other)]).toEqual([true, false]);
     await checkPage(page);
   });
 

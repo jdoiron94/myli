@@ -859,9 +859,9 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "image/jpeg": string;
-                    "image/png": string;
-                    "image/webp": string;
+                    "image/jpeg": Blob;
+                    "image/png": Blob;
+                    "image/webp": Blob;
                 };
             };
             responses: {
@@ -947,7 +947,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "image/webp": string;
+                        "image/webp": Blob;
                     };
                 };
                 /** @description No photo has this ID or size, or the caller may not see it. */

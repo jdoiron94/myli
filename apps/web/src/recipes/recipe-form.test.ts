@@ -7,6 +7,7 @@ import {
   type LineDetails,
   quantityText,
   RECIPE_FORM_FIELDS,
+  RECIPE_TEXT_FIELDS,
   type RecipeFormValues,
   recipeFormSchema,
   recipeFormValues,
@@ -645,7 +646,7 @@ describe('the recipe form', () => {
     });
   });
 
-  it('names every field it has, so the API’s errors can find them', () => {
+  it('names every text field it has, so the API’s errors can find them', () => {
     /** The path of every text field in the form's values. */
     const textFields = (values: object, prefix = ''): string[] =>
       Object.entries(values).flatMap(([key, value]) => {
@@ -656,6 +657,7 @@ describe('the recipe form', () => {
         return [];
       });
 
-    expect([...RECIPE_FORM_FIELDS].sort()).toEqual(textFields(recipeFormValues()).sort());
+    expect([...RECIPE_TEXT_FIELDS].sort()).toEqual(textFields(recipeFormValues()).sort());
+    expect(RECIPE_FORM_FIELDS).toEqual(expect.arrayContaining([...RECIPE_TEXT_FIELDS]));
   });
 });
