@@ -6,6 +6,7 @@ import {
   accessibilityViolations,
   apiServer,
   describedBy,
+  listItems,
   NO_SEARCH_RESULTS,
   problemResponse,
   renderApp,
@@ -475,5 +476,151 @@ describe('home’s filters', () => {
     await renderApp('/?diet=Vegan');
     expect(await countText()).toBe('No recipes match.');
     expect(await filters()).toBeDefined();
+  });
+});
+
+describe('home’s ingredient picker', () => {
+  const SUGGESTIONS: Record<string, { name: string; recipes: number }[]> = {
+    '': [
+      { name: 'basil', recipes: 4 },
+      { name: 'flour', recipes: 3 },
+      { name: 'tofu', recipes: 1 },
+    ],
+    ba: [
+      { name: 'basil', recipes: 4 },
+      { name: 'banana', recipes: 1 },
+    ],
+    fl: [{ name: 'flour', recipes: 3 }],
+  };
+
+  /** Answers suggestions from SUGGESTIONS, keeping what each asked for. */
+  function answerSuggestions() {
+    const asked: string[] = [];
+    apiServer.use(
+      http.get('/api/v1/search/ingredients', ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q') ?? '';
+        asked.push(q);
+        return HttpResponse.json({ ingredients: SUGGESTIONS[q] ?? [] });
+      }),
+    );
+    return asked;
+  }
+  const combobox = () => screen.getByRole('combobox', { name: 'Add an ingredient' });
+  /** Each option's name, as screen readers get it, and its description: how many recipes use it. */
+  function optionsShown() {
+    const names = new Map<Element, string>();
+    const options = screen.getAllByRole('option', {
+      name: (name, element) => {
+        names.set(element, name);
+        return true;
+      },
+    });
+    return options.map((option) => [names.get(option), describedBy(option)[0]]);
+  }
+
+  it('suggests the ingredients recipes use as it’s typed in, and requires each one picked', async () => {
+    const searches = answerSearches(() => found([hit()]));
+    const asked = answerSuggestions();
+    const { router, user } = await renderApp('/?q=curry');
+    await recipeList();
+    expect(asked).toEqual([]);
+
+    await user.click(combobox());
+    await waitFor(() => {
+      expect(optionsShown()).toEqual([
+        ['basil', '4 recipes'],
+        ['flour', '3 recipes'],
+        ['tofu', '1 recipe'],
+      ]);
+    });
+    await user.type(combobox(), 'ba');
+    await waitFor(() => {
+      expect(optionsShown()).toEqual([
+        ['basil', '4 recipes'],
+        ['banana', '1 recipe'],
+      ]);
+    });
+    expect(asked).toEqual(['', 'ba']);
+
+    await user.click(screen.getByRole('option', { name: 'basil' }));
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({ q: 'curry', ingredient: ['basil'] });
+    });
+    await waitFor(() => {
+      expect(searches.at(-1)?.getAll('ingredient')).toEqual(['basil']);
+    });
+    expect(listItems(screen.getByRole('list', { name: 'Ingredients chosen' }))).toEqual(['basil']);
+    // Closed, so it doesn't cover them, and ready for the next.
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(combobox()).toHaveProperty('value', '');
+    await user.keyboard('fl');
+    await waitFor(() => {
+      expect(optionsShown()).toEqual([['flour', '3 recipes']]);
+    });
+  });
+
+  it('picks the one chosen with the keyboard', async () => {
+    answerSearches(() => found([hit()]));
+    answerSuggestions();
+    const { router, user } = await renderApp('/?ingredient=tofu');
+    await recipeList();
+
+    await user.click(combobox());
+    await user.keyboard('ba');
+    await waitFor(() => {
+      expect(optionsShown()).toEqual([
+        ['basil', '4 recipes'],
+        ['banana', '1 recipe'],
+      ]);
+    });
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({ ingredient: ['tofu', 'banana'] });
+    });
+  });
+
+  it('says when no recipe uses anything like what’s typed', async () => {
+    answerSearches(() => found([hit()]));
+    answerSuggestions();
+    const { user } = await renderApp('/');
+    await recipeList();
+
+    await user.click(combobox());
+    await user.type(combobox(), 'zzz');
+
+    expect(await screen.findByText('No recipe uses an ingredient like that.')).toBeDefined();
+    expect(screen.queryAllByRole('option')).toEqual([]);
+  });
+
+  it('takes an ingredient off with its button', async () => {
+    const searches = answerSearches(() => found([hit()]));
+    const { router, user } = await renderApp('/?ingredient=basil&ingredient=tofu&page=2');
+    const chosen = await screen.findByRole('list', { name: 'Ingredients chosen' });
+    expect(listItems(chosen)).toEqual(['basil', 'tofu']);
+
+    await user.click(within(chosen).getByRole('button', { name: 'Remove basil' }));
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({ ingredient: ['tofu'] });
+    });
+    await waitFor(() => {
+      expect(searches.at(-1)?.getAll('ingredient')).toEqual(['tofu']);
+    });
+  });
+
+  it('has nothing for axe to find, with its suggestions open', async () => {
+    answerSearches(() => found([hit()]));
+    answerSuggestions();
+    const { user } = await renderApp('/?ingredient=basil');
+    await recipeList();
+
+    await user.click(combobox());
+    await screen.findAllByRole('option');
+
+    expect(await accessibilityViolations()).toEqual([]);
+    // The Content Security Policy refuses <style> elements, as some reka-ui parts add.
+    expect(document.querySelectorAll('main style')).toHaveLength(0);
   });
 });

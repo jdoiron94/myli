@@ -245,6 +245,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(heading(page, 'New recipe')).toBeVisible();
     await page.getByRole('textbox', { name: 'Title' }).fill('Weeknight Bread');
     await page.getByRole('textbox', { name: 'Servings' }).fill('8');
+    await page.getByRole('textbox', { name: 'Ingredient 1' }).fill('500 g bread flour');
 
     const description = page.getByRole('textbox', { name: 'Description' });
     await description.click();
@@ -383,6 +384,19 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await checkPage(page);
     await page.getByRole('button', { name: 'Clear filters' }).click();
     await expect(count).toHaveText('1 recipe');
+
+    // An ingredient it uses is suggested, and picking it still finds it.
+    const picker = page.getByRole('combobox', { name: 'Add an ingredient' });
+    await picker.click();
+    await picker.fill('flour');
+    const suggestion = page.getByRole('option', { name: 'bread flour' });
+    await expect(suggestion).toHaveAccessibleDescription('1 recipe');
+    await checkPage(page);
+    await suggestion.click();
+    await expect(page).toHaveURL(/\/\?q=crusty&ingredient=bread(\+|%20)flour$/);
+    await expect(count).toHaveText('1 recipe');
+    await page.getByRole('button', { name: 'Remove bread flour' }).click();
+    await expect(page).toHaveURL(/\/\?q=crusty$/);
 
     await result.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();

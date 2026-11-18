@@ -83,3 +83,18 @@ export const recipeSearchQuery = (search: RecipeSearchQuery) => {
     placeholderData: keepPreviousData,
   });
 };
+
+export type IngredientSuggestion =
+  components['schemas']['IngredientSuggestions']['ingredients'][number];
+
+/**
+ * The ingredients recipes the reader may see use, starting like `q`, most used first. While the
+ * next ones load, the last stay, so the list doesn't empty with each letter typed.
+ */
+export const ingredientSuggestionsQuery = (q: string) =>
+  queryOptions({
+    queryKey: ['search', 'ingredients', q],
+    queryFn: async () =>
+      responseData(await api.GET('/search/ingredients', { params: { query: { q } } })).ingredients,
+    placeholderData: keepPreviousData,
+  });

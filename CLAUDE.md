@@ -196,6 +196,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Home is search** (`HomePage.vue`), through `GET /search/recipes`. The whole search lives in the address: `searchFromQuery()` (`src/search/search.ts`) reads it, leaving out what it can't read so an old link still works, and `queryFromSearch()` writes only what differs from the defaults. Changing anything but the page goes back to the first page. Deleting a recipe forgets cached searches, so none shows it while it's fetched again.
 - **Content Security Policy:** Caddy sends it (`apps/web/Caddyfile`, ADR 0012). On the app's pages it allows nothing inline and no eval:
   - no inline scripts, no `<style>` elements, and no `style` attributes in markup, so markdown rendered with `v-html` can't carry styles either
+  - some reka-ui parts render a `<style>` element, like `ComboboxViewport` (to hide its scrollbar), so they can't be used. jsdom doesn't enforce the CSP: home's picker test checks there's none.
   - no `eval` or `new Function`. Zod's compiled fast path is off for that reason (`src/zod-jitless.ts`, which each page's entry imports first).
   - Setting styles from code, as Vue's `:style` does, is fine.
   - The end-to-end tests against the images fail on any violation (see Testing). The API docs page is the one exception, with a CSP of its own (see below).
@@ -282,7 +283,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - `apiServer` is the MSW server that stands in for the API. A test answers the requests it expects with `apiServer.use(http.get('/api/v1/...', ...))`, and `problemResponse(status, detail)` builds an error answer. Handlers reset after each test, and a request no handler answered fails the test, even if the code under test caught the error. A test that opens a page waits for what the page loads before it ends: a request sent after the handlers reset fails the next test instead.
   - `fakeDeviceScheme()` stands in for the device's light or dark setting.
   - Pages that show ingredient amounts load the reader's unit system (`useUnitSystem()`, `src/account/preferences.ts`). Their tests answer it with `answerPreferences(system)` from `src/account/testing.ts`.
-  - jsdom has no layout. `test-setup.ts` stands in for the range measurements ProseMirror takes to scroll the cursor into view, so the markdown editor runs there.
+  - jsdom has no layout. `test-setup.ts` stands in for the range measurements ProseMirror takes to scroll the cursor into view, so the markdown editor runs there, and for `scrollIntoView`, which reka-ui's lists call on the highlighted item.
   - `accessibilityViolations()` runs axe on the page. jsdom can't measure color contrast, so that rule is off there.
   - `describedBy(input)` gives the text of each element an input points to with `aria-describedby`, which is how a test checks a field's error and hints; `describedElements(input)` gives the elements, and `listItems(element)` the items of a list in one.
 - Web tests that need no page, such as `vite.config.test.ts`, which starts the dev server and runs a build, start with `// @vitest-environment node`. `test-setup.ts` skips the page cleanup and the fake API for them.

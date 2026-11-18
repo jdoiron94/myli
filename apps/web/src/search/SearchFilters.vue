@@ -18,6 +18,7 @@ import {
   timeRanges,
   type ValueState,
 } from './filters.ts';
+import IngredientPicker from './IngredientPicker.vue';
 import type { SearchResult } from './search.ts';
 
 /**
@@ -89,6 +90,10 @@ const headingId = `${id}-heading`;
     </div>
 
     <div class="mt-3 flex flex-col gap-6">
+      <IngredientPicker
+        :chosen="search.ingredient ?? []"
+        @change="emit('change', { ingredient: $event })"
+      />
       <FieldSet
         v-for="{ filter, values, shown } in tagFilters"
         :key="filter.facet"
