@@ -45,6 +45,16 @@ export default defineConfigWithVueTs(
     },
   },
   {
+    // The carousel's state, as shadcn-vue's CLI writes it: `||` where `??` would do, and optional
+    // chains after the check that makes them unneeded. Both are harmless, and edits there would be
+    // lost on its next update.
+    files: ['apps/web/src/components/ui/carousel/useCarousel.ts'],
+    rules: {
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+    },
+  },
+  {
     // Served to the browser as it is, before the app loads (see the file).
     files: ['apps/web/public/**/*.js'],
     languageOptions: {

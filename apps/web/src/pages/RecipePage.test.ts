@@ -4,7 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
-import { COVER_SIZES, GALLERY_SIZES, STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
+import { COVER_SIZES, STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
 import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
@@ -164,7 +164,7 @@ describe('the recipe page', () => {
     ).toEqual(['3 cups all-purpose flour', '1 cup water', '½ cup sugar']);
   });
 
-  it('shows the cover first, each step’s photo in its step, and the other photos last', async () => {
+  it('shows its photos at the top in a slideshow, the cover first, and each step’s in its step', async () => {
     answerRecipe(
       sampleRecipe({
         images: [
@@ -198,26 +198,42 @@ describe('the recipe page', () => {
         alt: 'A crusty loaf on a board.',
       },
       {
+        src: '/api/v1/images/a/1280',
+        sizes: COVER_SIZES,
+        loading: 'lazy',
+        alt: 'The crumb, up close.',
+      },
+      // Left out for screen readers, without alt text.
+      { src: '/api/v1/images/c/1280', sizes: COVER_SIZES, loading: 'lazy', alt: '' },
+      {
         src: '/api/v1/images/d/1280',
         sizes: STEP_PHOTO_SIZES,
         loading: 'lazy',
         alt: 'Dough shaped into a round.',
       },
-      {
-        src: '/api/v1/images/a/1280',
-        sizes: GALLERY_SIZES,
-        loading: 'lazy',
-        alt: 'The crumb, up close.',
-      },
-      // Left out for screen readers, without alt text.
-      { src: '/api/v1/images/c/1280', sizes: GALLERY_SIZES, loading: 'lazy', alt: '' },
     ]);
-    // The other photos come under a heading of their own.
-    const gallery = screen.getByRole('region', { name: 'Photos' });
-    expect([...gallery.querySelectorAll('img')].map((photo) => photo.alt)).toEqual([
-      'The crumb, up close.',
-      '',
+    // A slide each, which says where it is, the cover first and showing.
+    const slideshow = screen.getByRole('region', { name: 'Photos' });
+    expect(slideshow.getAttribute('aria-roledescription')).toBe('carousel');
+    const slides = within(slideshow).getAllByRole('group');
+    expect(
+      slides.map((slide) => [
+        slide.getAttribute('aria-label'),
+        slide.querySelector('img')?.getAttribute('src'),
+      ]),
+    ).toEqual([
+      ['1 of 3', '/api/v1/images/b/1280'],
+      ['2 of 3', '/api/v1/images/a/1280'],
+      ['3 of 3', '/api/v1/images/c/1280'],
     ]);
+    expect(within(slideshow).getByText('1 of 3', { exact: false }).textContent.trim()).toBe(
+      'Photo 1 of 3',
+    );
+    // There's no going back from the first, but the button stays where it is, for focus.
+    const previous = within(slideshow).getByRole('button', { name: 'Previous photo' });
+    expect(previous.getAttribute('aria-disabled')).toBe('true');
+    const next = within(slideshow).getByRole('button', { name: 'Next photo' });
+    expect(next.getAttribute('aria-disabled')).toBeNull();
     expect(photos[0]?.getAttribute('srcset')).toBe(
       '/api/v1/images/b/640 640w, /api/v1/images/b/1280 1280w, /api/v1/images/b/1600 1600w',
     );
@@ -232,6 +248,19 @@ describe('the recipe page', () => {
       '/api/v1/images/d/1280',
     ]);
     expect(await accessibilityViolations()).toEqual([]);
+  });
+
+  it('shows a single photo as the cover, without a slideshow', async () => {
+    answerRecipe(sampleRecipe({ images: [sampleImage('a', 'A crusty loaf.')], coverImageId: 'a' }));
+    await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    const photos = [...document.querySelectorAll('article img')];
+    expect(
+      photos.map((photo) => [photo.getAttribute('src'), photo.getAttribute('loading')]),
+    ).toEqual([['/api/v1/images/a/1280', 'eager']]);
+    expect(screen.queryByRole('region', { name: 'Photos' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next photo' })).toBeNull();
   });
 
   it('shows no photos for a recipe without any', async () => {

@@ -28,7 +28,8 @@ describe('the API docs page', () => {
     await renderApiDocs();
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 2, name: /Invitations/ })).toBeDefined();
+    // Each section once it's in view, which everything is here (test-setup.ts).
+    expect(await screen.findByRole('heading', { level: 2, name: /Invitations/ })).toBeDefined();
   });
 
   // jsdom's address is localhost, where Scalar turns on more of its services by default. Any
