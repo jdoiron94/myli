@@ -30,6 +30,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 |---|---|---|---|
 | View shared recipes, search, cook mode, print/download | ✓ | ✓ | ✓ |
 | Create recipes (private or shared) | ✓ | ✓ | – |
+| Upload photos | ✓ | ✓ | – |
 | Edit or publish shared recipes (any author) | ✓ | ✓ | – |
 | View private recipes | own | own | own¹ |
 | Edit private recipes | own | own | – |
@@ -244,11 +245,13 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **Images**
 - Several images per recipe, one marked as the cover. Each step can have one image.
+- Editors and admins upload them as the file itself, not in a form.
 - **On upload:**
   - check the real file type from the file's first bytes (JPEG, PNG, WebP)
-  - enforce a maximum size
-  - strip EXIF metadata
-  - generate resized variants
+  - enforce a maximum size: 10 MB, and 100 megapixels, counted before decoding
+  - turn it upright, and strip its metadata (EXIF, location included)
+  - generate resized variants: WebP, 640, 1280 and 2048 pixels wide, never wider than the upload. The upload itself isn't kept.
+- Until a recipe is saved with it, only its uploader can see or use an upload. One no recipe was saved with is deleted after a day.
 - Stored through the `BlobStore` abstraction (§6).
 
 **Personal organization (editors and admins)**
@@ -439,7 +442,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | `recipe_step` | `recipe_id`, `position`, `body_md`, `image_id` |
 | `recipe_revision` | `recipe_id`, `snapshot_json`, `author_id`, `message`, `created_at` |
 | `tag`, `recipe_tag` | `tag.type`, `tag.name`, `tag.name_key` (the name without case or extra spaces; unique per type). The allergen tags are seeded by a migration. |
-| `image` | `recipe_id`, `blob_key`, `mime`, `width`, `height`, `variants` (JSON) |
+| `image` | `recipe_id` (null until a recipe is saved with it), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |
 | `collection`, `collection_item` | Per user; items are ordered |
 | `user_preference` | `user_id`, `unit_system`. No row means the defaults. The theme isn't here: it's chosen per browser (§6). |
@@ -538,6 +541,6 @@ These need decisions before or during the phase that uses them:
 
 1. **Trash retention period** before permanent purge (Phase 2). Suggestion: 30 days, configurable.
 2. **Bayesian rating parameters** (Phase 2). Suggestion: prior = the instance-wide mean rating, weight = 3 ratings.
-3. ~~**Image limits** (Phase 1).~~ Decided: uploads up to 10 MB. Variants are served as WebP, at sizes chosen from the layouts images appear in, so they look good where they're shown.
+3. ~~**Image limits** (Phase 1).~~ Decided: uploads up to 10 MB. Variants are served as WebP, at sizes chosen from the layouts images appear in, so they look good where they're shown: 640, 1280 and 2048 pixels wide.
 4. **Revision retention** (Phase 2). Suggestion: keep all revisions; snapshots are small.
 5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided in Phase 0: record every one and keep them. Revisit pruning when the Phase 2 purge job exists.

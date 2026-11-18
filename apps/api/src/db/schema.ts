@@ -3,6 +3,7 @@ import {
   AUDIT_TARGET_TYPES,
   DEFAULT_ROLE,
   DIFFICULTIES,
+  IMAGE_UPLOAD_TYPES,
   ROLES,
   TAG_TYPES,
   UNIT_SYSTEMS,
@@ -425,5 +426,43 @@ export const userPreference = sqliteTable(
       'user_preference_unit_system_check',
       sql`${table.unitSystem} in ${sqlList(UNIT_SYSTEMS)}`,
     ),
+  ],
+);
+
+/** One size of an image, as stored: its blob's key. */
+export interface StoredImageVariant {
+  width: number;
+  height: number;
+  key: string;
+}
+
+/**
+ * Uploaded photos (spec §3.2 Images), one blob per size. An upload belongs to no recipe until a
+ * recipe is saved with it; one never saved is deleted after a day (`discardUnsavedImageJob`).
+ */
+export const image = sqliteTable(
+  'image',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    /** `null` until a recipe is saved with it. */
+    recipeId: text('recipe_id').references(() => recipe.id),
+    /** Until it belongs to a recipe, the only one who may see it or use it. */
+    uploaderId: text('uploader_id')
+      .notNull()
+      .references(() => user.id),
+    /** What was uploaded, by its first bytes. What's served is always WebP. */
+    mime: text('mime', { enum: IMAGE_UPLOAD_TYPES }).notNull(),
+    /** Of the upload, turned upright. */
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    /** Narrowest first. */
+    variants: text('variants', { mode: 'json' }).$type<StoredImageVariant[]>().notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check('image_mime_check', sql`${table.mime} in ${sqlList(IMAGE_UPLOAD_TYPES)}`),
+    index('image_recipe_idx').on(table.recipeId),
   ],
 );

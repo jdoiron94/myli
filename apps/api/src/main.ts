@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createAuth } from './auth/auth.ts';
+import { createLocalBlobStore } from './blobs/local.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
 import { loadEnvOrExit } from './env.ts';
 import { allJobs } from './jobs/all.ts';
@@ -65,8 +66,10 @@ const search = createSearchService({
 });
 search.start();
 
+const blobs = createLocalBlobStore(env.BLOB_DIR);
+
 const worker = createWorker({
-  services: { db, mailer, publicUrl: env.PUBLIC_URL, search },
+  services: { db, mailer, publicUrl: env.PUBLIC_URL, search, blobs },
   logger,
   jobs: allJobs,
 });
@@ -77,7 +80,7 @@ if (requeued > 0) {
 worker.start();
 logger.info('job worker started');
 
-const app = createApp({ logger, auth, db, env, search });
+const app = createApp({ logger, auth, db, env, search, blobs });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');

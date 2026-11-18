@@ -63,7 +63,7 @@ const secretName = (variable: string) => variable.toLowerCase();
 
 describe("the API's configuration", () => {
   // The API image sets these (apps/api/Dockerfile).
-  const setByImage = ['NODE_ENV', 'HOST', 'PORT', 'DATABASE_PATH'];
+  const setByImage = ['NODE_ENV', 'HOST', 'PORT', 'DATABASE_PATH', 'BLOB_DIR'];
   // compose.yaml sets these itself.
   const setByCompose = ['MEILI_URL', 'TRUSTED_PROXIES'];
   // Everything else, a new variable included, has to be passed through or come from a file.

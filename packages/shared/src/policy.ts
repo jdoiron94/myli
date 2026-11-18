@@ -8,6 +8,8 @@ import type { Visibility } from './visibility.ts';
 /** Actions that depend only on the user's role. */
 export const ROLE_ACTIONS = [
   'recipe.create',
+  /** Upload photos, for recipes they write or edit. */
+  'image.upload',
   'tag.create',
   /** Rename, merge or delete tags. */
   'tag.manage',
@@ -65,6 +67,7 @@ export interface PolicyComment {
 
 const ROLE_RULES = {
   'recipe.create': ['admin', 'editor'],
+  'image.upload': ['admin', 'editor'],
   'tag.create': ['admin', 'editor'],
   'tag.manage': ['admin'],
   'personal.write': ['admin', 'editor'],

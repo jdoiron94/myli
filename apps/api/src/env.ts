@@ -37,6 +37,8 @@ export const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     DATABASE_PATH: z.string().default('./data/myli.db'),
+    // Where uploaded photos are kept (ADR 0004): a directory only the API's container mounts.
+    BLOB_DIR: z.string().default('./data/blobs'),
     // The address people open myli at. Sign-in only accepts requests from this origin, cookies are
     // marked Secure when it's https, and emailed links point here.
     PUBLIC_URL: z

@@ -123,6 +123,21 @@ describe('the API image', () => {
     expect(output.trim()).toBe('node /data/myli.db');
   });
 
+  it('resizes images with sharp, whose prebuilt binary loads on the image’s platform', async () => {
+    const script = [
+      "import sharp from 'sharp';",
+      "const create = { width: 8, height: 6, channels: 3, background: 'red' };",
+      'const webp = await sharp({ create }).resize({ width: 4 }).webp().toBuffer();',
+      'const { format, width } = await sharp(webp).metadata();',
+      'console.log(format, width, process.env.BLOB_DIR);',
+    ].join('\n');
+
+    const { exitCode, output } = await api.exec(['node', '--input-type=module', '-e', script]);
+
+    expect(exitCode).toBe(0);
+    expect(output.trim()).toBe('webp 4 /data/blobs');
+  });
+
   it('holds the source and production dependencies, and no secrets, tests or local data', async () => {
     const { output: stray } = await api.exec([
       'find',

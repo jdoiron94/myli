@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createMemoryBlobStore } from '../blobs/memory.ts';
 import type { Db } from '../db/database.ts';
 import { job, user } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
@@ -14,7 +15,13 @@ function setUp() {
   const db: Db = createTestDatabase();
   db.insert(user).values({ id: 'owner', name: 'Owner', email: 'owner@example.com' }).run();
   const worker = createWorker({
-    services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client: undefined } },
+    services: {
+      db,
+      mailer: null,
+      publicUrl: 'https://myli.test',
+      search: { client: undefined },
+      blobs: createMemoryBlobStore(),
+    },
     logger: createLogger('fatal', { write: () => undefined }),
     jobs: allJobs,
   });

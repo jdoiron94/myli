@@ -5,6 +5,8 @@ import { AUTH_BASE_PATH, type Role } from '@myli/shared';
 import { createApp } from './app.ts';
 import { createAuth } from './auth/auth.ts';
 import { createUserWithPassword } from './auth/users.ts';
+import { createMemoryBlobStore } from './blobs/memory.ts';
+import type { BlobStore } from './blobs/store.ts';
 import type { Db } from './db/database.ts';
 import { createTestDatabase } from './db/testing.ts';
 import type { Env } from './env.ts';
@@ -40,6 +42,8 @@ export interface TestAppOptions {
   env?: Partial<TestEnv>;
   /** What `/readyz` and the search routes ask about search. Ready unless given; the search tests use real Meilisearch. */
   search?: SearchAccess;
+  /** Where uploads go: in memory, unless given. */
+  blobs?: BlobStore;
 }
 
 /**
@@ -55,8 +59,9 @@ export function createTestApp(options: TestAppOptions = {}) {
     isReady: () => Promise.resolve(true),
     client: fakeSearchClient().client,
   };
-  const app = createApp({ logger, auth, db, env, search });
-  return { app, db, auth, logger, env, search, publicUrl: env.PUBLIC_URL };
+  const blobs = options.blobs ?? createMemoryBlobStore();
+  const app = createApp({ logger, auth, db, env, search, blobs });
+  return { app, db, auth, logger, env, search, blobs, publicUrl: env.PUBLIC_URL };
 }
 
 export type TestApp = ReturnType<typeof createTestApp>;

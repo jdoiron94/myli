@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { createMemoryBlobStore } from '../blobs/memory.ts';
 import { invitation, job } from '../db/schema.ts';
 import { allJobs } from '../jobs/all.ts';
 import { createWorker } from '../jobs/worker.ts';
@@ -76,6 +77,7 @@ async function setUp(options: { mailerOff?: boolean } = {}) {
       mailer: options.mailerOff ? null : memory.mailer,
       publicUrl: t.publicUrl,
       search: { client: undefined },
+      blobs: createMemoryBlobStore(),
     },
     logger,
     jobs: allJobs,
@@ -170,6 +172,7 @@ describe('invitations with email on', () => {
         mailer: checkingMailer,
         publicUrl: t.publicUrl,
         search: { client: undefined },
+        blobs: createMemoryBlobStore(),
       },
       logger: t.logger,
       jobs: allJobs,

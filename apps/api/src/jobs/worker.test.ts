@@ -1,6 +1,7 @@
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { createMemoryBlobStore } from '../blobs/memory.ts';
 import { job } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
 import { createLogger } from '../logger.ts';
@@ -53,7 +54,13 @@ function setup(options: Partial<WorkerOptions> = {}) {
   });
 
   const worker = createWorker({
-    services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client: undefined } },
+    services: {
+      db,
+      mailer: null,
+      publicUrl: 'https://myli.test',
+      search: { client: undefined },
+      blobs: createMemoryBlobStore(),
+    },
     logger,
     jobs: [recordJob, failJob],
     now: clock.now,
@@ -217,7 +224,13 @@ describe('start and stop', () => {
 
     const db = createTestDatabase();
     const worker = createWorker({
-      services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client: undefined } },
+      services: {
+        db,
+        mailer: null,
+        publicUrl: 'https://myli.test',
+        search: { client: undefined },
+        blobs: createMemoryBlobStore(),
+      },
       logger: createLogger('silent'),
       jobs: [slowJob],
       pollIntervalMs: 5,
@@ -251,6 +264,7 @@ describe('start and stop', () => {
         mailer: null,
         publicUrl: 'https://myli.test',
         search: { client: undefined },
+        blobs: createMemoryBlobStore(),
       },
       logger: createLogger('silent'),
       jobs: [],
@@ -279,7 +293,13 @@ describe('services', () => {
     });
     let now = START;
     const worker = createWorker({
-      services: { db, mailer, publicUrl: 'https://myli.test', search: { client: undefined } },
+      services: {
+        db,
+        mailer,
+        publicUrl: 'https://myli.test',
+        search: { client: undefined },
+        blobs: createMemoryBlobStore(),
+      },
       logger: createLogger('silent'),
       jobs: [welcomeJob],
       now: () => now,

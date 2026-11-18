@@ -63,6 +63,40 @@ describe('jsonOnly', () => {
     expect((await send(method, contentType)).status).toBe(204);
   });
 
+  describe('the image upload, the one exception', () => {
+    /** The upload route and its neighbors, answering 204 behind the middleware. */
+    function send(method: string, path: string, contentType: string) {
+      const app = new Hono<AppEnv>();
+      app.onError(onError);
+      app.use(jsonOnly());
+      app.on(['POST', 'PUT'], ['/api/v1/images', '/api/v1/images/x', '/api/v1/recipes'], (c) =>
+        c.body(null, 204),
+      );
+      return app.request(path, { method, headers: { 'content-type': contentType }, body: 'x' });
+    }
+
+    it.each(['image/jpeg', 'image/png', 'Image/WebP; charset=binary'])(
+      'lets an upload sent as %s through',
+      async (contentType) => {
+        expect((await send('POST', '/api/v1/images', contentType)).status).toBe(204);
+      },
+    );
+
+    it.each([
+      ['POST', '/api/v1/images', 'image/gif'],
+      ['POST', '/api/v1/images', 'image/svg+xml'],
+      ['POST', '/api/v1/images', 'multipart/form-data; boundary=x'],
+      ['PUT', '/api/v1/images', 'image/jpeg'],
+      ['POST', '/api/v1/images/x', 'image/jpeg'],
+      ['POST', '/api/v1/recipes', 'image/jpeg'],
+    ])('refuses %s %s as %s', async (method, path, contentType) => {
+      const res = await send(method, path, contentType);
+
+      expect(res.status).toBe(415);
+      expect(await res.json()).toMatchObject({ detail: JSON_ONLY_DETAIL });
+    });
+  });
+
   it('guards every route under the versioned API', async () => {
     const t = createTestApp();
 

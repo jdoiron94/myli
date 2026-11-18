@@ -59,6 +59,7 @@ describe('migrateDatabase', () => {
       '__drizzle_migrations',
       'account',
       'audit_event',
+      'image',
       'invitation',
       'job',
       'recipe',

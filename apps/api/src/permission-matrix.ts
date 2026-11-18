@@ -15,6 +15,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { createUserWithPassword } from './auth/users.ts';
+import { testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
 import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './recipes/testing.ts';
 import { signedInAs, type TestApp } from './testing.ts';
@@ -242,6 +243,17 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/recipes',
     access: 'recipe.create',
     send: (t, cookie) => request(t, 'POST', '/recipes', cookie, sampleRecipeRequest()),
+  },
+  {
+    method: 'post',
+    path: '/images',
+    access: 'image.upload',
+    send: async (t, cookie) =>
+      t.app.request(`${API_BASE_PATH}/images`, {
+        method: 'POST',
+        headers: { ...(cookie !== undefined && { cookie }), 'content-type': 'image/jpeg' },
+        body: await testImage(64, 48),
+      }),
   },
   {
     method: 'get',
