@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.0](https://github.com/jdoiron94/myli/compare/v0.2.0...v0.3.0) (2026-11-18)
+
+
+### Features
+
+* **api:** keep the search index in step with every recipe write ([4991c1c](https://github.com/jdoiron94/myli/commit/4991c1ce9236dbf571e24bfea67fb2defa78ab6d))
+* **api:** let admins rebuild the search index, and see how it went ([255ac3b](https://github.com/jdoiron94/myli/commit/255ac3b150aa3cba92e63b476970f3f749f4654d))
+* **api:** list the recipes the caller may see, newest first ([0671bf1](https://github.com/jdoiron94/myli/commit/0671bf1f277662f007f3db4d990ffb091ec9cfd9))
+* **api:** rebuild the search index from SQLite, and when it's found empty ([970022b](https://github.com/jdoiron94/myli/commit/970022b9ae72f27034a9d466ed72644fdb7c0184))
+* **api:** rebuild the search index from the command line ([ea281a6](https://github.com/jdoiron94/myli/commit/ea281a6c5593bdb4120f03af471233189bc00605))
+* **api:** search recipes, finding only those the caller may see ([983b521](https://github.com/jdoiron94/myli/commit/983b521ff61e78ff206bf3e2395dbf176abc960f))
+* **api:** suggest ingredients, and find recipes with all of those chosen ([00140b0](https://github.com/jdoiron94/myli/commit/00140b09c96f27f9d40aa17cfd4e4e4ab9146cb1))
+* **web:** filter search results, with how many each value gives ([a2ea4eb](https://github.com/jdoiron94/myli/commit/a2ea4eb796c0cb7aa8dbd12b35f38846b2864d4c))
+* **web:** gather the admin pages in one header menu ([dde56d0](https://github.com/jdoiron94/myli/commit/dde56d0e211451782ff7acc5a0b7ed1814ba7e91))
+* **web:** give search its own page, and list every recipe on home ([393d2f8](https://github.com/jdoiron94/myli/commit/393d2f829918dbd35bfbfafd84f36777790e9905))
+* **web:** let admins rebuild the search index from its page ([54cd8b0](https://github.com/jdoiron94/myli/commit/54cd8b0054fa58ea4f24e9c5d890710614e1e711))
+* **web:** make home the search page, keeping the search in its address ([c49a990](https://github.com/jdoiron94/myli/commit/c49a990a7896f19770b203a5e1afa26b0bc123a0))
+* **web:** pick ingredients to search by, from suggestions as they're typed ([1946f30](https://github.com/jdoiron94/myli/commit/1946f30df66502e93607f8a76e03839af33080ef))
+
+
+### Bug Fixes
+
+* **api:** count only the search hits shown, when the index is behind ([393d594](https://github.com/jdoiron94/myli/commit/393d594166f7af9aa979e2d90e69b552ea6042fe))
+* **api:** suggest ingredients by any word of their name ([0ec7f4a](https://github.com/jdoiron94/myli/commit/0ec7f4a1bff2cee4bc0a0cdd44e4dac8c954e1a2))
+
 ## [0.2.0](https://github.com/jdoiron94/myli/compare/v0.1.0...v0.2.0) (2026-11-17)
 
 
