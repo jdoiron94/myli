@@ -1,17 +1,56 @@
 <script setup lang="ts">
-import { ArrowDownIcon, ArrowUpIcon, ListPlusIcon, PlusIcon, XIcon } from '@lucide/vue';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ImagePlusIcon,
+  ListPlusIcon,
+  PlusIcon,
+  XIcon,
+} from '@lucide/vue';
 import { RECIPE_LIMITS } from '@myli/shared';
-import { useFieldArray, useFieldError } from 'vee-validate';
-import { nextTick, useTemplateRef } from 'vue';
+import { useFieldArray, useFieldError, useFormErrors } from 'vee-validate';
+import { computed, nextTick, reactive, useId, useTemplateRef } from 'vue';
+import { failureMessage } from '@/api/failure.ts';
 import MarkdownField from '@/components/MarkdownField.vue';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldError, FieldLegend, FieldSet } from '@/components/ui/field';
+import { useForgetErrors } from '@/lib/forms.ts';
+import PhotoPicker from './PhotoPicker.vue';
+import type { PhotoLibrary } from './photo-library.ts';
+import { photoFileProblem, STEP_EDITOR_PHOTO_SIZES } from './photos.ts';
+import RecipePhoto from './RecipePhoto.vue';
 import { emptyStep, type StepValues } from './recipe-form.ts';
 
-/** The recipe's steps, in order, each written in markdown (spec §3.2). */
+/** The recipe's steps, in order, each written in markdown and with a photo if wanted (spec §3.2). */
+const props = defineProps<{ library: PhotoLibrary }>();
+
 const steps = useFieldArray<StepValues>('steps');
 const fields = steps.fields;
 const error = useFieldError('steps');
+const formErrors = useFormErrors();
+const forgetRefusals = useForgetErrors((path) => /^steps\[\d+\]\.imageId$/.test(path));
+
+const id = useId();
+type StepKey = (typeof fields.value)[number]['key'];
+/** What went wrong adding a photo to a step, by the step's key, so it stays with the step. */
+const photoProblems = reactive(new Map<StepKey, string>());
+/** The steps a photo is uploading for, by key. */
+const uploading = reactive(new Set<StepKey>());
+
+const rows = computed(() =>
+  fields.value.map((field, index) => {
+    const { imageId } = field.value;
+    // The API's refusal of a save, for the step at this place, or what went wrong adding it.
+    const refusal = formErrors.value[`steps[${String(index)}].imageId`];
+    const problem = refusal ?? photoProblems.get(field.key);
+    return {
+      key: field.key,
+      photo: imageId === null ? undefined : props.library.get(imageId),
+      hasPhoto: imageId !== null,
+      problem,
+    };
+  }),
+);
 
 const root = useTemplateRef('root');
 const full = () => fields.value.length >= RECIPE_LIMITS.steps;
@@ -23,6 +62,7 @@ const stepField = (step: Element | undefined) =>
 /** A blank step at `index`, and focus in it, to write it. */
 async function add(index: number) {
   if (full()) return;
+  forgetRefusals();
   steps.insert(index, emptyStep());
   await nextTick();
   stepField(shownSteps()[index])?.focus();
@@ -30,6 +70,7 @@ async function add(index: number) {
 
 /** Focus stays on the button pressed, on the step now in its new place. */
 async function move(index: number, by: -1 | 1) {
+  forgetRefusals();
   steps.swap(index, index + by);
   await nextTick();
   const moved = shownSteps()[index + by];
@@ -38,12 +79,47 @@ async function move(index: number, by: -1 | 1) {
 
 /** Focus goes to the step that takes its place, or the one before, or the button to add one. */
 async function remove(index: number) {
+  forgetRefusals();
   steps.remove(index);
   await nextTick();
   const shown = shownSteps();
   const next = stepField(shown[index] ?? shown[index - 1]);
   if (next) next.focus();
   else root.value?.querySelector<HTMLElement>('[data-add-step]')?.focus();
+}
+
+/** Uploads a photo for the step, refusing what the API would, and gives it to the step. */
+async function addPhoto(key: StepKey, [file]: File[]) {
+  if (!file) return;
+  forgetRefusals();
+  photoProblems.delete(key);
+  const problem = photoFileProblem(file);
+  if (problem !== undefined) {
+    photoProblems.set(key, problem);
+    return;
+  }
+  uploading.add(key);
+  try {
+    const image = await props.library.upload(file);
+    // Wherever the step is now: it may have moved, or gone, while the photo uploaded.
+    const index = fields.value.findIndex((field) => field.key === key);
+    const step = fields.value[index];
+    if (step) steps.update(index, { ...step.value, imageId: image.id });
+  } catch (failure) {
+    photoProblems.set(key, failureMessage(failure));
+  } finally {
+    uploading.delete(key);
+  }
+}
+
+/** Focus goes to the button to add a photo, which takes the photo's place. */
+async function removePhoto(index: number) {
+  const step = fields.value[index];
+  if (!step) return;
+  forgetRefusals();
+  steps.update(index, { ...step.value, imageId: null });
+  await nextTick();
+  shownSteps()[index]?.querySelector<HTMLElement>('[data-add-photo]')?.focus();
 }
 </script>
 
@@ -61,8 +137,8 @@ async function remove(index: number) {
         aria-label="Steps"
       >
         <li
-          v-for="(field, index) in fields"
-          :key="field.key"
+          v-for="(row, index) in rows"
+          :key="row.key"
           data-step
         >
           <MarkdownField
@@ -89,12 +165,23 @@ async function remove(index: number) {
                   size="icon-sm"
                   class="aria-disabled:opacity-50"
                   :aria-label="`Move step ${index + 1} down`"
-                  :aria-disabled="index === fields.length - 1 ? true : undefined"
+                  :aria-disabled="index === rows.length - 1 ? true : undefined"
                   data-move="1"
-                  @click="index === fields.length - 1 || move(index, 1)"
+                  @click="index === rows.length - 1 || move(index, 1)"
                 >
                   <ArrowDownIcon aria-hidden="true" />
                 </Button>
+                <PhotoPicker
+                  v-if="!row.hasPhoto"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`Add a photo to step ${index + 1}`"
+                  :unavailable="uploading.has(row.key)"
+                  data-add-photo
+                  @picked="addPhoto(row.key, $event)"
+                >
+                  <ImagePlusIcon aria-hidden="true" />
+                </PhotoPicker>
                 <Button
                   type="button"
                   variant="ghost"
@@ -118,10 +205,37 @@ async function remove(index: number) {
               </div>
             </template>
           </MarkdownField>
+          <div
+            v-if="row.hasPhoto"
+            class="mt-3 flex flex-wrap items-end gap-3"
+          >
+            <RecipePhoto
+              v-if="row.photo"
+              :image="row.photo"
+              :sizes="STEP_EDITOR_PHOTO_SIZES"
+              class="aspect-[4/3] w-40 rounded-md object-cover sm:w-48"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :aria-label="`Remove photo from step ${index + 1}`"
+              :aria-describedby="row.problem ? `${id}-${index}-photo-error` : undefined"
+              @click="removePhoto(index)"
+            >
+              <XIcon aria-hidden="true" />
+              Remove photo
+            </Button>
+          </div>
+          <FieldError
+            :id="`${id}-${index}-photo-error`"
+            class="mt-2"
+            :errors="row.problem ? [row.problem] : []"
+          />
         </li>
       </ol>
       <FieldError :errors="error ? [error] : []" />
-      <div>
+      <div class="flex flex-wrap items-center gap-3">
         <Button
           type="button"
           variant="outline"
@@ -134,6 +248,14 @@ async function remove(index: number) {
           <PlusIcon aria-hidden="true" />
           Add a step
         </Button>
+        <p
+          role="status"
+          class="text-sm text-muted-foreground"
+        >
+          <template v-if="uploading.size > 0">
+            Uploading {{ uploading.size === 1 ? 'a photo' : `${uploading.size} photos` }}…
+          </template>
+        </p>
       </div>
     </FieldSet>
   </div>

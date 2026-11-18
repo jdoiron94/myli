@@ -168,7 +168,7 @@ const cancelTo = computed(() =>
       </FieldSet>
 
       <IngredientsEditor />
-      <StepsEditor />
+      <StepsEditor :library="library" />
       <TagsEditor />
 
       <FormRadioField

@@ -1,11 +1,19 @@
-import { RECIPE_LIMITS } from '@myli/shared';
+import { RECIPE_LIMITS, VALIDATION_PROBLEM_TYPE } from '@myli/shared';
+import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
-import { accessibilityViolations, apiServer, focusedMarkdownEditor, renderApp } from '@/testing.ts';
-import type { Recipe } from './recipe.ts';
-import { answerTags, sampleRecipe } from './testing.ts';
+import {
+  accessibilityViolations,
+  apiServer,
+  describedBy,
+  focusedMarkdownEditor,
+  problemResponse,
+  renderApp,
+} from '@/testing.ts';
+import type { Recipe, UpdateRecipeRequest } from './recipe.ts';
+import { answerTags, answerUploads, photoFile, sampleImage, sampleRecipe } from './testing.ts';
 
 const step = (position: number) =>
   screen.getByRole('textbox', { name: `Step ${String(position)}` });
@@ -183,5 +191,149 @@ describe('the steps editor', () => {
     await editSteps('Mix.', 'Bake.');
 
     expect(await accessibilityViolations()).toEqual([]);
+  });
+});
+
+describe('a step’s photo', () => {
+  /** Each step, as listed in the editor. */
+  const stepItems = () => [
+    ...screen.getByRole('list', { name: 'Steps' }).querySelectorAll<HTMLElement>(':scope > li'),
+  ];
+  const stepItem = (position: number) => {
+    const item = stepItems()[position - 1];
+    if (!item) throw new Error(`no step ${String(position)}`);
+    return item;
+  };
+  /** Each step's photo, by ID, or `null`. */
+  const stepPhotos = () =>
+    stepItems().map(
+      (item) => item.querySelector('img')?.getAttribute('src')?.split('/')[4] ?? null,
+    );
+  const fileInputOf = (position: number) => {
+    const input = stepItem(position).querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error(`no file input for step ${String(position)}`);
+    return input;
+  };
+
+  /** The edit page for `recipe`. Keeps the steps each save sends. */
+  async function editStepPhotos(recipe: Recipe, answerSave?: () => Response) {
+    answerPreferences();
+    let stored = recipe;
+    const saved: UpdateRecipeRequest['steps'][] = [];
+    apiServer.use(
+      http.get('/api/v1/recipes/:id', () => HttpResponse.json({ recipe: stored })),
+      http.put('/api/v1/recipes/:id', async ({ request }) => {
+        const { steps } = (await request.json()) as UpdateRecipeRequest;
+        saved.push(steps);
+        if (answerSave) return answerSave();
+        stored = {
+          ...stored,
+          steps: steps.map(({ body, imageId }) => ({
+            body,
+            image: imageId === null ? null : sampleImage(imageId),
+          })),
+        };
+        return HttpResponse.json({ recipe: stored });
+      }),
+    );
+    const app = await renderApp('/recipes/recipe-bread/edit');
+    await screen.findByRole('textbox', { name: 'Title' });
+    return { ...app, saved };
+  }
+
+  const twoSteps = (photo: string | null = null) =>
+    sampleRecipe({
+      steps: [
+        { body: 'Mix.', image: null },
+        { body: 'Shape.', image: photo === null ? null : sampleImage(photo) },
+      ],
+    });
+
+  it('is uploaded for the step, moves with it, and is saved with it', async () => {
+    const sent = answerUploads();
+    const { user, saved } = await editStepPhotos(twoSteps());
+
+    await user.upload(fileInputOf(2), photoFile('shaped.jpg'));
+
+    await waitFor(() => {
+      expect(stepPhotos()).toEqual([null, 'upload-1']);
+    });
+    expect(sent).toEqual([{ type: 'image/jpeg', size: 1000 }]);
+    // One photo a step: removing it is how to change it.
+    expect(screen.queryByRole('button', { name: 'Add a photo to step 2' })).toBeNull();
+    await user.click(button('Move step 2 up'));
+    expect(stepPhotos()).toEqual(['upload-1', null]);
+    expect(await accessibilityViolations()).toEqual([]);
+
+    await user.click(button('Save changes'));
+    await screen.findByRole('radio', { name: 'US customary' });
+    expect(saved).toEqual([
+      [
+        { body: 'Shape.', imageId: 'upload-1' },
+        { body: 'Mix.', imageId: null },
+      ],
+    ]);
+    const shown = within(screen.getByRole('region', { name: 'Steps' })).getAllByRole('listitem');
+    expect(shown[0]?.querySelector('img')?.getAttribute('src')).toBe(
+      '/api/v1/images/upload-1/1280',
+    );
+  });
+
+  it('is removed when asked, focusing the button to add one in its place', async () => {
+    const { user, saved } = await editStepPhotos(twoSteps('photo'));
+    expect(stepPhotos()).toEqual([null, 'photo']);
+
+    await user.click(button('Remove photo from step 2'));
+
+    expect(stepPhotos()).toEqual([null, null]);
+    expect(document.activeElement).toBe(button('Add a photo to step 2'));
+    await user.click(button('Save changes'));
+    await screen.findByRole('radio', { name: 'US customary' });
+    expect(saved).toEqual([
+      [
+        { body: 'Mix.', imageId: null },
+        { body: 'Shape.', imageId: null },
+      ],
+    ]);
+  });
+
+  it('says on its step why a file can’t be its photo, or why the API refused it', async () => {
+    const sent = answerUploads(() => problemResponse(422, 'This image can’t be read.'));
+    await editStepPhotos(twoSteps());
+    const user = userEvent.setup({ applyAccept: false });
+
+    await user.upload(fileInputOf(1), photoFile('notes.txt', 'text/plain'));
+    await user.upload(fileInputOf(2), photoFile('broken.jpg'));
+
+    await waitFor(() => {
+      expect(within(stepItem(2)).getByRole('alert').textContent.trim()).toBe(
+        'This image can’t be read.',
+      );
+    });
+    expect(within(stepItem(1)).getByRole('alert').textContent.trim()).toBe(
+      'Upload a JPEG, PNG or WebP image.',
+    );
+    expect(sent).toHaveLength(1);
+    expect(stepPhotos()).toEqual([null, null]);
+  });
+
+  it('shows the API’s refusal of a step’s photo on that step, until the steps change', async () => {
+    const detail = 'This photo isn’t available any more. Upload it again.';
+    const { user } = await editStepPhotos(twoSteps('photo'), () =>
+      problemResponse(422, 'The request is invalid.', {
+        type: VALIDATION_PROBLEM_TYPE,
+        errors: [{ in: 'body', pointer: '#/steps/1/imageId', detail }],
+      }),
+    );
+
+    await user.click(button('Save changes'));
+
+    await waitFor(() => {
+      expect(describedBy(button('Remove photo from step 2'))).toEqual([detail]);
+    });
+    expect(within(stepItem(2)).getByRole('alert').textContent.trim()).toBe(detail);
+
+    await user.click(button('Move step 2 up'));
+    expect(screen.queryByText(detail)).toBeNull();
   });
 });

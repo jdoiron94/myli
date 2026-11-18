@@ -310,6 +310,16 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('button', { name: 'Move step 1 up' })).toBeFocused();
     await expect(step(1)).toHaveText('Mix everything.');
     await expect(step(2)).toHaveText('Bake at 400°F.');
+
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Add a photo to step 2' }).click();
+    await (await chooser).setFiles({
+      name: 'oven.png',
+      mimeType: 'image/png',
+      buffer: solidPng(1200, 900, [90, 60, 40]),
+    });
+    await expect(page.getByRole('button', { name: 'Remove photo from step 2' })).toBeVisible();
+    await loaded(page.getByRole('list', { name: 'Steps' }).locator('img'));
     await checkPage(page);
   });
 
@@ -357,9 +367,15 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       'Contains wheat',
       'American',
     ]);
-    // The cover chosen, the upright one, at the top, and the other after everything else.
-    const [cover, other] = await main.locator('img').all();
-    if (!cover || !other) throw new Error('expected two photos');
+    // The cover chosen, the upright one, at the top, the step's in its step, and the other after
+    // everything else.
+    const photos = main.locator('img');
+    await expect(photos).toHaveCount(3);
+    await loaded(
+      page.getByRole('region', { name: 'Steps' }).getByRole('listitem').nth(1).locator('img'),
+    );
+    const [cover, , other] = await photos.all();
+    if (!cover || !other) throw new Error('expected the cover and another photo');
     await loaded(cover);
     await loaded(other);
     expect([await portrait(cover), await portrait(other)]).toEqual([true, false]);

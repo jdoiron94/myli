@@ -319,7 +319,7 @@ export const RECIPE_TEXT_FIELDS = [
   'visibility',
 ] as const;
 
-/** The recipe's photos, which the API refuses one by one when it can't use them. */
+/** The recipe's photos and its steps', which the API refuses one by one when it can't use them. */
 const PHOTO_FIELDS = [
   'imageIds',
   ...Array.from(
@@ -327,6 +327,10 @@ const PHOTO_FIELDS = [
     (_, index) => `imageIds[${String(index)}]` as const,
   ),
   'coverImageId',
+  ...Array.from(
+    { length: RECIPE_LIMITS.steps },
+    (_, index) => `steps[${String(index)}].imageId` as const,
+  ),
 ] as const;
 
 /** Every field of the form, by its path, for the API's field errors. */

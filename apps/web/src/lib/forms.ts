@@ -1,5 +1,5 @@
 import { passwordSchema, VALIDATION_PROBLEM_TYPE } from '@myli/shared';
-import type { TypedSchema } from 'vee-validate';
+import { type TypedSchema, useFormErrors, useSetFormErrors } from 'vee-validate';
 import { nextTick } from 'vue';
 import { z } from 'zod';
 import { ApiProblem } from '@/api/problem.ts';
@@ -81,4 +81,18 @@ export function focusFirstInvalidField(form: HTMLFormElement | null) {
   void nextTick(() => {
     form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
   });
+}
+
+/**
+ * Forgets the errors at the paths `matches` picks, which no field of their own clears, as the
+ * API's refusal of a list's entry: it's for the entry at that place when it answered, and would be
+ * on the wrong one once the list changes. Saving again says again what's still wrong.
+ */
+export function useForgetErrors(matches: (path: string) => boolean) {
+  const errors = useFormErrors();
+  const setErrors = useSetFormErrors();
+  return () => {
+    const stale = Object.keys(errors.value).filter(matches);
+    if (stale.length > 0) setErrors(Object.fromEntries(stale.map((path) => [path, undefined])));
+  };
 }
