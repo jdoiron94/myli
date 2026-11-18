@@ -4,7 +4,7 @@ description: Installs pnpm and Node at the versions the repository pins, then th
 
 inputs:
   playwright:
-    description: Also install Playwright's browsers, with the system packages they need.
+    description: Also install Playwright's browsers, without system packages (see the step).
     default: 'false'
 
 runs:
@@ -23,7 +23,11 @@ runs:
       shell: bash
       run: pnpm install --frozen-lockfile
     # Not cached: Playwright's docs say restoring them takes about as long as downloading them.
+    # Without --with-deps: the runner's image has the libraries the browsers load. What it added,
+    # fonts for other scripts and Firefox's video codecs, none of which the tests need, came from
+    # an Ubuntu mirror that took up to 13 minutes. A browser missing a library won't launch, and
+    # Playwright names the library: install just that package here.
     - name: Install Playwright's browsers
       if: inputs.playwright == 'true'
       shell: bash
-      run: pnpm --filter @myli/e2e exec playwright install --with-deps chromium firefox
+      run: pnpm --filter @myli/e2e exec playwright install chromium firefox
