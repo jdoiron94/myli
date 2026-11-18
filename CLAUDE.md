@@ -266,7 +266,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **lefthook pre-commit,** in order: Biome fixes staged files and re-stages them, ESLint checks staged files (fixing only template layout, then re-staging), then the whole workspace is typechecked.
 
 ### CI and releases
-- `.github/workflows/ci.yml` runs on every push to a branch, and on pull requests from forks (a branch of this repository was already checked when it was pushed). Three jobs run side by side on `ubuntu-24.04`:
+- `.github/workflows/ci.yml` runs on pull requests to `main`: when one is opened, and on each push to it, which cancels the run before. It doesn't run again once a pull request is merged, since `main` then holds what it checked, so merge one only when it's up to date with `main`. Nor does it run on release-please's pull requests, which change only the changelog and the version. Anything else can be checked by hand (Actions > CI > Run workflow). Three jobs run side by side on `ubuntu-24.04`:
   - format, lint, typecheck, `pnpm test` and `pnpm audit`
   - `pnpm test:e2e`
   - `pnpm test:containers`
@@ -287,7 +287,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - The first release is 0.1.0 because of `initial-version` in `release-please-config.json`: without it, release-please starts at 1.0.0, whatever the manifest says.
   - The commit type decides the version: `feat` bumps the minor, `fix` the patch. Before 1.0, a breaking change bumps the minor too: going to 1.0.0 is a decision, made with `release-as` in `release-please-config.json` (and removed after that release). `docs`, `chore`, `ci`, `test` and `refactor` commits don't release anything; Renovate's `fix(deps)` does.
   - Never edit `CHANGELOG.md`, the `version` in `package.json` or `.release-please-manifest.json` by hand: release-please owns them.
-  - It uses GitHub's own token, which starts no workflow runs, so CI doesn't run on release PRs. That's also why publishing is a job in the same workflow, not a workflow started by the tag. The repository must allow GitHub Actions to create pull requests (Settings > Actions > General).
+  - It uses GitHub's own token, which starts no workflow runs. That's why publishing is a job in the same workflow, not a workflow started by the tag. The repository must allow GitHub Actions to create pull requests (Settings > Actions > General).
   - The images' OCI labels (title, description, `source`, license) are what GHCR shows, and `source` links each package to the repository. The web image replaces every label of the Caddy image it builds on. The image tests check them.
 - Check a workflow change with zizmor, which should find nothing, and actionlint, whose 1.7.12 doesn't know the `$/` syntax yet:
   - `docker run --rm --network none -v "$PWD:/repo:ro" ghcr.io/zizmorcore/zizmor:1.32.0 --offline --persona pedantic /repo/.github`

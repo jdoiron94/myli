@@ -1,27 +1,28 @@
-# The checks that run locally (CLAUDE.md, "Commands"), on every push to a branch. Tags aren't
-# checked again: a tag points at a commit its branch already checked.
+# The checks that run locally (CLAUDE.md, "Commands"), on each pull request to main: when it's
+# opened, and on every push to it. Not again once it's merged, since main then holds what it
+# checked, and not on release-please's pull requests, which change only the changelog and the
+# version. Anything else can be checked by hand, from the Actions tab.
 name: CI
 
 on:
-  push:
-    branches: ['**']
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 # The token can read the repository and nothing else.
 permissions:
   contents: read # checking out
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # A newer push to a branch cancels its run in progress. Every run on main finishes.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A newer push to a pull request cancels its run in progress.
+  cancel-in-progress: true
 
 jobs:
   checks:
     name: Format, lint, typecheck and unit tests
-    # A pull request from a branch of this repository was already checked when it was pushed.
-    # Only pull requests from forks run here.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    # Each job skips release-please's pull requests (see the top).
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -62,7 +63,7 @@ jobs:
 
   e2e:
     name: End-to-end tests against the dev servers
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -84,7 +85,7 @@ jobs:
 
   containers:
     name: Container tests and end-to-end tests against the Compose stack
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
