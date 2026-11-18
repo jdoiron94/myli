@@ -42,7 +42,8 @@ http://127.0.0.1:2020 {
 	}
 
 	# The API, Better Auth's routes included: everything under /api except the docs page. Its
-	# answers are JSON, never pages, so their CSP allows nothing at all. They aren't compressed.
+	# answers are JSON or images, never pages, so their CSP allows nothing at all. They aren't
+	# compressed.
 	@api {
 		path /api/*
 		not path /api/docs /api/docs/*

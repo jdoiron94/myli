@@ -2736,6 +2736,80 @@
         }
       }
     },
+    "/images/{id}/{width}": {
+      "get": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Get a photo at one of its sizes",
+        "description": "Any signed-in user who may see the recipe it belongs to; until a recipe is saved with it, only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one of the widths in its `variants`. What an address serves never changes, so it can be cached for good.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "required": true,
+            "name": "width",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo at that size, as WebP.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No photo has this ID or size, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tags": {
       "get": {
         "tags": [

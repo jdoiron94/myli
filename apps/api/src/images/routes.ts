@@ -1,20 +1,26 @@
+import { Readable } from 'node:stream';
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi';
 import {
+  can,
   IMAGE_MAX_BYTES,
   IMAGE_UPLOAD_TYPES,
+  imageFileParamsSchema,
   imageResultSchema,
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
 } from '@myli/shared';
+import { eq } from 'drizzle-orm';
 import type { MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { requirePermission } from '../auth/authorize.ts';
+import { notFound, requirePermission } from '../auth/authorize.ts';
+import { requireSession } from '../auth/session.ts';
 import type { BlobStore } from '../blobs/store.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
+import { image } from '../db/schema.ts';
 import { mediaType } from '../json-only.ts';
 import { errorResponses, HttpProblem, InvalidFields } from '../problems.ts';
-import { saveUpload } from './images.ts';
+import { imageAccess, saveUpload } from './images.ts';
 import { MAX_PIXELS, processImage } from './process.ts';
 
 export const NOT_AN_IMAGE_DETAIL = 'Upload a JPEG, PNG or WebP image.';
@@ -68,6 +74,31 @@ const postImage = createRoute({
   },
 });
 
+/** A size's address never changes what it serves (ADR 0004), so browsers keep it for good. */
+export const IMAGE_CACHE_CONTROL = 'private, max-age=31536000, immutable';
+
+const getImageFile = createRoute({
+  method: 'get',
+  path: '/images/{id}/{width}',
+  tags: ['Images'],
+  summary: 'Get a photo at one of its sizes',
+  description:
+    'Any signed-in user who may see the recipe it belongs to; until a recipe is saved with it, ' +
+    'only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one ' +
+    'of the widths in its `variants`. What an address serves never changes, so it can be cached ' +
+    'for good.',
+  middleware: [requireSession] as const,
+  request: { params: imageFileParamsSchema },
+  responses: {
+    200: {
+      description: 'The photo at that size, as WebP.',
+      content: { 'image/webp': { schema: binary } },
+    },
+    404: problem('No photo has this ID or size, or the caller may not see it.'),
+    ...errorResponses,
+  },
+});
+
 export function registerImageRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db; blobs: BlobStore }) {
   v1.openapi(postImage, async (c) => {
     // JSON gets past jsonOnly(), as on every route; only an image type is an upload.
@@ -87,5 +118,26 @@ export function registerImageRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db; blo
       'image uploaded',
     );
     return c.json({ image }, 201);
+  });
+
+  v1.openapi(getImageFile, async (c) => {
+    const { id, width } = c.req.valid('param');
+    const row = deps.db.select().from(image).where(eq(image.id, id)).get();
+    const access = row && imageAccess(deps.db, row);
+    if (!row || !access || !can(c.var.user, 'recipe.read', access)) throw notFound('Image');
+    const variant = row.variants.find((each) => each.width === width);
+    if (!variant) throw notFound('Image');
+
+    const blob = await deps.blobs.get(variant.key);
+    if (!blob) {
+      // Its row says it's there: a store that lost files, or was restored without them.
+      c.var.logger.error({ imageId: id, key: variant.key }, 'image blob missing');
+      throw notFound('Image');
+    }
+    return c.body(Readable.toWeb(blob.body) as ReadableStream, 200, {
+      'Content-Type': blob.contentType,
+      'Content-Length': String(blob.size),
+      'Cache-Control': IMAGE_CACHE_CONTROL,
+    });
   });
 }

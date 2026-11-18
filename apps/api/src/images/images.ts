@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Image } from '@myli/shared';
+import type { Image, PolicyRecipe } from '@myli/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import type { BlobStore } from '../blobs/store.ts';
@@ -7,6 +7,7 @@ import type { Db } from '../db/database.ts';
 import { image, type StoredImageVariant } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
 import { enqueueJob } from '../jobs/queue.ts';
+import { findRecipeAccess } from '../recipes/recipes.ts';
 import type { ProcessedImage } from './process.ts';
 
 /** How long an upload waits for a recipe to be saved with it before it's deleted: a day. */
@@ -43,6 +44,19 @@ export const discardUnsavedImageJob = defineJob({
     return Promise.resolve();
   },
 });
+
+/**
+ * What decides who may see an image, under `recipe.read`: the recipe it belongs to, or until a
+ * recipe is saved with it, its uploader alone, as for a private recipe of theirs. `undefined` when
+ * its recipe was deleted.
+ */
+export function imageAccess(
+  db: Db,
+  row: { recipeId: string | null; uploaderId: string },
+): PolicyRecipe | undefined {
+  if (row.recipeId === null) return { ownerId: row.uploaderId, visibility: 'private' };
+  return findRecipeAccess(db, row.recipeId);
+}
 
 /** An image as the API answers with it. */
 export const toImage = (row: {
