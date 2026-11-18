@@ -1,3 +1,4 @@
+import { deleteBlobsJob, discardUnsavedImageJob } from '../images/images.ts';
 import { invitationEmailJob } from '../invitations/invitations.ts';
 import { indexRecipeJob } from '../search/indexing.ts';
 import { reindexRecipesJob } from '../search/reindex.ts';
@@ -8,4 +9,6 @@ export const allJobs: readonly JobDefinition[] = [
   invitationEmailJob,
   indexRecipeJob,
   reindexRecipesJob,
+  discardUnsavedImageJob,
+  deleteBlobsJob,
 ];

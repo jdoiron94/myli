@@ -2,6 +2,7 @@
 import { Meilisearch } from 'meilisearch';
 import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createMemoryBlobStore } from '../blobs/memory.ts';
 import type { Db } from '../db/database.ts';
 import { job, user } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
@@ -116,7 +117,13 @@ describe('queueReindexIfEmpty', () => {
 
     // The worker rebuilds it, after the update the recipe's creation queued.
     const worker = createWorker({
-      services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client } },
+      services: {
+        db,
+        mailer: null,
+        publicUrl: 'https://myli.test',
+        search: { client },
+        blobs: createMemoryBlobStore(),
+      },
       logger: silent,
       jobs: allJobs,
     });

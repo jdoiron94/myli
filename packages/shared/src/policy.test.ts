@@ -24,6 +24,7 @@ type RoleRow = Record<Role, '✓' | '–'>;
 
 const ROLE_TABLE: Record<RoleAction, RoleRow> = {
   'recipe.create': { admin: '✓', editor: '✓', viewer: '–' },
+  'image.upload': { admin: '✓', editor: '✓', viewer: '–' },
   'tag.create': { admin: '✓', editor: '✓', viewer: '–' },
   'tag.manage': { admin: '✓', editor: '–', viewer: '–' },
   'personal.write': { admin: '✓', editor: '✓', viewer: '–' },

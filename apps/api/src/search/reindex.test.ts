@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { createMemoryBlobStore } from '../blobs/memory.ts';
 import { job } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
 import { allJobs } from '../jobs/all.ts';
@@ -37,7 +38,13 @@ describe('reindexRecipesJob', () => {
     const db = createTestDatabase();
     const id = queueReindex(db);
     const worker = createWorker({
-      services: { db, mailer: null, publicUrl: 'https://myli.test', search: { client: undefined } },
+      services: {
+        db,
+        mailer: null,
+        publicUrl: 'https://myli.test',
+        search: { client: undefined },
+        blobs: createMemoryBlobStore(),
+      },
       logger: createLogger('fatal', { write: () => undefined }),
       jobs: allJobs,
     });

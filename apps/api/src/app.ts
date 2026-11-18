@@ -4,6 +4,7 @@ import { requestId } from 'hono/request-id';
 import { auditSignIns, auditSignOuts } from './audit/auth-events.ts';
 import type { Auth } from './auth/auth.ts';
 import { sessionMiddleware } from './auth/session.ts';
+import type { BlobStore } from './blobs/store.ts';
 import { clientAddress, trustedProxies, withClientIp } from './client-ip.ts';
 import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
@@ -20,12 +21,13 @@ export interface AppDeps {
   db: Db;
   env: AppSettings & Pick<Env, 'TRUSTED_PROXIES'>;
   search: SearchAccess;
+  blobs: BlobStore;
 }
 
 /**
  * Builds the Hono app without starting a server, so tests can call `app.request()` directly.
  */
-export function createApp({ logger, auth, db, env, search }: AppDeps) {
+export function createApp({ logger, auth, db, env, search, blobs }: AppDeps) {
   const app = new Hono<AppEnv>();
   // Every error response is RFC 9457 application/problem+json.
   app.onError(onError);
@@ -63,7 +65,7 @@ export function createApp({ logger, auth, db, env, search }: AppDeps) {
     auth.handler(withClientIp(c.req.raw, c.var.clientIp)),
   );
   app.use(`${API_BASE_PATH}/*`, sessionMiddleware(auth));
-  app.route(API_BASE_PATH, createV1Router({ db, auth, env, search }));
+  app.route(API_BASE_PATH, createV1Router({ db, auth, env, search, blobs }));
 
   return app;
 }

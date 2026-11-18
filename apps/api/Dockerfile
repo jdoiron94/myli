@@ -34,7 +34,8 @@ LABEL org.opencontainers.image.title="myli API" \
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
-    DATABASE_PATH=/data/myli.db
+    DATABASE_PATH=/data/myli.db \
+    BLOB_DIR=/data/blobs
 WORKDIR /app
 # The installed packages (symlinks into node_modules/.pnpm, kept as symlinks), then the source.
 COPY --from=dependencies /app/node_modules node_modules

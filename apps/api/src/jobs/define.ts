@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { BlobStore } from '../blobs/store.ts';
 import type { Db } from '../db/database.ts';
 import type { Logger } from '../logger.ts';
 import type { Mailer } from '../mail/mailer.ts';
@@ -13,6 +14,8 @@ export interface JobServices {
   publicUrl: string;
   /** Meilisearch, through the API's own key. `client` is undefined while it's unavailable. */
   search: Pick<SearchService, 'client'>;
+  /** Where uploaded photos are kept. */
+  blobs: BlobStore;
 }
 
 export interface JobContext {

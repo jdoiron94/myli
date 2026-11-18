@@ -18,6 +18,16 @@ export {
   auditEventSchema,
 } from './audit.ts';
 export {
+  IMAGE_MAX_BYTES,
+  IMAGE_UPLOAD_TYPES,
+  IMAGE_WIDTHS,
+  type Image,
+  type ImageUploadType,
+  imageResultSchema,
+  imageSchema,
+  imageVariantSchema,
+} from './image.ts';
+export {
   normalizeIngredientName,
   type ParsedIngredient,
   parseIngredient,

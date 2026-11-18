@@ -64,6 +64,13 @@
       "when": 1794887036619,
       "tag": "0008_user_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1795015084061,
+      "tag": "0009_image",
+      "breakpoints": true
     }
   ]
 }

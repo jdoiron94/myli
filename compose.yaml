@@ -51,8 +51,8 @@ services:
       dockerfile: apps/api/Dockerfile
     # Not read_only: Compose copies secrets from the environment into the container, which it can't
     # do in a read-only one.
-    # The image sets NODE_ENV, HOST, PORT and DATABASE_PATH (apps/api/Dockerfile). An empty value
-    # counts as unset, so the API's defaults apply.
+    # The image sets NODE_ENV, HOST, PORT, DATABASE_PATH and BLOB_DIR (apps/api/Dockerfile). An
+    # empty value counts as unset, so the API's defaults apply.
     environment:
       PUBLIC_URL: ${PUBLIC_URL:?must be set to the address people open myli at, like https://myli.home.arpa}
       # Each secret is a file in /run/secrets (see `secrets` below), named only when it's set. Unset,
