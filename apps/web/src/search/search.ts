@@ -5,7 +5,6 @@ import { api, responseData } from '@/api/client.ts';
 import type { components } from '@/api/schema.ts';
 
 export type SearchResult = components['schemas']['RecipeSearchResult'];
-export type SearchHit = components['schemas']['RecipeSummary'];
 
 /** The parameters of a search that hold lists of values. */
 const LIST_KEYS = [

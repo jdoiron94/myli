@@ -1,11 +1,13 @@
 import type { Visibility } from '@myli/shared';
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/vue-query';
+import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { api, responseData } from '@/api/client.ts';
 import type { components } from '@/api/schema.ts';
 
 export type Recipe = components['schemas']['Recipe'];
 export type IngredientLine = components['schemas']['IngredientLine'];
 export type Tag = components['schemas']['Tag'];
+export type RecipeSummary = components['schemas']['RecipeSummary'];
+export type RecipeList = components['schemas']['RecipeList'];
 export type CreateRecipeRequest = components['schemas']['CreateRecipeRequest'];
 export type UpdateRecipeRequest = components['schemas']['UpdateRecipeRequest'];
 
@@ -15,6 +17,17 @@ export const recipeQuery = (id: string) =>
     queryKey: ['recipes', id],
     queryFn: async () =>
       responseData(await api.GET('/recipes/{id}', { params: { path: { id } } })).recipe,
+  });
+
+/**
+ * One page of the recipes the signed-in user may see, newest first. While another page loads, the
+ * last one stays, so the page doesn't jump back to its loading state.
+ */
+export const recipeListQuery = (page: number) =>
+  queryOptions({
+    queryKey: ['recipe-list', page],
+    queryFn: async () => responseData(await api.GET('/recipes', { params: { query: { page } } })),
+    placeholderData: keepPreviousData,
   });
 
 /**
@@ -65,8 +78,9 @@ export const useDeleteRecipe = () => {
     mutationFn: async (id: string) => {
       await api.DELETE('/recipes/{id}', { params: { path: { id } } });
     },
-    // Searches from before would show it, until each was fetched again.
+    // Lists and searches from before would show it, until each was fetched again.
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['recipe-list'] });
       queryClient.removeQueries({ queryKey: ['search'] });
     },
   });

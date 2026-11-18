@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MailIcon, PlusIcon, SearchCheckIcon, UserCogIcon } from '@lucide/vue';
+import { MailIcon, PlusIcon, SearchCheckIcon, SearchIcon, UserCogIcon } from '@lucide/vue';
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { type Component, computed, nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
@@ -17,7 +17,10 @@ const signOut = useSignOut();
  * The pages in the header, with their icons: links, then the admin pages in one menu. Each shows
  * only for someone whose role allows its `meta.permission`.
  */
-const NAV_PAGES = [{ name: 'new-recipe', icon: PlusIcon }] as const;
+const NAV_PAGES = [
+  { name: 'search', icon: SearchIcon },
+  { name: 'new-recipe', icon: PlusIcon },
+] as const;
 const ADMIN_PAGES = [
   { name: 'invitations', icon: MailIcon },
   { name: 'users', icon: UserCogIcon },

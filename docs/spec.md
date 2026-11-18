@@ -300,7 +300,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 ### 3.4 Search and discovery
 
-Search is served by Meilisearch through the API (§4).
+Search is served by Meilisearch through the API (§4). Home's list of recipes isn't: it reads the database (Browsing, below).
 
 **Text search**
 - Typo-tolerant search across title, description, ingredient names, step text and tag names.
@@ -334,7 +334,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 | Total time | Ascending or descending. Recipes without a total time come last either way. |
 
 **Results**
-- Home is the search page. Until something is searched, it lists every recipe the reader may see, newest first.
+- Search has its own page, linked from the header. Until something is searched, it lists every recipe the reader may see, newest first.
 - The full search state (query, filters, sort, page) lives in the URL, so searches can be bookmarked and shared.
 - The filters are beside the results, behind a Filters button on a phone. Each value shows how many results it would give, most common first; a long list shows the six most common, and every one chosen, until asked for all. A tag value can be checked to include it, or left out with the button beside it.
 - Ingredients are picked in the filters, from suggestions as they're typed (Autocomplete, above), each with how many recipes use it. Each one chosen shows below, with a button to take it off.
@@ -345,7 +345,8 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should. Nor is it counted, so the count matches what's shown.
 
 **Browsing**
-- Every recipe the reader may see can also be listed straight from the database, newest first, 24 to a page (`GET /recipes`), so browsing works while search is unavailable.
+- Home lists every recipe the reader may see, newest first, 24 to a page, straight from the database (`GET /recipes`), so it works while search is unavailable. The page is in the address.
+- Home may later gain curated categories above the list. They aren't planned for a phase yet.
 
 ### 3.5 Shopping lists (editors and admins)
 

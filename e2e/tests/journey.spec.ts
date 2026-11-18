@@ -194,8 +194,9 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
     await expect(heading(member, "You don't have access to this page")).toBeVisible();
     await expect(member).toHaveURL('/admin/users');
-    // An editor's header links only to a new recipe, with no Admin menu.
+    // An editor's header links to search and a new recipe, with no Admin menu.
     await expect(member.getByRole('navigation', { name: 'Main' }).getByRole('link')).toHaveText([
+      'Search',
       'New recipe',
     ]);
     await expect(adminMenuButton(member)).toHaveCount(0);
@@ -345,22 +346,40 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('button', { name: 'Make private' })).toBeFocused();
   });
 
-  await test.step('home finds the recipe by what its description says, and filters it out', async () => {
+  const listed = page.getByRole('list', { name: 'Recipes' }).getByRole('link', {
+    name: 'Weeknight Bread',
+  });
+
+  await test.step('home lists it, from the database, with or without search', async () => {
     await page.getByRole('link', { name: 'myli', exact: true }).click();
     await expect(heading(page, 'Recipes')).toBeVisible();
+    await expect(listed).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'recipe' })).toHaveText('1 recipe');
+    await checkPage(page);
+  });
+
+  await test.step('search, from the header, finds it by its description, and filters it out', async () => {
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Search' })
+      .click();
+    await expect(heading(page, 'Search')).toBeVisible();
+    await expect(page).toHaveURL(/\/search$/);
     if (!searchAvailable) {
-      // The dev servers run without Meilisearch: home says so, after its retries.
+      // The dev servers run without Meilisearch: search says so, after its retries.
       await expect(page.getByRole('alert')).toHaveText(/^Search is unavailable right now\./, {
         timeout: 15_000,
       });
       await page.goBack();
+      await listed.click();
+      await expect(heading(page, 'Weeknight Bread')).toBeVisible();
       return;
     }
 
     const searchbox = page.getByRole('searchbox', { name: 'Search recipes' });
     await searchbox.fill('crusty');
     await searchbox.press('Enter');
-    await expect(page).toHaveURL(/\/\?q=crusty$/);
+    await expect(page).toHaveURL(/\/search\?q=crusty$/);
     await expect(searchbox).toBeFocused();
     const result = page.getByRole('list', { name: 'Recipes' }).getByRole('link', {
       name: 'Weeknight Bread',
@@ -379,7 +398,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       .getByRole('group', { name: 'Leave out recipes with' })
       .getByRole('checkbox', { name: 'wheat' })
       .click();
-    await expect(page).toHaveURL(/\/\?q=crusty&excludeAllergen=wheat$/);
+    await expect(page).toHaveURL(/\/search\?q=crusty&excludeAllergen=wheat$/);
     await expect(count).toHaveText('No recipes match.');
     await checkPage(page);
     await page.getByRole('button', { name: 'Clear filters' }).click();
@@ -393,10 +412,10 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(suggestion).toHaveAccessibleDescription('1 recipe');
     await checkPage(page);
     await suggestion.click();
-    await expect(page).toHaveURL(/\/\?q=crusty&ingredient=bread(\+|%20)flour$/);
+    await expect(page).toHaveURL(/\/search\?q=crusty&ingredient=bread(\+|%20)flour$/);
     await expect(count).toHaveText('1 recipe');
     await page.getByRole('button', { name: 'Remove bread flour' }).click();
-    await expect(page).toHaveURL(/\/\?q=crusty$/);
+    await expect(page).toHaveURL(/\/search\?q=crusty$/);
 
     await result.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
@@ -415,6 +434,8 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('status').filter({ hasText: 'Deleted' })).toHaveText(
       'Deleted “Weeknight Bread”.',
     );
+    await expect(page.getByText('No recipes yet.')).toBeVisible();
+    await expect(listed).toBeHidden();
     await checkPage(page);
 
     const response = await page.request.get('/api/v1/audit-events?action=recipe.deleted');
