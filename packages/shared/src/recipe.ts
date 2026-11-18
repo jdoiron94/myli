@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { imageSchema } from './image.ts';
 import { tagSchema } from './tags.ts';
 import { findUnit } from './units.ts';
 import { visibilitySchema } from './visibility.ts';
@@ -34,6 +35,8 @@ export const RECIPE_LIMITS = {
   steps: 100,
   stepBody: 10_000,
   tags: 50,
+  /** Photos of the recipe as a whole. Each step can have one more. */
+  images: 20,
   nutrition: 100_000,
 } as const;
 
@@ -41,6 +44,9 @@ const L = RECIPE_LIMITS;
 
 /** What a form says about text that's too long. */
 const tooLong = (max: number) => `Keep it to ${String(max)} characters.`;
+
+/** A photo, by the ID its upload answered with. */
+const imageIdSchema = z.string().min(1).max(100);
 
 /** Optional text: `null` or empty when there's none. The API stores an empty one as `null`. */
 const optionalText = (max: number) => z.string().trim().max(max, tooLong(max)).nullable();
@@ -169,15 +175,57 @@ const recipeContentShape = {
     .array(
       z.object({
         body: z.string().trim().min(1, 'Write the step.').max(L.stepBody, tooLong(L.stepBody)),
+        imageId: imageIdSchema.nullable().describe('Its photo, if it has one.'),
       }),
     )
     .max(L.steps, `A recipe can have up to ${String(L.steps)} steps.`)
     .describe('In order. Each body is markdown.'),
+  imageIds: z
+    .array(imageIdSchema)
+    .max(L.images, `A recipe can have up to ${String(L.images)} photos.`)
+    .describe(
+      'Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. ' +
+        'Those left out are deleted.',
+    ),
+  coverImageId: imageIdSchema
+    .nullable()
+    .describe('The photo shown for it in lists: one of `imageIds`, or `null` when there are none.'),
   tagIds: z
     .array(z.int().positive())
     .max(L.tags, `A recipe can have up to ${String(L.tags)} tags.`)
     .refine((ids) => new Set(ids).size === ids.length, 'Each tag can be added once.'),
 };
+
+/**
+ * A recipe's photos hang together: the cover is one of them, there's one exactly when there are
+ * photos, and no photo is used twice, in the recipe's photos or its steps'.
+ */
+function checkPhotos(
+  recipe: { imageIds: string[]; coverImageId: string | null; steps: { imageId: string | null }[] },
+  context: z.core.$RefinementCtx,
+) {
+  const { imageIds, coverImageId } = recipe;
+  if (coverImageId === null ? imageIds.length > 0 : !imageIds.includes(coverImageId)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['coverImageId'],
+      message: imageIds.length > 0 ? 'Choose one of its photos as the cover.' : 'It has no photos.',
+    });
+  }
+  const used = new Set<string>();
+  const uses: [string, PropertyKey[]][] = [
+    ...imageIds.map((id, index): [string, PropertyKey[]] => [id, ['imageIds', index]]),
+    ...recipe.steps.flatMap(({ imageId }, index): [string, PropertyKey[]][] =>
+      imageId === null ? [] : [[imageId, ['steps', index, 'imageId']]],
+    ),
+  ];
+  for (const [id, path] of uses) {
+    if (used.has(id)) {
+      context.addIssue({ code: 'custom', path, message: 'Each photo can be used once.' });
+    }
+    used.add(id);
+  }
+}
 
 /** The 200-line limit counts every group together. */
 const withinIngredientLimit = (recipe: { ingredientGroups: { ingredients: unknown[] }[] }) =>
@@ -191,6 +239,7 @@ const INGREDIENT_LIMIT_ISSUE = {
 export const createRecipeRequestSchema = z
   .object({ ...recipeContentShape, visibility: visibilitySchema })
   .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
+  .superRefine(checkPhotos)
   .meta({ id: 'CreateRecipeRequest' });
 
 export type CreateRecipeRequest = z.output<typeof createRecipeRequestSchema>;
@@ -202,6 +251,7 @@ export type CreateRecipeRequest = z.output<typeof createRecipeRequestSchema>;
 export const updateRecipeRequestSchema = z
   .object(recipeContentShape)
   .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
+  .superRefine(checkPhotos)
   .meta({ id: 'UpdateRecipeRequest' });
 
 export type UpdateRecipeRequest = z.output<typeof updateRecipeRequestSchema>;
@@ -260,8 +310,14 @@ export const recipeSchema = z
     ingredientGroups: z.array(
       z.object({ label: z.string().nullable(), ingredients: z.array(ingredientLineSchema) }),
     ),
-    steps: z.array(z.object({ body: z.string() })),
+    steps: z.array(
+      // Not `imageSchema.nullable()`, which the OpenAPI document would make the Image component
+      // itself nullable with, everywhere it's used.
+      z.object({ body: z.string(), image: z.union([imageSchema, z.null()]) }),
+    ),
     tags: z.array(tagSchema).describe('By type, then name.'),
+    images: z.array(imageSchema).describe('Its photos, in order.'),
+    coverImageId: z.string().nullable().describe('One of `images`, or `null` when there are none.'),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   })

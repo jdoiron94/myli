@@ -2049,9 +2049,14 @@ export interface components {
             }[];
             steps: {
                 body: string;
+                image: components["schemas"]["Image"] | null;
             }[];
             /** @description By type, then name. */
             tags: components["schemas"]["Tag"][];
+            /** @description Its photos, in order. */
+            images: components["schemas"]["Image"][];
+            /** @description One of `images`, or `null` when there are none. */
+            coverImageId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2071,6 +2076,17 @@ export interface components {
             normalizedName: string;
             note: string | null;
             scalable: boolean;
+        };
+        Image: {
+            id: string;
+            /** @description Of the upload, in pixels, turned upright. */
+            width: number;
+            height: number;
+            /** @description The sizes it’s served at, narrowest first, each from /images/{id}/{width}. */
+            variants: {
+                width: number;
+                height: number;
+            }[];
         };
         Tag: {
             id: number;
@@ -2103,7 +2119,13 @@ export interface components {
             /** @description In order. Each body is markdown. */
             steps: {
                 body: string;
+                /** @description Its photo, if it has one. */
+                imageId: string | null;
             }[];
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted. */
+            imageIds: string[];
+            /** @description The photo shown for it in lists: one of `imageIds`, or `null` when there are none. */
+            coverImageId: string | null;
             tagIds: number[];
             visibility: components["schemas"]["Visibility"];
         };
@@ -2187,7 +2209,13 @@ export interface components {
             /** @description In order. Each body is markdown. */
             steps: {
                 body: string;
+                /** @description Its photo, if it has one. */
+                imageId: string | null;
             }[];
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted. */
+            imageIds: string[];
+            /** @description The photo shown for it in lists: one of `imageIds`, or `null` when there are none. */
+            coverImageId: string | null;
             tagIds: number[];
         };
         ChangeVisibilityRequest: {
@@ -2195,17 +2223,6 @@ export interface components {
         };
         ImageResult: {
             image: components["schemas"]["Image"];
-        };
-        Image: {
-            id: string;
-            /** @description Of the upload, in pixels, turned upright. */
-            width: number;
-            height: number;
-            /** @description The sizes it’s served at, narrowest first, each from /images/{id}/{width}. */
-            variants: {
-                width: number;
-                height: number;
-            }[];
         };
         TagList: {
             /** @description By type, then name. */

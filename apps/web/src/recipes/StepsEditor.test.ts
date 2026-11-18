@@ -17,7 +17,7 @@ const button = (name: string) => screen.getByRole('button', { name });
 /** The edit page for a recipe with steps of these bodies. Keeps the steps each save sends. */
 async function editSteps(...bodies: string[]) {
   answerPreferences();
-  let stored = sampleRecipe({ steps: bodies.map((body) => ({ body })) });
+  let stored = sampleRecipe({ steps: bodies.map((body) => ({ body, image: null })) });
   const saved: unknown[] = [];
   apiServer.use(
     http.get('/api/v1/recipes/:id', () => HttpResponse.json({ recipe: stored })),
@@ -117,7 +117,12 @@ describe('the steps editor', () => {
     expect(step(1).getAttribute('contenteditable')).toBe('true');
     await user.click(button('Save changes'));
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
-    expect(saved).toEqual([[{ body: 'Bake. Then cool.' }, { body: 'Mix.' }]]);
+    expect(saved).toEqual([
+      [
+        { body: 'Bake. Then cool.', imageId: null },
+        { body: 'Mix.', imageId: null },
+      ],
+    ]);
   });
 
   it('saves the steps in order, leaving out blank ones, as the recipe then shows them', async () => {
@@ -129,7 +134,12 @@ describe('the steps editor', () => {
     await user.click(button('Save changes'));
 
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
-    expect(saved).toEqual([[{ body: 'Bake **hot**.' }, { body: 'Mix.' }]]);
+    expect(saved).toEqual([
+      [
+        { body: 'Bake **hot**.', imageId: null },
+        { body: 'Mix.', imageId: null },
+      ],
+    ]);
     const steps = screen.getByRole('region', { name: 'Steps' });
     await waitFor(() => {
       expect(

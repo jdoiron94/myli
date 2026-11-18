@@ -176,6 +176,14 @@ const deleteRecipeRoute = createRoute({
 function savedId(saved: SaveResult): string {
   if (saved.ok) return saved.id;
   if (saved.reason === 'not-found') throw notFound('Recipe');
+  if (saved.reason === 'unusable-images') {
+    throw new InvalidFields(
+      saved.paths.map((path) => ({
+        path,
+        detail: "This photo isn't available any more. Upload it again.",
+      })),
+    );
+  }
   throw new InvalidFields(
     saved.missingTags.map((index) => ({
       path: ['tagIds', index],
@@ -207,7 +215,7 @@ export function registerRecipeRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) 
   v1.openapi(putRecipe, (c) => {
     const { id } = c.req.valid('param');
     authorizeOn(c, 'recipe.edit', id);
-    savedId(updateRecipe(deps.db, id, c.req.valid('json')));
+    savedId(updateRecipe(deps.db, id, c.req.valid('json'), c.var.user.id));
     c.var.logger.info({ recipeId: id }, 'recipe saved');
     return c.json({ recipe: found(id) }, 200);
   });

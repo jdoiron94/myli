@@ -59,11 +59,12 @@ export interface IngredientGroupValues {
 export interface StepValues {
   /** Markdown. */
   body: string;
+  imageId: string | null;
 }
 
 export const emptyLine = (): IngredientLineValues => ({ rawText: '', details: null });
 
-export const emptyStep = (): StepValues => ({ body: '' });
+export const emptyStep = (): StepValues => ({ body: '', imageId: null });
 
 /** A group starts with a line to type in. */
 export const emptyGroup = (): IngredientGroupValues => ({ label: '', ingredients: [emptyLine()] });
@@ -164,15 +165,25 @@ const ingredientGroupSchema = z
     return null;
   });
 
-/** A step as the API takes it, or `null` for a blank one, which is left out once it's checked. */
-const stepSchema = z.object({ body: z.string() }).transform((step, context) => {
-  if (step.body.trim() === '') return null;
-  const result = content.steps.element.safeParse(step);
-  for (const issue of result.error?.issues ?? []) {
-    context.issues.push({ code: 'custom', input: step, path: issue.path, message: issue.message });
-  }
-  return result.success ? result.data : z.NEVER;
-});
+/**
+ * A step as the API takes it, or `null` for a blank one, which is left out once it's checked. One
+ * with a photo isn't blank: it still needs its words.
+ */
+const stepSchema = z
+  .object({ body: z.string(), imageId: content.steps.element.shape.imageId })
+  .transform((step, context) => {
+    if (step.body.trim() === '' && step.imageId === null) return null;
+    const result = content.steps.element.safeParse(step);
+    for (const issue of result.error?.issues ?? []) {
+      context.issues.push({
+        code: 'custom',
+        input: step,
+        path: issue.path,
+        message: issue.message,
+      });
+    }
+    return result.success ? result.data : z.NEVER;
+  });
 
 /** "Not set" is a choice of its own, since a radio button can't be unchecked. */
 export const DIFFICULTY_CHOICES = ['none', ...DIFFICULTIES] as const;
@@ -279,6 +290,9 @@ export const recipeFormSchema = z
       .transform((steps) => steps.filter((step) => step !== null))
       .pipe(content.steps),
     tagIds: content.tagIds,
+    // Carried through unchanged until the editor has photos of its own (increment 25).
+    imageIds: content.imageIds,
+    coverImageId: content.coverImageId,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
     visibility: visibilitySchema,
   })
@@ -334,6 +348,8 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
       ingredientGroups: [emptyGroup()],
       steps: [emptyStep()],
       tagIds: [],
+      imageIds: [],
+      coverImageId: null,
       // Nothing is shared by accident: sharing is a choice.
       visibility: 'private',
     };
@@ -366,8 +382,13 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
             label: group.label ?? '',
             ingredients: group.ingredients.map(lineValues),
           })),
-    steps: recipe.steps.length === 0 ? [emptyStep()] : recipe.steps.map(({ body }) => ({ body })),
+    steps:
+      recipe.steps.length === 0
+        ? [emptyStep()]
+        : recipe.steps.map(({ body, image }) => ({ body, imageId: image?.id ?? null })),
     tagIds: recipe.tags.map((tag) => tag.id),
+    imageIds: recipe.images.map(({ id }) => id),
+    coverImageId: recipe.coverImageId,
     visibility: recipe.visibility,
   };
 }

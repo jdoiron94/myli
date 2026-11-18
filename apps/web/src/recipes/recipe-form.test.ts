@@ -11,7 +11,7 @@ import {
   recipeFormSchema,
   recipeFormValues,
 } from './recipe-form.ts';
-import { sampleRecipe } from './testing.ts';
+import { sampleImage, sampleRecipe } from './testing.ts';
 
 /** A new recipe's form with a title and servings, the two fields it needs, and `changes`. */
 function filledIn(changes: (values: RecipeFormValues) => void = () => undefined) {
@@ -60,6 +60,8 @@ describe('the recipe form', () => {
         ingredientGroups: [],
         steps: [],
         tagIds: [],
+        imageIds: [],
+        coverImageId: null,
       },
       visibility: 'private',
     });
@@ -185,7 +187,7 @@ describe('the recipe form', () => {
   });
 
   describe('steps', () => {
-    const steps = (...bodies: string[]) => bodies.map((body) => ({ body }));
+    const steps = (...bodies: string[]) => bodies.map((body) => ({ body, imageId: null }));
 
     it('starts with a blank step to write in, for a new recipe or one without steps', () => {
       expect(recipeFormValues().steps).toEqual(steps(''));
@@ -200,6 +202,14 @@ describe('the recipe form', () => {
       );
 
       expect(value?.content.steps).toEqual(steps('Mix **well**.', 'Bake.\nCool.'));
+    });
+
+    it('keeps a step with a photo but no words, to say it needs them', async () => {
+      expect(
+        await errorsFor((values) => {
+          values.steps = [{ body: ' ', imageId: 'photo' }, ...steps('')];
+        }),
+      ).toEqual({ 'steps[0].body': ['Write the step.'] });
     });
 
     it('says what’s wrong with a step, on that step, wherever blank steps are', async () => {
@@ -293,12 +303,30 @@ describe('the recipe form', () => {
             scalable,
           })),
         })),
-        steps: recipe.steps,
+        steps: recipe.steps.map(({ body }) => ({ body, imageId: null })),
         tagIds: [],
+        imageIds: [],
+        coverImageId: null,
       },
       visibility: 'shared',
     });
     expect((await submitted(recipeFormValues(withTags))).value?.content.tagIds).toEqual([3, 7]);
+    const withPhotos = sampleRecipe({
+      images: [sampleImage('a'), sampleImage('b')],
+      coverImageId: 'b',
+      steps: [
+        { body: 'Mix.', image: null },
+        { body: 'Shape.', image: sampleImage('c') },
+      ],
+    });
+    expect((await submitted(recipeFormValues(withPhotos))).value?.content).toMatchObject({
+      imageIds: ['a', 'b'],
+      coverImageId: 'b',
+      steps: [
+        { body: 'Mix.', imageId: null },
+        { body: 'Shape.', imageId: 'c' },
+      ],
+    });
     expect((await submitted(recipeFormValues(sampleRecipe()))).value?.content).toMatchObject({
       yield: { qty: 1, unit: 'loaf' },
       difficulty: 'easy',

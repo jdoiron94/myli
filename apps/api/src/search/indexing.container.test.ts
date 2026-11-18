@@ -61,7 +61,7 @@ describe('keeping the index in step with SQLite', () => {
     await runJobs();
     expect(await indexed(id)).toEqual(buildRecipeDocument(db, id));
 
-    updateRecipe(db, id, sampleRecipeContent({ title: 'Seeded Rye' }));
+    updateRecipe(db, id, sampleRecipeContent({ title: 'Seeded Rye' }), 'owner');
     setRecipeVisibility(db, id, 'shared');
     await runJobs();
     expect(await indexed(id)).toMatchObject({ title: 'Seeded Rye', visibility: 'shared' });
@@ -77,7 +77,7 @@ describe('keeping the index in step with SQLite', () => {
 
   it('can be found by what the recipe says, once indexed', async () => {
     const id = insertRecipe(db, 'owner');
-    updateRecipe(db, id, sampleRecipeContent({ title: 'Cardamom Buns' }));
+    updateRecipe(db, id, sampleRecipeContent({ title: 'Cardamom Buns' }), 'owner');
     await runJobs();
 
     const { hits } = await client
