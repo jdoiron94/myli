@@ -20,7 +20,9 @@ import {
   shownTags,
 } from '@/recipes/format.ts';
 import IngredientList from '@/recipes/IngredientList.vue';
+import { COVER_SIZES, GALLERY_SIZES, STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
 import RecipeActions from '@/recipes/RecipeActions.vue';
+import RecipePhoto from '@/recipes/RecipePhoto.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
 import ServingsControl from '@/recipes/ServingsControl.vue';
 import UnitSystemChoice from '@/recipes/UnitSystemChoice.vue';
@@ -31,6 +33,12 @@ const props = defineProps<{ id: string }>();
 const query = useQuery(computed(() => recipeQuery(props.id)));
 const { failure, retrying, stillFailing, retry } = useRetry(query);
 const recipe = computed(() => query.data.value);
+
+/** The cover shows at the top, and the recipe's other photos, in order, after everything else. */
+const cover = computed(() =>
+  recipe.value?.images.find(({ id }) => id === recipe.value?.coverImageId),
+);
+const gallery = computed(() => recipe.value?.images.filter((image) => image !== cover.value) ?? []);
 
 /** The API answers 404 alike for a recipe that doesn't exist and one the reader may not see. */
 const notFound = computed(
@@ -156,6 +164,14 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
     </div>
 
     <template v-if="recipe">
+      <RecipePhoto
+        v-if="cover"
+        :image="cover"
+        :sizes="COVER_SIZES"
+        eager
+        class="mt-6 aspect-[3/2] w-full rounded-lg object-cover md:aspect-[2/1]"
+      />
+
       <MarkdownContent
         v-if="recipe.description"
         class="mt-6 max-w-prose"
@@ -338,6 +354,13 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
               <MarkdownContent
                 :source="step.body"
               />
+              <!-- Shown whole, never cropped, as it may show how something's done. -->
+              <RecipePhoto
+                v-if="step.image"
+                :image="step.image"
+                :sizes="STEP_PHOTO_SIZES"
+                class="mt-3 h-auto max-h-[32rem] w-auto max-w-full rounded-md"
+              />
             </li>
           </ol>
           <p
@@ -374,6 +397,19 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
             </template>
           </dl>
         </section>
+      </div>
+
+      <div
+        v-if="gallery.length > 0"
+        class="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3"
+      >
+        <RecipePhoto
+          v-for="image in gallery"
+          :key="image.id"
+          :image="image"
+          :sizes="GALLERY_SIZES"
+          class="aspect-[4/3] w-full rounded-md object-cover"
+        />
       </div>
     </template>
 

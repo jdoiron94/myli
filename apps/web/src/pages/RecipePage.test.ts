@@ -4,7 +4,8 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
-import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
+import { COVER_SIZES, GALLERY_SIZES, STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
+import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
@@ -161,6 +162,57 @@ describe('the recipe page', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent.trim()),
     ).toEqual(['3 cups all-purpose flour', '1 cup water', '½ cup sugar']);
+  });
+
+  it('shows the cover first, each step’s photo in its step, and the other photos last', async () => {
+    answerRecipe(
+      sampleRecipe({
+        images: [sampleImage('a'), sampleImage('b'), sampleImage('c')],
+        coverImageId: 'b',
+        steps: [
+          { body: 'Mix everything.', image: null },
+          { body: 'Shape it.', image: sampleImage('d') },
+        ],
+      }),
+    );
+    await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    const photos = [...document.querySelectorAll('article img')];
+    expect(
+      photos.map((photo) => ({
+        src: photo.getAttribute('src'),
+        sizes: photo.getAttribute('sizes'),
+        loading: photo.getAttribute('loading'),
+      })),
+    ).toEqual([
+      { src: '/api/v1/images/b/1280', sizes: COVER_SIZES, loading: 'eager' },
+      { src: '/api/v1/images/d/1280', sizes: STEP_PHOTO_SIZES, loading: 'lazy' },
+      { src: '/api/v1/images/a/1280', sizes: GALLERY_SIZES, loading: 'lazy' },
+      { src: '/api/v1/images/c/1280', sizes: GALLERY_SIZES, loading: 'lazy' },
+    ]);
+    expect(photos[0]?.getAttribute('srcset')).toBe(
+      '/api/v1/images/b/640 640w, /api/v1/images/b/1280 1280w, /api/v1/images/b/1600 1600w',
+    );
+    // Its place is kept while it loads.
+    expect([photos[0]?.getAttribute('width'), photos[0]?.getAttribute('height')]).toEqual([
+      '1600',
+      '1200',
+    ]);
+    const steps = within(screen.getByRole('region', { name: 'Steps' })).getAllByRole('listitem');
+    expect(steps.map((step) => step.querySelector('img')?.getAttribute('src') ?? null)).toEqual([
+      null,
+      '/api/v1/images/d/1280',
+    ]);
+    expect(await accessibilityViolations()).toEqual([]);
+  });
+
+  it('shows no photos for a recipe without any', async () => {
+    answerRecipe(sampleRecipe());
+    await renderApp('/recipes/recipe-bread');
+    await heading();
+
+    expect(document.querySelector('article img')).toBeNull();
   });
 
   it('numbers the steps, rendering their markdown', async () => {
