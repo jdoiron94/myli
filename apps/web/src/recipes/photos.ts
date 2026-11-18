@@ -1,5 +1,34 @@
-import { API_BASE_PATH } from '@myli/shared';
+import {
+  API_BASE_PATH,
+  IMAGE_MAX_BYTES,
+  IMAGE_UPLOAD_TYPES,
+  NOT_AN_IMAGE_DETAIL,
+  TOO_LARGE_DETAIL,
+} from '@myli/shared';
+import { api, responseData } from '@/api/client.ts';
 import type { Image } from './recipe.ts';
+
+/** What the API would refuse a file for, said before sending it, or `undefined`. */
+export function photoFileProblem(file: File): string | undefined {
+  if (!(IMAGE_UPLOAD_TYPES as readonly string[]).includes(file.type)) return NOT_AN_IMAGE_DETAIL;
+  if (file.size > IMAGE_MAX_BYTES) return TOO_LARGE_DETAIL;
+  return undefined;
+}
+
+/**
+ * Uploads a photo, which no recipe has until one is saved with it. The body is the file itself, of
+ * its own type: the API's one exception to JSON (CLAUDE.md, Cross-site requests).
+ */
+export async function uploadPhoto(file: File): Promise<Image> {
+  const { image } = responseData(
+    await api.POST('/images', {
+      body: file,
+      bodySerializer: (body) => body,
+      headers: { 'content-type': file.type },
+    }),
+  );
+  return image;
+}
 
 /** Where one size of a photo is served. The API decides who may see it, as for its recipe. */
 export const imageUrl = (id: string, width: number) =>
@@ -37,3 +66,7 @@ export const STEP_PHOTO_SIZES =
 /** The recipe page's other photos: three to a row from `md` up, two on phones, 0.75rem apart. */
 export const GALLERY_SIZES =
   '(min-width: 64rem) 323px, (min-width: 48rem) calc((100vw - 3.5rem) / 3), calc((100vw - 2.75rem) / 2)';
+
+/** A photo in the editor: four to a row from `md` up, three from `sm`, two on phones, 1rem apart. */
+export const EDITOR_PHOTO_SIZES =
+  '(min-width: 64rem) 236px, (min-width: 48rem) calc((100vw - 5rem) / 4), (min-width: 40rem) calc((100vw - 4rem) / 3), calc((100vw - 3rem) / 2)';

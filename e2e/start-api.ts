@@ -39,6 +39,8 @@ const api = spawn(process.execPath, [join(import.meta.dirname, '../apps/api/src/
     PORT,
     PUBLIC_URL,
     DATABASE_PATH: join(dataDir, 'myli.db'),
+    // Photos too, so they go with the database afterwards.
+    BLOB_DIR: join(dataDir, 'blobs'),
     BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
     MEILI_URL: noMeilisearch,
     MEILI_MASTER_KEY: randomBytes(32).toString('base64'),

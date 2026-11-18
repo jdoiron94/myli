@@ -27,6 +27,8 @@ export {
   imageResultSchema,
   imageSchema,
   imageVariantSchema,
+  NOT_AN_IMAGE_DETAIL,
+  TOO_LARGE_DETAIL,
 } from './image.ts';
 export {
   normalizeIngredientName,

@@ -12,6 +12,8 @@ import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/component
 import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.ts';
 import { DIFFICULTY_LABELS } from './format.ts';
 import IngredientsEditor from './IngredientsEditor.vue';
+import PhotosEditor from './PhotosEditor.vue';
+import { usePhotoLibrary } from './photo-library.ts';
 import { type Recipe, useCreateRecipe, useSaveRecipe } from './recipe.ts';
 import {
   DIFFICULTY_CHOICES,
@@ -57,6 +59,7 @@ const NUTRIENT_LABELS: Readonly<Record<(typeof NUTRIENTS)[number], string>> = {
   sodiumMilligrams: 'Sodium (milligrams)',
 };
 
+const library = usePhotoLibrary(props.recipe);
 const form = useTemplateRef('form');
 const createRecipe = useCreateRecipe();
 const saveRecipe = useSaveRecipe();
@@ -88,9 +91,16 @@ const saveOnSubmit = handleSubmit(
   },
 );
 
-/** One save at a time: a second click while saving would create the recipe twice. */
+/**
+ * One save at a time: a second click while saving would create the recipe twice. Nor while a photo
+ * is uploading, which would leave it out.
+ */
 function submit(event: Event) {
   event.preventDefault();
+  if (library.uploading.value) {
+    failure.value = 'Wait for the photos to finish uploading, then save.';
+    return;
+  }
   if (!isSubmitting.value) void saveOnSubmit(event);
 }
 
@@ -114,6 +124,7 @@ const cancelTo = computed(() =>
         name="description"
         label="Description"
       />
+      <PhotosEditor :library="library" />
 
       <FieldSet>
         <FieldLegend>Servings and time</FieldLegend>

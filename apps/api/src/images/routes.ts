@@ -6,9 +6,11 @@ import {
   IMAGE_UPLOAD_TYPES,
   imageFileParamsSchema,
   imageResultSchema,
+  NOT_AN_IMAGE_DETAIL,
   type PolicyRecipe,
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
+  TOO_LARGE_DETAIL,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import type { MiddlewareHandler } from 'hono';
@@ -25,8 +27,6 @@ import { findRecipeAccess } from '../recipes/recipes.ts';
 import { saveUpload } from './images.ts';
 import { MAX_PIXELS, processImage } from './process.ts';
 
-export const NOT_AN_IMAGE_DETAIL = 'Upload a JPEG, PNG or WebP image.';
-export const TOO_LARGE_DETAIL = `The file is larger than ${String(IMAGE_MAX_BYTES / 1024 / 1024)} MB.`;
 const UNREADABLE_DETAIL = {
   unreadable: "This image can't be read. The file may be damaged.",
   'too-many-pixels': `This image has too many pixels: ${String(MAX_PIXELS / 1_000_000)} megapixels at most.`,

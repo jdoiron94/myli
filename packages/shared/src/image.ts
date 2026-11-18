@@ -9,6 +9,12 @@ export type ImageUploadType = (typeof IMAGE_UPLOAD_TYPES)[number];
 /** The largest upload, in bytes: 10 MB. */
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
+/** What's wrong with a file that isn't one of `IMAGE_UPLOAD_TYPES`, for the API and the editor. */
+export const NOT_AN_IMAGE_DETAIL = 'Upload a JPEG, PNG or WebP image.';
+
+/** What's wrong with a file larger than `IMAGE_MAX_BYTES`. */
+export const TOO_LARGE_DETAIL = `The file is larger than ${String(IMAGE_MAX_BYTES / 1024 / 1024)} MB.`;
+
 /**
  * The widths each image is served at, as WebP, never wider than the upload. They follow the
  * layouts photos appear in, at the screen densities phones and laptops have: a card is up to
