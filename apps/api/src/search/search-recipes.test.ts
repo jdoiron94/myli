@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { MeilisearchApiError, MeilisearchRequestError, type MultiSearchQuery } from 'meilisearch';
 import { describe, expect, it } from 'vitest';
 import { recipe, recipeIngredient } from '../db/schema.ts';
+import { insertRecipeImage } from '../images/testing.ts';
 import { createLogger } from '../logger.ts';
 import { insertRecipe } from '../recipes/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
@@ -173,6 +174,46 @@ describe('GET /search/recipes', () => {
     ]);
     // Nor are the others counted, so the count matches what's shown.
     expect({ totalHits, totalPages }).toEqual({ totalHits: 2, totalPages: 1 });
+  });
+
+  it('shows each hit’s cover photo, which the index doesn’t hold, from SQLite', async () => {
+    const hitsFor: string[] = [];
+    const { client } = fakeSearchClient({
+      search: (query) => ({
+        indexUid: query.indexUid,
+        query: '',
+        processingTimeMs: 0,
+        hits: hitsFor.map((id) => ({
+          id,
+          title: `Recipe ${id}`,
+          difficulty: null,
+          totalMinutes: null,
+          cuisine: [],
+          mealType: [],
+          diet: [],
+          customTags: [],
+          allergens: [],
+        })),
+        totalHits: hitsFor.length,
+        hitsPerPage: 24,
+        page: 1,
+        totalPages: 1,
+        facetDistribution: {},
+      }),
+    });
+    const { t, user, search } = await setUp({ client });
+    const withCover = insertRecipe(t.db, user.id, 'shared');
+    const without = insertRecipe(t.db, user.id, 'shared');
+    const cover = await insertRecipeImage(t, withCover);
+    t.db.update(recipe).set({ coverImageId: cover }).where(eq(recipe.id, withCover)).run();
+    hitsFor.push(withCover, without);
+
+    const { hits } = recipeSearchResultSchema.parse(await (await search('')).json());
+
+    expect(hits.map(({ id, cover }) => [id, cover?.id ?? null])).toEqual([
+      [withCover, cover],
+      [without, null],
+    ]);
   });
 
   it('counts pages without the hits SQLite leaves out', async () => {

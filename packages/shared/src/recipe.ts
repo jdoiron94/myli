@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { imageSchema } from './image.ts';
+import { imageSchema, optionalImageSchema } from './image.ts';
 import { tagSchema } from './tags.ts';
 import { findUnit } from './units.ts';
 import { visibilitySchema } from './visibility.ts';
@@ -310,11 +310,7 @@ export const recipeSchema = z
     ingredientGroups: z.array(
       z.object({ label: z.string().nullable(), ingredients: z.array(ingredientLineSchema) }),
     ),
-    steps: z.array(
-      // Not `imageSchema.nullable()`, which the OpenAPI document would make the Image component
-      // itself nullable with, everywhere it's used.
-      z.object({ body: z.string(), image: z.union([imageSchema, z.null()]) }),
-    ),
+    steps: z.array(z.object({ body: z.string(), image: optionalImageSchema })),
     tags: z.array(tagSchema).describe('By type, then name.'),
     images: z.array(imageSchema).describe('Its photos, in order.'),
     coverImageId: z.string().nullable().describe('One of `images`, or `null` when there are none.'),

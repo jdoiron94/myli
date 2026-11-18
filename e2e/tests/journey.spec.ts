@@ -406,6 +406,10 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(heading(page, 'Recipes')).toBeVisible();
     await expect(listed).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'recipe' })).toHaveText('1 recipe');
+    // Its card shows its cover, the upright one.
+    const cover = page.getByRole('article').locator('img');
+    await loaded(cover);
+    expect(await portrait(cover)).toBe(true);
     await checkPage(page);
   });
 

@@ -1288,6 +1288,17 @@
               "private",
               "shared"
             ]
+          },
+          "cover": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its cover photo, if it has photos."
           }
         },
         "required": [
@@ -1300,7 +1311,8 @@
           "diet",
           "tags",
           "allergens",
-          "visibility"
+          "visibility",
+          "cover"
         ]
       },
       "UpdateRecipeRequest": {

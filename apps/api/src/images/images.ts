@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Image } from '@myli/shared';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import type { BlobStore } from '../blobs/store.ts';
 import type { Db } from '../db/database.ts';
-import { image, type StoredImageVariant } from '../db/schema.ts';
+import { image, recipe, type StoredImageVariant } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
 import { enqueueJob } from '../jobs/queue.ts';
 import type { ProcessedImage } from './process.ts';
@@ -43,6 +43,21 @@ export const discardUnsavedImageJob = defineJob({
     return Promise.resolve();
   },
 });
+
+/**
+ * The cover photo of each of the recipes that has one, by recipe ID, for lists of them. From
+ * SQLite, as everything else on a card: the search index doesn't hold covers.
+ */
+export function coversOf(db: Db, recipeIds: readonly string[]): Map<string, Image> {
+  if (recipeIds.length === 0) return new Map();
+  const rows = db
+    .select({ recipeId: recipe.id, cover: image })
+    .from(recipe)
+    .innerJoin(image, eq(image.id, recipe.coverImageId))
+    .where(inArray(recipe.id, [...recipeIds]))
+    .all();
+  return new Map(rows.map(({ recipeId, cover }) => [recipeId, toImage(cover)]));
+}
 
 /** An image as the API answers with it. */
 export const toImage = (row: {
