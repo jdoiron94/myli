@@ -22,6 +22,7 @@ import {
 } from 'meilisearch';
 import type { Db } from '../db/database.ts';
 import { recipe, recipeIngredient } from '../db/schema.ts';
+import { coversOf } from '../images/images.ts';
 import type { Logger } from '../logger.ts';
 import { HttpProblem } from '../problems.ts';
 import type { RecipeSearchDocument } from './document.ts';
@@ -252,6 +253,10 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSu
     )
     .all();
   const current = new Map(rows.map((row) => [row.id, row]));
+  const covers = coversOf(
+    db,
+    rows.map(({ id }) => id),
+  );
   return hits.flatMap((hit) => {
     const row = current.get(hit.id);
     if (!row || !can(user, 'recipe.read', row)) return [];
@@ -267,6 +272,7 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSu
         tags: hit.customTags,
         allergens: hit.allergens as RecipeSummary['allergens'],
         visibility: row.visibility,
+        cover: covers.get(hit.id) ?? null,
       },
     ];
   });

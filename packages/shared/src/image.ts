@@ -40,6 +40,12 @@ export const imageSchema = z
 
 export type Image = z.infer<typeof imageSchema>;
 
+/**
+ * An image, or `null` for none. Not `imageSchema.nullable()`, with which the OpenAPI document
+ * would make the Image component itself nullable, everywhere it's used.
+ */
+export const optionalImageSchema = z.union([imageSchema, z.null()]);
+
 export const imageResultSchema = z.object({ image: imageSchema }).meta({ id: 'ImageResult' });
 
 /** One size of one image: `/images/{id}/{width}`, a width from its `variants`. */

@@ -127,6 +127,7 @@ export const sampleSummary = (overrides: Partial<RecipeSummary> = {}): RecipeSum
   tags: ['Weeknight'],
   allergens: [],
   visibility: 'shared',
+  cover: null,
   ...overrides,
 });
 

@@ -10,6 +10,7 @@ import {
 import { and, asc, count, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Db } from '../db/database.ts';
 import { recipe, recipeTag, tag } from '../db/schema.ts';
+import { coversOf } from '../images/images.ts';
 
 /**
  * `recipe.read` (policy.ts) restated in SQL, so the list can be paged in the database: shared
@@ -60,6 +61,10 @@ export function listRecipes(db: Db, user: PolicyUser, page: number): RecipeList 
           )
           .orderBy(asc(tag.nameKey))
           .all();
+  const covers = coversOf(
+    db,
+    rows.map(({ id }) => id),
+  );
   const named = (recipeId: string, type: TagType) =>
     tags.filter((t) => t.recipeId === recipeId && t.type === type).map((t) => t.name);
 
@@ -81,6 +86,7 @@ export function listRecipes(db: Db, user: PolicyUser, page: number): RecipeList 
         // The allergen tags are seeded from ALLERGENS, and never edited (spec §3.2).
         allergens: named(row.id, 'allergen') as RecipeSummary['allergens'],
         visibility: row.visibility,
+        cover: covers.get(row.id) ?? null,
       }),
     ),
     total,

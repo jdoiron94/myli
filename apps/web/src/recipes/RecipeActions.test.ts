@@ -285,6 +285,7 @@ describe('what a reader can do with a recipe', () => {
     tags: [],
     allergens: [],
     visibility: 'shared',
+    cover: null,
   };
 
   it.each([

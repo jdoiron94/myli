@@ -73,3 +73,10 @@ export const EDITOR_PHOTO_SIZES =
 
 /** A step's photo in the editor: 12rem wide from `sm` up, 10rem on phones. */
 export const STEP_EDITOR_PHOTO_SIZES = '(min-width: 40rem) 12rem, 10rem';
+
+/**
+ * A recipe card's cover: as wide as the widest card in either list, two to a row beside search's
+ * filters (`lg:w-60`, 2rem from the results) from `lg` up, two from `sm`, one on phones.
+ */
+export const CARD_SIZES =
+  '(min-width: 64rem) 352px, (min-width: 40rem) calc((100vw - 3rem) / 2), calc(100vw - 2rem)';

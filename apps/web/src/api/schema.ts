@@ -2185,6 +2185,8 @@ export interface components {
             allergens: ("milk" | "eggs" | "fish" | "shellfish" | "tree nuts" | "peanuts" | "wheat" | "soy" | "sesame")[];
             /** @enum {string} */
             visibility: "private" | "shared";
+            /** @description Its cover photo, if it has photos. */
+            cover: components["schemas"]["Image"] | null;
         };
         UpdateRecipeRequest: {
             title: string;

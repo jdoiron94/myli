@@ -3,6 +3,8 @@ import { LockIcon, TriangleAlertIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { DIFFICULTY_LABELS, formatMinutes } from '@/recipes/format.ts';
+import { CARD_SIZES } from './photos.ts';
+import RecipePhoto from './RecipePhoto.vue';
 import type { RecipeSummary } from './recipe.ts';
 
 /**
@@ -27,55 +29,63 @@ const tags = computed(() => [
 
 <template>
   <article
-    class="relative flex h-full flex-col gap-2 rounded-lg border p-4 transition-colors has-[a:hover]:border-foreground/40 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50"
+    class="relative flex h-full flex-col overflow-hidden rounded-lg border transition-colors has-[a:hover]:border-foreground/40 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50"
   >
-    <h2 class="font-semibold break-words">
-      <!-- Its box covers the card, so anywhere on it opens the recipe. -->
-      <RouterLink
-        :to="{ name: 'recipe', params: { id: recipe.id } }"
-        class="outline-none after:absolute after:inset-0 after:rounded-lg"
+    <RecipePhoto
+      v-if="recipe.cover"
+      :image="recipe.cover"
+      :sizes="CARD_SIZES"
+      class="aspect-[3/2] w-full object-cover"
+    />
+    <div class="flex flex-1 flex-col gap-2 p-4">
+      <h2 class="font-semibold break-words">
+        <!-- Its box covers the card, so anywhere on it opens the recipe. -->
+        <RouterLink
+          :to="{ name: 'recipe', params: { id: recipe.id } }"
+          class="outline-none after:absolute after:inset-0 after:rounded-lg"
+        >
+          {{ recipe.title }}
+        </RouterLink>
+      </h2>
+      <p
+        v-if="facts.length > 0 || recipe.visibility === 'private'"
+        class="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
       >
-        {{ recipe.title }}
-      </RouterLink>
-    </h2>
-    <p
-      v-if="facts.length > 0 || recipe.visibility === 'private'"
-      class="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
-    >
-      <span v-if="facts.length > 0">{{ facts.join(' · ') }}</span>
-      <span
-        v-if="recipe.visibility === 'private'"
-        class="inline-flex items-center gap-1"
+        <span v-if="facts.length > 0">{{ facts.join(' · ') }}</span>
+        <span
+          v-if="recipe.visibility === 'private'"
+          class="inline-flex items-center gap-1"
+        >
+          <LockIcon
+            class="size-3.5"
+            aria-hidden="true"
+          />
+          Private
+        </span>
+      </p>
+      <ul
+        v-if="recipe.allergens.length > 0 || tags.length > 0"
+        aria-label="Tags"
+        class="mt-auto flex flex-wrap gap-1.5 pt-1"
       >
-        <LockIcon
-          class="size-3.5"
-          aria-hidden="true"
-        />
-        Private
-      </span>
-    </p>
-    <ul
-      v-if="recipe.allergens.length > 0 || tags.length > 0"
-      aria-label="Tags"
-      class="mt-auto flex flex-wrap gap-1.5 pt-1"
-    >
-      <li
-        v-if="recipe.allergens.length > 0"
-        class="inline-flex items-center gap-1 rounded-full bg-caution px-2 py-0.5 text-xs font-medium break-words text-caution-foreground"
-      >
-        <TriangleAlertIcon
-          class="size-3 shrink-0"
-          aria-hidden="true"
-        />
-        Contains {{ recipe.allergens.join(', ') }}
-      </li>
-      <li
-        v-for="tag in tags"
-        :key="tag"
-        class="rounded-full bg-secondary px-2 py-0.5 text-xs break-words text-secondary-foreground"
-      >
-        {{ tag }}
-      </li>
-    </ul>
+        <li
+          v-if="recipe.allergens.length > 0"
+          class="inline-flex items-center gap-1 rounded-full bg-caution px-2 py-0.5 text-xs font-medium break-words text-caution-foreground"
+        >
+          <TriangleAlertIcon
+            class="size-3 shrink-0"
+            aria-hidden="true"
+          />
+          Contains {{ recipe.allergens.join(', ') }}
+        </li>
+        <li
+          v-for="tag in tags"
+          :key="tag"
+          class="rounded-full bg-secondary px-2 py-0.5 text-xs break-words text-secondary-foreground"
+        >
+          {{ tag }}
+        </li>
+      </ul>
+    </div>
   </article>
 </template>

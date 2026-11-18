@@ -9,6 +9,7 @@ import {
 import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { recipe, tag } from '../db/schema.ts';
+import { insertRecipeImage } from '../images/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { createRecipe } from './recipes.ts';
 import { sampleRecipeRequest } from './testing.ts';
@@ -128,7 +129,22 @@ describe('GET /recipes', () => {
         tags: ['Weeknight'],
         allergens: ['milk', 'wheat'],
         visibility: 'private',
+        cover: null,
       },
+    ]);
+  });
+
+  it('shows each recipe’s cover photo', async () => {
+    const { t, user, list } = await setUp();
+    const withCover = recipeOf(t, user.id);
+    const without = recipeOf(t, user.id, { minutesAgo: 1 });
+    const cover = await insertRecipeImage(t, withCover);
+    await insertRecipeImage(t, withCover);
+    t.db.update(recipe).set({ coverImageId: cover }).where(eq(recipe.id, withCover)).run();
+
+    expect((await list()).recipes.map(({ id, cover }) => [id, cover])).toEqual([
+      [withCover, { id: cover, width: 64, height: 48, variants: [{ width: 64, height: 48 }] }],
+      [without, null],
     ]);
   });
 

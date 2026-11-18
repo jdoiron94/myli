@@ -28,6 +28,7 @@ export {
   imageSchema,
   imageVariantSchema,
   NOT_AN_IMAGE_DETAIL,
+  optionalImageSchema,
   TOO_LARGE_DETAIL,
 } from './image.ts';
 export {
