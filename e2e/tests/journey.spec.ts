@@ -14,8 +14,10 @@ const MEMBER = {
   password: 'Staple battery 2 horse!',
 };
 
-// The tests after the first sign in with the admin it set up, so each needs the one before.
-test.describe.configure({ mode: 'serial' });
+// The tests after the first sign in with the admin it set up, so each needs the one before. Each
+// goes through many pages and checks each with axe in both themes, which takes Chromium about half
+// a minute here: more than Playwright's default 30 seconds, on a slower machine.
+test.describe.configure({ mode: 'serial', timeout: 60_000 });
 
 const heading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 // `exact`, so "Show password" doesn't match too.
