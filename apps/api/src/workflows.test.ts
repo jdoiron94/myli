@@ -181,11 +181,11 @@ describe('the release workflow', () => {
     expect(config['bump-minor-pre-major']).toBe(true);
   });
 
-  it('publishes the images only for a release, and only once it has tested them', () => {
+  it('publishes the images only for a release, built as CI builds them for its tests', () => {
     const publish = workflow('release.yml').jobs.publish;
     const steps = publish?.steps ?? [];
     const runs = steps.map(({ run }) => run ?? '');
-    const tested = runs.indexOf('pnpm test:containers');
+    const built = runs.indexOf('node e2e/build-images.ts');
     const pushed = runs.findIndex((run) => run.includes('docker push'));
 
     expect(publish?.needs).toBe('release-please');
@@ -193,10 +193,12 @@ describe('the release workflow', () => {
     // The released commit.
     expect(steps[0]?.uses).toMatch(/^actions\/checkout@/);
     expect(steps[0]?.with?.ref).toBe('${{ needs.release-please.outputs.sha }}');
-    expect(tested).toBeGreaterThan(0);
-    expect(pushed).toBeGreaterThan(tested);
-    // The images test:containers just tested (e2e/images.ts), as the version and latest.
+    expect(built).toBeGreaterThan(0);
+    expect(pushed).toBeGreaterThan(built);
+    // The images build-images.ts names (e2e/images.ts), as the version and latest.
     expect(runs[pushed]).toContain('docker tag "$image:e2e"');
     expect(runs[pushed]).toContain('for tag in "$VERSION" latest; do');
+    // Pull requests ran the tests on the same build (see the workflow).
+    expect(runs).not.toContain('pnpm test:containers');
   });
 });
