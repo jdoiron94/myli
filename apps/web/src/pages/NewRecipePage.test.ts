@@ -107,7 +107,7 @@ describe('the new recipe page', () => {
         ingredientGroups: [],
         steps: [],
         tagIds: [],
-        imageIds: [],
+        images: [],
         coverImageId: null,
         visibility: 'shared',
       },

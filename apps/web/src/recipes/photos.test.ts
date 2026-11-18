@@ -6,6 +6,7 @@ describe('a photo’s sources', () => {
     expect(
       imageSources({
         id: 'photo',
+        alt: '',
         width: 3000,
         height: 2000,
         variants: [
@@ -25,6 +26,7 @@ describe('a photo’s sources', () => {
     expect(
       imageSources({
         id: 'photo',
+        alt: '',
         width: 900,
         height: 600,
         variants: [

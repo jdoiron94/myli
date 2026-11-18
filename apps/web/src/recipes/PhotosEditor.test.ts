@@ -31,6 +31,19 @@ const button = (name: string) => screen.getByRole('button', { name });
 const coverChoice = (position: number) =>
   screen.getByRole<HTMLInputElement>('radio', { name: `Cover: photo ${String(position)}` });
 
+/** Each photo's alt text field, by its place. */
+const altField = (position: number) =>
+  screen.getByRole<HTMLTextAreaElement>('textbox', {
+    name: `Alt text for photo ${String(position)}`,
+  });
+/** The alt text typed for each photo, in order. */
+const altTexts = () =>
+  within(photosGroup())
+    .getAllByRole<HTMLTextAreaElement>('textbox', { name: /^Alt text for photo/ })
+    .map(({ value }) => value);
+/** Photos without alt text, as `UpdateRecipeRequest['images']` has them. */
+const undescribed = (...ids: string[]) => ids.map((id) => ({ id, alt: '' }));
+
 /** The photos shown, in order: each one's ID, and whether it's the cover. */
 const shownPhotos = () =>
   [...photosGroup().querySelectorAll<HTMLElement>('[data-photo]')].map((item) => ({
@@ -51,14 +64,18 @@ const problems = () =>
 async function editPhotos(recipe: Recipe, answerSave?: () => Response) {
   answerPreferences();
   let stored = recipe;
-  const saved: Pick<UpdateRecipeRequest, 'imageIds' | 'coverImageId'>[] = [];
+  const saved: Pick<UpdateRecipeRequest, 'images' | 'coverImageId'>[] = [];
   apiServer.use(
     http.get('/api/v1/recipes/:id', () => HttpResponse.json({ recipe: stored })),
     http.put('/api/v1/recipes/:id', async ({ request }) => {
-      const { imageIds, coverImageId } = (await request.json()) as UpdateRecipeRequest;
-      saved.push({ imageIds, coverImageId });
+      const { images, coverImageId } = (await request.json()) as UpdateRecipeRequest;
+      saved.push({ images, coverImageId });
       if (answerSave) return answerSave();
-      stored = { ...stored, images: imageIds.map(sampleImage), coverImageId };
+      stored = {
+        ...stored,
+        images: images.map(({ id, alt }) => sampleImage(id, alt)),
+        coverImageId,
+      };
       return HttpResponse.json({ recipe: stored });
     }),
   );
@@ -71,7 +88,7 @@ async function editPhotos(recipe: Recipe, answerSave?: () => Response) {
 const reopened = () => screen.findByRole('radio', { name: 'US customary' });
 
 const withPhotos = (...ids: string[]) =>
-  sampleRecipe({ images: ids.map(sampleImage), coverImageId: ids[0] ?? null });
+  sampleRecipe({ images: ids.map((id) => sampleImage(id)), coverImageId: ids[0] ?? null });
 
 // The editor loads every tag.
 beforeEach(() => {
@@ -118,7 +135,10 @@ describe('the photos editor', () => {
 
     await reopened();
     expect(bodies).toEqual([
-      expect.objectContaining({ imageIds: ['upload-1', 'upload-2'], coverImageId: 'upload-1' }),
+      expect.objectContaining({
+        images: undescribed('upload-1', 'upload-2'),
+        coverImageId: 'upload-1',
+      }),
     ]);
   });
 
@@ -206,7 +226,53 @@ describe('the photos editor', () => {
 
     await user.click(button('Save changes'));
     await reopened();
-    expect(saved).toEqual([{ imageIds: ['a', 'c'], coverImageId: 'a' }]);
+    expect(saved).toEqual([{ images: undescribed('a', 'c'), coverImageId: 'a' }]);
+  });
+
+  it('saves each photo’s alt text, which stays with its photo as they’re ordered and removed', async () => {
+    const { user, saved } = await editPhotos(
+      sampleRecipe({
+        images: [sampleImage('a', 'A crusty loaf.'), sampleImage('b'), sampleImage('c')],
+        coverImageId: 'a',
+      }),
+    );
+    expect(altTexts()).toEqual(['A crusty loaf.', '', '']);
+    // Each field says what its photo shows, so the photo isn't described twice.
+    const photoAlts = [...photosGroup().querySelectorAll('img')].map((img) => img.alt);
+    expect(photoAlts).toEqual(['', '', '']);
+
+    await user.type(altField(2), 'The crumb, up close.');
+    await user.click(button('Move photo 2 earlier'));
+    expect(altTexts()).toEqual(['The crumb, up close.', 'A crusty loaf.', '']);
+    await user.click(button('Remove photo 1'));
+    expect(altTexts()).toEqual(['A crusty loaf.', '']);
+    expect(await accessibilityViolations()).toEqual([]);
+
+    await user.click(button('Save changes'));
+    await reopened();
+    expect(saved).toEqual([
+      {
+        images: [
+          { id: 'a', alt: 'A crusty loaf.' },
+          { id: 'c', alt: '' },
+        ],
+        coverImageId: 'a',
+      },
+    ]);
+  });
+
+  it('refuses alt text over 300 characters, at its field', async () => {
+    const { user, saved } = await editPhotos(withPhotos('a'));
+
+    await user.click(altField(1));
+    await user.paste('x'.repeat(301));
+    await user.click(button('Save changes'));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(altField(1));
+    });
+    expect(describedBy(altField(1))).toEqual(['Keep it to 300 characters.']);
+    expect(saved).toEqual([]);
   });
 
   it('leaves no cover once the last photo is removed, and focuses the button to add more', async () => {
@@ -218,7 +284,7 @@ describe('the photos editor', () => {
     expect(document.activeElement).toBe(button('Add photos'));
     await user.click(button('Save changes'));
     await reopened();
-    expect(saved).toEqual([{ imageIds: [], coverImageId: null }]);
+    expect(saved).toEqual([{ images: undescribed(), coverImageId: null }]);
   });
 
   it('doesn’t save while a photo is uploading, which would leave it out', async () => {
@@ -247,7 +313,7 @@ describe('the photos editor', () => {
     });
     await user.click(button('Save changes'));
     await reopened();
-    expect(saved).toEqual([{ imageIds: ['upload-1'], coverImageId: 'upload-1' }]);
+    expect(saved).toEqual([{ images: undescribed('upload-1'), coverImageId: 'upload-1' }]);
   });
 
   it('shows the API’s refusal of a photo on it, until the photos change', async () => {
@@ -255,7 +321,7 @@ describe('the photos editor', () => {
     const { user } = await editPhotos(withPhotos('a', 'b', 'c'), () =>
       problemResponse(422, 'The request is invalid.', {
         type: VALIDATION_PROBLEM_TYPE,
-        errors: [{ in: 'body', pointer: '#/imageIds/1', detail }],
+        errors: [{ in: 'body', pointer: '#/images/1/id', detail }],
       }),
     );
 

@@ -11,6 +11,7 @@ import { RECIPE_LIMITS } from '@myli/shared';
 import { useFieldArray, useFieldError, useFormErrors } from 'vee-validate';
 import { computed, nextTick, reactive, useId, useTemplateRef } from 'vue';
 import { failureMessage } from '@/api/failure.ts';
+import FormTextField from '@/components/FormTextField.vue';
 import MarkdownField from '@/components/MarkdownField.vue';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldError, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -28,7 +29,7 @@ const steps = useFieldArray<StepValues>('steps');
 const fields = steps.fields;
 const error = useFieldError('steps');
 const formErrors = useFormErrors();
-const forgetRefusals = useForgetErrors((path) => /^steps\[\d+\]\.imageId$/.test(path));
+const forgetRefusals = useForgetErrors((path) => /^steps\[\d+\]\.image\.id$/.test(path));
 
 const id = useId();
 type StepKey = (typeof fields.value)[number]['key'];
@@ -39,14 +40,14 @@ const uploading = reactive(new Set<StepKey>());
 
 const rows = computed(() =>
   fields.value.map((field, index) => {
-    const { imageId } = field.value;
+    const { image } = field.value;
     // The API's refusal of a save, for the step at this place, or what went wrong adding it.
-    const refusal = formErrors.value[`steps[${String(index)}].imageId`];
+    const refusal = formErrors.value[`steps[${String(index)}].image.id`];
     const problem = refusal ?? photoProblems.get(field.key);
     return {
       key: field.key,
-      photo: imageId === null ? undefined : props.library.get(imageId),
-      hasPhoto: imageId !== null,
+      photo: image === null ? undefined : props.library.get(image.id),
+      hasPhoto: image !== null,
       problem,
     };
   }),
@@ -104,7 +105,7 @@ async function addPhoto(key: StepKey, [file]: File[]) {
     // Wherever the step is now: it may have moved, or gone, while the photo uploaded.
     const index = fields.value.findIndex((field) => field.key === key);
     const step = fields.value[index];
-    if (step) steps.update(index, { ...step.value, imageId: image.id });
+    if (step) steps.update(index, { ...step.value, image: { id: image.id, alt: '' } });
   } catch (failure) {
     photoProblems.set(key, failureMessage(failure));
   } finally {
@@ -117,7 +118,7 @@ async function removePhoto(index: number) {
   const step = fields.value[index];
   if (!step) return;
   forgetRefusals();
-  steps.update(index, { ...step.value, imageId: null });
+  steps.update(index, { ...step.value, image: null });
   await nextTick();
   shownSteps()[index]?.querySelector<HTMLElement>('[data-add-photo]')?.focus();
 }
@@ -213,19 +214,28 @@ async function removePhoto(index: number) {
               v-if="row.photo"
               :image="row.photo"
               :sizes="STEP_EDITOR_PHOTO_SIZES"
+              alt=""
               class="aspect-[4/3] w-40 rounded-md object-cover sm:w-48"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              :aria-label="`Remove photo from step ${index + 1}`"
-              :aria-describedby="row.problem ? `${id}-${index}-photo-error` : undefined"
-              @click="removePhoto(index)"
-            >
-              <XIcon aria-hidden="true" />
-              Remove photo
-            </Button>
+            <div class="flex min-w-48 flex-1 flex-col items-start gap-3">
+              <FormTextField
+                class="w-full"
+                :name="`steps[${index}].image.alt`"
+                :label="`Alt text for step ${index + 1}’s photo`"
+                multiline
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                :aria-label="`Remove photo from step ${index + 1}`"
+                :aria-describedby="row.problem ? `${id}-${index}-photo-error` : undefined"
+                @click="removePhoto(index)"
+              >
+                <XIcon aria-hidden="true" />
+                Remove photo
+              </Button>
+            </div>
           </div>
           <FieldError
             :id="`${id}-${index}-photo-error`"

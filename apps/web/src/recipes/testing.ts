@@ -7,8 +7,9 @@ import type { Image, Recipe, RecipeSummary, Tag } from './recipe.ts';
 
 /** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
 /** A 1600×1200 photo, with the sizes the API makes of one that wide. */
-export const sampleImage = (id: string): Image => ({
+export const sampleImage = (id: string, alt = ''): Image => ({
   id,
+  alt,
   width: 1600,
   height: 1200,
   variants: [

@@ -1,0 +1,1 @@
+ALTER TABLE `image` ADD `alt_text` text DEFAULT '' NOT NULL;

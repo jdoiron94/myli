@@ -2079,6 +2079,8 @@ export interface components {
         };
         Image: {
             id: string;
+            /** @description What it shows, for people who can’t see it. Empty when it isn’t described. */
+            alt: string;
             /** @description Of the upload, in pixels, turned upright. */
             width: number;
             height: number;
@@ -2120,11 +2122,19 @@ export interface components {
             steps: {
                 body: string;
                 /** @description Its photo, if it has one. */
-                imageId: string | null;
+                image: {
+                    id: string;
+                    /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                    alt: string;
+                } | null;
             }[];
-            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted. */
-            imageIds: string[];
-            /** @description The photo shown for it in lists: one of `imageIds`, or `null` when there are none. */
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’. */
+            images: {
+                id: string;
+                /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                alt: string;
+            }[];
+            /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
             coverImageId: string | null;
             tagIds: number[];
             visibility: components["schemas"]["Visibility"];
@@ -2212,11 +2222,19 @@ export interface components {
             steps: {
                 body: string;
                 /** @description Its photo, if it has one. */
-                imageId: string | null;
+                image: {
+                    id: string;
+                    /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                    alt: string;
+                } | null;
             }[];
-            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted. */
-            imageIds: string[];
-            /** @description The photo shown for it in lists: one of `imageIds`, or `null` when there are none. */
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’. */
+            images: {
+                id: string;
+                /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                alt: string;
+            }[];
+            /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
             coverImageId: string | null;
             tagIds: number[];
         };

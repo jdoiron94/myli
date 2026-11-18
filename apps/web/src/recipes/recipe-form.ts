@@ -56,15 +56,21 @@ export interface IngredientGroupValues {
   ingredients: IngredientLineValues[];
 }
 
+/** A photo the recipe or a step has, and its alt text as typed. */
+export interface PhotoValues {
+  id: string;
+  alt: string;
+}
+
 export interface StepValues {
   /** Markdown. */
   body: string;
-  imageId: string | null;
+  image: PhotoValues | null;
 }
 
 export const emptyLine = (): IngredientLineValues => ({ rawText: '', details: null });
 
-export const emptyStep = (): StepValues => ({ body: '', imageId: null });
+export const emptyStep = (): StepValues => ({ body: '', image: null });
 
 /** A group starts with a line to type in. */
 export const emptyGroup = (): IngredientGroupValues => ({ label: '', ingredients: [emptyLine()] });
@@ -170,9 +176,9 @@ const ingredientGroupSchema = z
  * with a photo isn't blank: it still needs its words.
  */
 const stepSchema = z
-  .object({ body: z.string(), imageId: content.steps.element.shape.imageId })
+  .object({ body: z.string(), image: content.steps.element.shape.image })
   .transform((step, context) => {
-    if (step.body.trim() === '' && step.imageId === null) return null;
+    if (step.body.trim() === '' && step.image === null) return null;
     const result = content.steps.element.safeParse(step);
     for (const issue of result.error?.issues ?? []) {
       context.issues.push({
@@ -290,7 +296,7 @@ export const recipeFormSchema = z
       .transform((steps) => steps.filter((step) => step !== null))
       .pipe(content.steps),
     tagIds: content.tagIds,
-    imageIds: content.imageIds,
+    images: content.images,
     coverImageId: content.coverImageId,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
     visibility: visibilitySchema,
@@ -319,18 +325,19 @@ export const RECIPE_TEXT_FIELDS = [
   'visibility',
 ] as const;
 
-/** The recipe's photos and its steps', which the API refuses one by one when it can't use them. */
+/**
+ * The recipe's photos and its steps': each one, which the API refuses one by one when it can't
+ * use it, and its alt text.
+ */
 const PHOTO_FIELDS = [
-  'imageIds',
-  ...Array.from(
-    { length: RECIPE_LIMITS.images },
-    (_, index) => `imageIds[${String(index)}]` as const,
-  ),
+  'images',
+  ...Array.from({ length: RECIPE_LIMITS.images }, (_, index) =>
+    (['id', 'alt'] as const).map((part) => `images[${String(index)}].${part}` as const),
+  ).flat(),
   'coverImageId',
-  ...Array.from(
-    { length: RECIPE_LIMITS.steps },
-    (_, index) => `steps[${String(index)}].imageId` as const,
-  ),
+  ...Array.from({ length: RECIPE_LIMITS.steps }, (_, index) =>
+    (['id', 'alt'] as const).map((part) => `steps[${String(index)}].image.${part}` as const),
+  ).flat(),
 ] as const;
 
 /** Every field of the form, by its path, for the API's field errors. */
@@ -364,7 +371,7 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
       ingredientGroups: [emptyGroup()],
       steps: [emptyStep()],
       tagIds: [],
-      imageIds: [],
+      images: [],
       coverImageId: null,
       // Nothing is shared by accident: sharing is a choice.
       visibility: 'private',
@@ -401,9 +408,12 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
     steps:
       recipe.steps.length === 0
         ? [emptyStep()]
-        : recipe.steps.map(({ body, image }) => ({ body, imageId: image?.id ?? null })),
+        : recipe.steps.map(({ body, image }) => ({
+            body,
+            image: image && { id: image.id, alt: image.alt },
+          })),
     tagIds: recipe.tags.map((tag) => tag.id),
-    imageIds: recipe.images.map(({ id }) => id),
+    images: recipe.images.map(({ id, alt }) => ({ id, alt })),
     coverImageId: recipe.coverImageId,
     visibility: recipe.visibility,
   };

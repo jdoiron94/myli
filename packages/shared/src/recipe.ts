@@ -37,6 +37,8 @@ export const RECIPE_LIMITS = {
   tags: 50,
   /** Photos of the recipe as a whole. Each step can have one more. */
   images: 20,
+  /** A photo's description, its alt text. */
+  imageAlt: 300,
   nutrition: 100_000,
 } as const;
 
@@ -47,6 +49,16 @@ const tooLong = (max: number) => `Keep it to ${String(max)} characters.`;
 
 /** A photo, by the ID its upload answered with. */
 const imageIdSchema = z.string().min(1).max(100);
+
+/** A photo a recipe has, and what it shows, for people who can't see it. */
+const photoSchema = z.object({
+  id: imageIdSchema,
+  alt: z
+    .string()
+    .trim()
+    .max(L.imageAlt, tooLong(L.imageAlt))
+    .describe('Its alt text: empty when the recipe’s text already says what it shows.'),
+});
 
 /** Optional text: `null` or empty when there's none. The API stores an empty one as `null`. */
 const optionalText = (max: number) => z.string().trim().max(max, tooLong(max)).nullable();
@@ -175,21 +187,21 @@ const recipeContentShape = {
     .array(
       z.object({
         body: z.string().trim().min(1, 'Write the step.').max(L.stepBody, tooLong(L.stepBody)),
-        imageId: imageIdSchema.nullable().describe('Its photo, if it has one.'),
+        image: photoSchema.nullable().describe('Its photo, if it has one.'),
       }),
     )
     .max(L.steps, `A recipe can have up to ${String(L.steps)} steps.`)
     .describe('In order. Each body is markdown.'),
-  imageIds: z
-    .array(imageIdSchema)
+  images: z
+    .array(photoSchema)
     .max(L.images, `A recipe can have up to ${String(L.images)} photos.`)
     .describe(
       'Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. ' +
-        'Those left out are deleted.',
+        'Those left out are deleted, as are its steps’.',
     ),
   coverImageId: imageIdSchema
     .nullable()
-    .describe('The photo shown for it in lists: one of `imageIds`, or `null` when there are none.'),
+    .describe('The photo shown for it in lists: one of `images`, or `null` when there are none.'),
   tagIds: z
     .array(z.int().positive())
     .max(L.tags, `A recipe can have up to ${String(L.tags)} tags.`)
@@ -201,22 +213,26 @@ const recipeContentShape = {
  * photos, and no photo is used twice, in the recipe's photos or its steps'.
  */
 function checkPhotos(
-  recipe: { imageIds: string[]; coverImageId: string | null; steps: { imageId: string | null }[] },
+  recipe: {
+    images: { id: string }[];
+    coverImageId: string | null;
+    steps: { image: { id: string } | null }[];
+  },
   context: z.core.$RefinementCtx,
 ) {
-  const { imageIds, coverImageId } = recipe;
-  if (coverImageId === null ? imageIds.length > 0 : !imageIds.includes(coverImageId)) {
+  const { images, coverImageId } = recipe;
+  if (coverImageId === null ? images.length > 0 : !images.some(({ id }) => id === coverImageId)) {
     context.addIssue({
       code: 'custom',
       path: ['coverImageId'],
-      message: imageIds.length > 0 ? 'Choose one of its photos as the cover.' : 'It has no photos.',
+      message: images.length > 0 ? 'Choose one of its photos as the cover.' : 'It has no photos.',
     });
   }
   const used = new Set<string>();
   const uses: [string, PropertyKey[]][] = [
-    ...imageIds.map((id, index): [string, PropertyKey[]] => [id, ['imageIds', index]]),
-    ...recipe.steps.flatMap(({ imageId }, index): [string, PropertyKey[]][] =>
-      imageId === null ? [] : [[imageId, ['steps', index, 'imageId']]],
+    ...images.map(({ id }, index): [string, PropertyKey[]] => [id, ['images', index, 'id']]),
+    ...recipe.steps.flatMap(({ image }, index): [string, PropertyKey[]][] =>
+      image === null ? [] : [[image.id, ['steps', index, 'image', 'id']]],
     ),
   ];
   for (const [id, path] of uses) {

@@ -399,18 +399,27 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
         </section>
       </div>
 
-      <div
+      <section
         v-if="gallery.length > 0"
-        class="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3"
+        aria-labelledby="photos-heading"
+        class="mt-10"
       >
-        <RecipePhoto
-          v-for="image in gallery"
-          :key="image.id"
-          :image="image"
-          :sizes="GALLERY_SIZES"
-          class="aspect-[4/3] w-full rounded-md object-cover"
-        />
-      </div>
+        <h2
+          id="photos-heading"
+          class="mb-3 text-xl font-semibold"
+        >
+          Photos
+        </h2>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <RecipePhoto
+            v-for="image in gallery"
+            :key="image.id"
+            :image="image"
+            :sizes="GALLERY_SIZES"
+            class="aspect-[4/3] w-full rounded-md object-cover"
+          />
+        </div>
+      </section>
     </template>
 
     <p

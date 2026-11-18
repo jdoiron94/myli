@@ -320,6 +320,9 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     });
     await expect(page.getByRole('button', { name: 'Remove photo from step 2' })).toBeVisible();
     await loaded(page.getByRole('list', { name: 'Steps' }).locator('img'));
+    await page
+      .getByRole('textbox', { name: 'Alt text for step 2’s photo' })
+      .fill('The loaf going into the oven.');
     await checkPage(page);
   });
 
@@ -336,6 +339,9 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('radio', { name: 'Cover: photo 1' })).toBeChecked();
     for (const photo of await photos.all()) await loaded(photo);
     await page.getByRole('radio', { name: 'Cover: photo 2' }).check();
+    await page
+      .getByRole('textbox', { name: 'Alt text for photo 2' })
+      .fill('The loaf cut open, showing its crumb.');
     await checkPage(page);
   });
 
@@ -379,6 +385,10 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await loaded(cover);
     await loaded(other);
     expect([await portrait(cover), await portrait(other)]).toEqual([true, false]);
+    // Each with the alt text typed for it, the other photo without any.
+    await expect(cover).toHaveAttribute('alt', 'The loaf cut open, showing its crumb.');
+    await expect(photos.nth(1)).toHaveAttribute('alt', 'The loaf going into the oven.');
+    await expect(other).toHaveAttribute('alt', '');
     await checkPage(page);
   });
 

@@ -245,6 +245,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **Images**
 - Up to 20 images per recipe, in order, one marked as the cover. Each step can have one image of its own. An image is used once: in the recipe's images or one step's.
+- Each image has alt text, up to 300 characters, saying what it shows for people who can't see it. It's optional: one without any is left out by screen readers, for when the recipe's text already says what it shows. It's saved with the recipe, like the order and the cover.
 - A recipe is saved with the images it has: its own, or uploads of whoever saves it that no recipe was saved with yet. An upload of someone else's, or another recipe's image, is refused at the field that names it. An image the recipe no longer has is deleted when it's saved, until Phase 2's revisions keep older versions.
 - Editors and admins upload them as the file itself, not in a form.
 - **On upload:**
@@ -253,9 +254,9 @@ There are three roles: **admin**, **editor** and **viewer**.
   - turn it upright, and strip its metadata (EXIF, location included)
   - generate resized variants: WebP, 640, 1280 and 2048 pixels wide, never wider than the upload. The upload itself isn't kept.
 - Until a recipe is saved with it, only its uploader can see or use an upload. One no recipe was saved with is deleted after a day.
-- **In the editor,** on the new and edit pages, photos are uploaded from the device, several at a time, one after another. The first is the cover until another is chosen, and removing the cover makes the first one left the cover. Photos are put in order and removed there. A step gets its photo from a button among its own, which moves with the step and is removed there. Files the API would refuse are refused before they're sent, saying why for each, and the recipe isn't saved while a photo is uploading, which would leave it out.
+- **In the editor,** on the new and edit pages, photos are uploaded from the device, several at a time, one after another. The first is the cover until another is chosen, and removing the cover makes the first one left the cover. Photos are put in order and removed there, and each has a field for its alt text. A step gets its photo from a button among its own, which moves with the step and is removed there, with its alt text field under it. Files the API would refuse are refused before they're sent, saying why for each, and the recipe isn't saved while a photo is uploading, which would leave it out.
 - **In lists and search results,** each recipe's card shows its cover at the top.
-- **On a recipe's page,** the cover shows at the top, each step's image in its step, whole, and its other images after everything else. The browser picks the size each needs from where it shows. Images have no descriptions yet, so screen readers skip them.
+- **On a recipe's page,** the cover shows at the top, each step's image in its step, whole, and its other images after everything else, under a "Photos" heading. The browser picks the size each needs from where it shows. Each image has its alt text wherever it shows, cards included; the editor's own thumbnails don't, since the field beside each says it.
 - Served only through the API, to whoever may see the recipe, never from a public address. Browsers keep each size for good, since what its address serves never changes.
 - Stored through the `BlobStore` abstraction (§6).
 
@@ -447,7 +448,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | `recipe_step` | `recipe_id`, `position`, `body_md`, `image_id` |
 | `recipe_revision` | `recipe_id`, `snapshot_json`, `author_id`, `message`, `created_at` |
 | `tag`, `recipe_tag` | `tag.type`, `tag.name`, `tag.name_key` (the name without case or extra spaces; unique per type). The allergen tags are seeded by a migration. |
-| `image` | `recipe_id` (null until a recipe is saved with it), `position` (among the recipe's images; null for a step's), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
+| `image` | `recipe_id` (null until a recipe is saved with it), `position` (among the recipe's images; null for a step's), `alt_text` (empty for none), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |
 | `collection`, `collection_item` | Per user; items are ordered |
 | `user_preference` | `user_id`, `unit_system`. No row means the defaults. The theme isn't here: it's chosen per browser (§6). |

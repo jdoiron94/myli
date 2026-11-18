@@ -80,7 +80,7 @@ function writeParts(tx: Tx, recipeId: string, content: RecipeContent): void {
     recipeId,
     position,
     bodyMd: step.body,
-    imageId: step.imageId,
+    imageId: step.image?.id ?? null,
   }));
   if (steps.length > 0) tx.insert(recipeStep).values(steps).run();
 
@@ -102,18 +102,29 @@ function missingTagIndexes(tx: Tx, tagIds: readonly number[]): number[] {
   return tagIds.flatMap((id, index) => (found.has(id) ? [] : [index]));
 }
 
-/** Each photo the content names, where it names it, and its place among the recipe's photos. */
+/**
+ * Each photo the content names, with its alt text, where it names it, and its place among the
+ * recipe's photos (`null` for a step's).
+ */
 function photoUses(content: RecipeContent) {
   return [
-    ...content.imageIds.map((id, index) => ({
+    ...content.images.map(({ id, alt }, index) => ({
       id,
-      path: ['imageIds', index] as PropertyKey[],
+      alt,
+      path: ['images', index, 'id'] as PropertyKey[],
       position: index,
     })),
-    ...content.steps.flatMap(({ imageId }, index) =>
-      imageId === null
+    ...content.steps.flatMap(({ image }, index) =>
+      image === null
         ? []
-        : [{ id: imageId, path: ['steps', index, 'imageId'] as PropertyKey[], position: null }],
+        : [
+            {
+              id: image.id,
+              alt: image.alt,
+              path: ['steps', index, 'image', 'id'] as PropertyKey[],
+              position: null,
+            },
+          ],
     ),
   ];
 }
@@ -159,8 +170,8 @@ function unusablePhotos(
  * Runs after the recipe's cover and steps are written, so none of them still refers to one.
  */
 function writePhotos(tx: Tx, recipeId: string, uses: readonly PhotoUse[]): void {
-  for (const { id, position } of uses) {
-    tx.update(image).set({ recipeId, position }).where(eq(image.id, id)).run();
+  for (const { id, alt, position } of uses) {
+    tx.update(image).set({ recipeId, position, altText: alt }).where(eq(image.id, id)).run();
   }
   const kept = uses.map(({ id }) => id);
   const dropped = tx

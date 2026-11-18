@@ -2,6 +2,7 @@ import {
   type Image,
   imageResultSchema,
   type Recipe,
+  type RecipeList,
   type Role,
   recipeResultSchema,
   type UpdateRecipeRequest,
@@ -79,8 +80,15 @@ const blobsQueuedForDeletion = (t: TestApp) =>
     .all()
     .map(({ payload }) => payload);
 
-const withSteps = (...imageIds: (string | null)[]) =>
-  imageIds.map((imageId, index) => ({ body: `Step ${String(index + 1)}.`, imageId }));
+/** The recipe's photos, by ID, none described. */
+const photos = (...ids: string[]) => ids.map((id) => ({ id, alt: '' }));
+
+/** A step for each photo ID, or `null` for none, in order. */
+const withSteps = (...ids: (string | null)[]) =>
+  ids.map((id, index) => ({
+    body: `Step ${String(index + 1)}.`,
+    image: id === null ? null : { id, alt: '' },
+  }));
 
 describe('a recipe’s photos', () => {
   it('saves a recipe with its uploads: its photos in order, its cover and a step’s', async () => {
@@ -97,7 +105,7 @@ describe('a recipe’s photos', () => {
         '/recipes',
         cookie,
         sampleRecipeRequest({
-          imageIds: [b.id, a.id],
+          images: photos(b.id, a.id),
           coverImageId: a.id,
           steps: withSteps(null, c.id),
         }),
@@ -126,6 +134,56 @@ describe('a recipe’s photos', () => {
     expect((await send(t, 'GET', photoAddress, viewer.cookie)).status).toBe(200);
   });
 
+  it('keeps what each photo shows, its alt text, for everyone who sees it', async () => {
+    const { t, cookie } = await setUp();
+    const [a, b] = [await upload(t, cookie), await upload(t, cookie)];
+    const viewer = await signedInAs(t, 'viewer');
+    const { id } = await recipeFrom(
+      await send(
+        t,
+        'POST',
+        '/recipes',
+        cookie,
+        sampleRecipeRequest({
+          images: [{ id: a.id, alt: '  A crusty loaf, cut open.  ' }],
+          coverImageId: a.id,
+          steps: [{ body: 'Bake.', image: { id: b.id, alt: 'Dough in a hot oven.' } }],
+        }),
+      ),
+    );
+    const altTexts = (recipe: Recipe) => [
+      ...recipe.images.map(({ alt }) => alt),
+      ...recipe.steps.map(({ image }) => image?.alt),
+    ];
+    const read = async (as: string) => recipeFrom(await send(t, 'GET', `/recipes/${id}`, as));
+
+    // Trimmed, as other text is.
+    expect(altTexts(await read(viewer.cookie))).toEqual([
+      'A crusty loaf, cut open.',
+      'Dough in a hot oven.',
+    ]);
+    const listed = await send(t, 'GET', '/recipes', viewer.cookie);
+    expect(((await listed.json()) as RecipeList).recipes[0]?.cover?.alt).toBe(
+      'A crusty loaf, cut open.',
+    );
+
+    // Changed, or taken away, as the recipe is saved.
+    await recipeFrom(
+      await send(
+        t,
+        'PUT',
+        `/recipes/${id}`,
+        cookie,
+        sampleRecipeContent({
+          images: [{ id: a.id, alt: 'A loaf on a board.' }],
+          coverImageId: a.id,
+          steps: [{ body: 'Bake.', image: { id: b.id, alt: '' } }],
+        }),
+      ),
+    );
+    expect(altTexts(await read(viewer.cookie))).toEqual(['A loaf on a board.', '']);
+  });
+
   it('refuses photos it can’t use, saying so at each, and saves nothing', async () => {
     const { t, cookie } = await setUp();
     const mine = await upload(t, cookie);
@@ -138,7 +196,7 @@ describe('a recipe’s photos', () => {
         'POST',
         '/recipes',
         cookie,
-        sampleRecipeRequest({ imageIds: [otherPhoto.id], coverImageId: otherPhoto.id }),
+        sampleRecipeRequest({ images: photos(otherPhoto.id), coverImageId: otherPhoto.id }),
       ),
     );
 
@@ -148,17 +206,17 @@ describe('a recipe’s photos', () => {
       '/recipes',
       cookie,
       sampleRecipeRequest({
-        imageIds: [mine.id, theirs.id, 'no-such-photo', otherPhoto.id],
+        images: photos(mine.id, theirs.id, 'no-such-photo', otherPhoto.id),
         coverImageId: mine.id,
         steps: withSteps(null, 'no-such-step-photo'),
       }),
     );
 
     expect(await fieldErrors(res)).toEqual({
-      '#/imageIds/1': UNAVAILABLE,
-      '#/imageIds/2': UNAVAILABLE,
-      '#/imageIds/3': UNAVAILABLE,
-      '#/steps/1/imageId': UNAVAILABLE,
+      '#/images/1/id': UNAVAILABLE,
+      '#/images/2/id': UNAVAILABLE,
+      '#/images/3/id': UNAVAILABLE,
+      '#/steps/1/image/id': UNAVAILABLE,
     });
     expect(t.db.select({ id: recipeTable.id }).from(recipeTable).all()).toEqual([{ id: other.id }]);
     expect(stored(t)).toEqual(
@@ -173,43 +231,55 @@ describe('a recipe’s photos', () => {
   it.each<[string, Partial<UpdateRecipeRequest>, string, string]>([
     [
       'a cover that isn’t one of its photos',
-      { imageIds: ['a'], coverImageId: 'b' },
+      { images: photos('a'), coverImageId: 'b' },
       '#/coverImageId',
       'Choose one of its photos as the cover.',
     ],
     [
       'photos without a cover',
-      { imageIds: ['a'], coverImageId: null },
+      { images: photos('a'), coverImageId: null },
       '#/coverImageId',
       'Choose one of its photos as the cover.',
     ],
     ['a cover without photos', { coverImageId: 'a' }, '#/coverImageId', 'It has no photos.'],
     [
       'the same photo twice',
-      { imageIds: ['a', 'a'], coverImageId: 'a' },
-      '#/imageIds/1',
+      { images: photos('a', 'a'), coverImageId: 'a' },
+      '#/images/1/id',
       'Each photo can be used once.',
     ],
     [
       'a step’s photo that’s also one of the recipe’s',
-      { imageIds: ['a'], coverImageId: 'a', steps: withSteps('a') },
-      '#/steps/0/imageId',
+      { images: photos('a'), coverImageId: 'a', steps: withSteps('a') },
+      '#/steps/0/image/id',
       'Each photo can be used once.',
     ],
     [
       'two steps with the same photo',
       { steps: withSteps('a', 'a') },
-      '#/steps/1/imageId',
+      '#/steps/1/image/id',
       'Each photo can be used once.',
     ],
     [
       'more than 20 photos',
       {
-        imageIds: Array.from({ length: 21 }, (_, index) => `photo-${String(index)}`),
+        images: photos(...Array.from({ length: 21 }, (_, index) => `photo-${String(index)}`)),
         coverImageId: 'photo-0',
       },
-      '#/imageIds',
+      '#/images',
       'A recipe can have up to 20 photos.',
+    ],
+    [
+      'alt text over 300 characters',
+      { images: [{ id: 'a', alt: 'x'.repeat(301) }], coverImageId: 'a' },
+      '#/images/0/alt',
+      'Keep it to 300 characters.',
+    ],
+    [
+      'a step photo’s alt text over 300 characters',
+      { steps: [{ body: 'Bake.', image: { id: 'a', alt: 'x'.repeat(301) } }] },
+      '#/steps/0/image/alt',
+      'Keep it to 300 characters.',
     ],
   ])('refuses %s', async (_, photos, pointer, detail) => {
     const { t, cookie } = await setUp();
@@ -226,7 +296,11 @@ describe('a recipe’s photos', () => {
         'POST',
         '/recipes',
         cookie,
-        sampleRecipeRequest({ imageIds: [a.id, b.id], coverImageId: a.id, steps: withSteps(c.id) }),
+        sampleRecipeRequest({
+          images: photos(a.id, b.id),
+          coverImageId: a.id,
+          steps: withSteps(c.id),
+        }),
       ),
     );
     const added = await upload(t, cookie);
@@ -240,7 +314,7 @@ describe('a recipe’s photos', () => {
         `/recipes/${id}`,
         cookie,
         sampleRecipeContent({
-          imageIds: [b.id, added.id],
+          images: photos(b.id, added.id),
           coverImageId: added.id,
           steps: withSteps(null, a.id),
         }),
@@ -273,7 +347,7 @@ describe('a recipe’s photos', () => {
         'POST',
         '/recipes',
         cookie,
-        sampleRecipeRequest({ imageIds: [a.id], coverImageId: a.id, steps: withSteps(b.id) }),
+        sampleRecipeRequest({ images: photos(a.id), coverImageId: a.id, steps: withSteps(b.id) }),
       ),
     );
     const keys = [...(keysOf(t, a.id) ?? []), ...(keysOf(t, b.id) ?? [])];
@@ -301,17 +375,17 @@ describe('a recipe’s photos', () => {
     const ownersUpload = await upload(t, cookie);
     const editor = await signedInAs(t, 'editor');
     const editorsUpload = await upload(t, editor.cookie);
-    const save = (imageIds: string[]) =>
+    const save = (ids: string[]) =>
       send(
         t,
         'PUT',
         `/recipes/${id}`,
         editor.cookie,
-        sampleRecipeContent({ imageIds, coverImageId: imageIds[0] ?? null }),
+        sampleRecipeContent({ images: photos(...ids), coverImageId: ids[0] ?? null }),
       );
 
     expect(await fieldErrors(await save([editorsUpload.id, ownersUpload.id]))).toEqual({
-      '#/imageIds/1': UNAVAILABLE,
+      '#/images/1/id': UNAVAILABLE,
     });
     expect((await recipeFrom(await save([editorsUpload.id]))).images).toEqual([editorsUpload]);
   });
@@ -325,7 +399,7 @@ describe('a recipe’s photos', () => {
         'POST',
         '/recipes',
         cookie,
-        sampleRecipeRequest({ imageIds: [photo.id], coverImageId: photo.id }),
+        sampleRecipeRequest({ images: photos(photo.id), coverImageId: photo.id }),
       ),
     );
     const { id } = await recipeFrom(
@@ -340,6 +414,6 @@ describe('a recipe’s photos', () => {
       sampleRecipeContent({ steps: withSteps(photo.id) }),
     );
 
-    expect(await fieldErrors(res)).toEqual({ '#/steps/0/imageId': UNAVAILABLE });
+    expect(await fieldErrors(res)).toEqual({ '#/steps/0/image/id': UNAVAILABLE });
   });
 });

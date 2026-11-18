@@ -757,6 +757,10 @@
           "id": {
             "type": "string"
           },
+          "alt": {
+            "type": "string",
+            "description": "What it shows, for people who can’t see it. Empty when it isn’t described."
+          },
           "width": {
             "type": "integer",
             "description": "Of the upload, in pixels, turned upright."
@@ -786,6 +790,7 @@
         },
         "required": [
           "id",
+          "alt",
           "width",
           "height",
           "variants"
@@ -926,33 +931,61 @@
                   "minLength": 1,
                   "maxLength": 10000
                 },
-                "imageId": {
+                "image": {
                   "type": [
-                    "string",
+                    "object",
                     "null"
                   ],
-                  "minLength": 1,
-                  "maxLength": 100,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "alt": {
+                      "type": "string",
+                      "maxLength": 300,
+                      "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "alt"
+                  ],
                   "description": "Its photo, if it has one."
                 }
               },
               "required": [
                 "body",
-                "imageId"
+                "image"
               ]
             },
             "maxItems": 100,
             "description": "In order. Each body is markdown."
           },
-          "imageIds": {
+          "images": {
             "type": "array",
             "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "alt": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                }
+              },
+              "required": [
+                "id",
+                "alt"
+              ]
             },
             "maxItems": 20,
-            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted."
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’."
           },
           "coverImageId": {
             "type": [
@@ -961,7 +994,7 @@
             ],
             "minLength": 1,
             "maxLength": 100,
-            "description": "The photo shown for it in lists: one of `imageIds`, or `null` when there are none."
+            "description": "The photo shown for it in lists: one of `images`, or `null` when there are none."
           },
           "tagIds": {
             "type": "array",
@@ -989,7 +1022,7 @@
           "nutrition",
           "ingredientGroups",
           "steps",
-          "imageIds",
+          "images",
           "coverImageId",
           "tagIds",
           "visibility"
@@ -1419,33 +1452,61 @@
                   "minLength": 1,
                   "maxLength": 10000
                 },
-                "imageId": {
+                "image": {
                   "type": [
-                    "string",
+                    "object",
                     "null"
                   ],
-                  "minLength": 1,
-                  "maxLength": 100,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "alt": {
+                      "type": "string",
+                      "maxLength": 300,
+                      "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "alt"
+                  ],
                   "description": "Its photo, if it has one."
                 }
               },
               "required": [
                 "body",
-                "imageId"
+                "image"
               ]
             },
             "maxItems": 100,
             "description": "In order. Each body is markdown."
           },
-          "imageIds": {
+          "images": {
             "type": "array",
             "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "alt": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                }
+              },
+              "required": [
+                "id",
+                "alt"
+              ]
             },
             "maxItems": 20,
-            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted."
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’."
           },
           "coverImageId": {
             "type": [
@@ -1454,7 +1515,7 @@
             ],
             "minLength": 1,
             "maxLength": 100,
-            "description": "The photo shown for it in lists: one of `imageIds`, or `null` when there are none."
+            "description": "The photo shown for it in lists: one of `images`, or `null` when there are none."
           },
           "tagIds": {
             "type": "array",
@@ -1479,7 +1540,7 @@
           "nutrition",
           "ingredientGroups",
           "steps",
-          "imageIds",
+          "images",
           "coverImageId",
           "tagIds"
         ]
