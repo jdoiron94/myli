@@ -1,8 +1,8 @@
 import {
   ingredientSuggestionsSchema,
   PROBLEM_CONTENT_TYPE,
+  RECIPES_PER_PAGE,
   recipeSearchResultSchema,
-  SEARCH_PAGE_SIZE,
   type Visibility,
   validationProblemSchema,
 } from '@myli/shared';
@@ -189,9 +189,9 @@ describe('GET /search/recipes', () => {
         allergens: [],
       })),
       totalHits,
-      hitsPerPage: SEARCH_PAGE_SIZE,
+      hitsPerPage: RECIPES_PER_PAGE,
       page: number,
-      totalPages: Math.ceil(totalHits / SEARCH_PAGE_SIZE),
+      totalPages: Math.ceil(totalHits / RECIPES_PER_PAGE),
     });
     let answer = page(1, [], 0);
     const { client } = fakeSearchClient({
@@ -215,16 +215,16 @@ describe('GET /search/recipes', () => {
     };
 
     // The last hit of 25 was deleted: there's one page now, not two.
-    answer = page(2, [gone], SEARCH_PAGE_SIZE + 1);
+    answer = page(2, [gone], RECIPES_PER_PAGE + 1);
     expect(await result('?page=2')).toEqual({
-      totalHits: SEARCH_PAGE_SIZE,
+      totalHits: RECIPES_PER_PAGE,
       page: 2,
       totalPages: 1,
     });
 
-    answer = page(2, [kept, gone], SEARCH_PAGE_SIZE + 2);
+    answer = page(2, [kept, gone], RECIPES_PER_PAGE + 2);
     expect(await result('?page=2')).toEqual({
-      totalHits: SEARCH_PAGE_SIZE + 1,
+      totalHits: RECIPES_PER_PAGE + 1,
       page: 2,
       totalPages: 2,
     });

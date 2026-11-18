@@ -7,6 +7,8 @@ import {
   problemDetailsSchema,
   type RecipeAction,
   recipeIdParamsSchema,
+  recipeListQuerySchema,
+  recipeListSchema,
   recipeResultSchema,
   updateRecipeRequestSchema,
 } from '@myli/shared';
@@ -16,6 +18,7 @@ import { requireSession } from '../auth/session.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
 import { errorResponses, InvalidFields } from '../problems.ts';
+import { listRecipes } from './list.ts';
 import {
   createRecipe,
   deleteRecipe,
@@ -56,6 +59,26 @@ const postRecipe = createRoute({
     201: {
       ...result('The new recipe.'),
       headers: { Location: { schema: { type: 'string' }, description: 'Where it lives.' } },
+    },
+    ...errorResponses,
+  },
+});
+
+const getRecipes = createRoute({
+  method: 'get',
+  path: '/recipes',
+  tags: ['Recipes'],
+  summary: 'List recipes',
+  description:
+    'The recipes the caller may see: shared ones, and their own private ones. Newest first, ' +
+    'one page at a time. Unlike search, it reads the database, so it works while search is ' +
+    'unavailable.',
+  middleware: [requireSession] as const,
+  request: { query: recipeListQuerySchema },
+  responses: {
+    200: {
+      description: 'One page of them.',
+      content: { 'application/json': { schema: recipeListSchema } },
     },
     ...errorResponses,
   },
@@ -170,6 +193,10 @@ export function registerRecipeRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) 
     c.var.logger.info({ recipeId: id }, 'recipe created');
     return c.json({ recipe }, 201, { Location: `${API_BASE_PATH}/recipes/${id}` });
   });
+
+  v1.openapi(getRecipes, (c) =>
+    c.json(listRecipes(deps.db, c.var.user, c.req.valid('query').page), 200),
+  );
 
   v1.openapi(getRecipe, (c) => {
     const { id } = c.req.valid('param');

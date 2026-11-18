@@ -3,11 +3,11 @@ import {
   INGREDIENT_SUGGESTIONS_MAX,
   type IngredientSuggestions,
   type PolicyUser,
-  type RecipeSearchHit,
+  RECIPES_PER_PAGE,
   type RecipeSearchQuery,
   type RecipeSearchResult,
+  type RecipeSummary,
   SEARCH_FACETS,
-  SEARCH_PAGE_SIZE,
   type SearchFacet,
 } from '@myli/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -190,7 +190,7 @@ export async function searchRecipes(
       filter: searchFilter(query, user.id),
       sort: searchSort(query),
       page: query.page,
-      hitsPerPage: SEARCH_PAGE_SIZE,
+      hitsPerPage: RECIPES_PER_PAGE,
       attributesToRetrieve: HIT_ATTRIBUTES,
       facets: SEARCH_FACETS.filter((facet) => !chosenAnyOf.includes(facet as AnyOfFacet)).map(
         (facet) => FACET_ATTRIBUTES[facet],
@@ -225,7 +225,7 @@ export async function searchRecipes(
     hits,
     totalHits,
     page: main?.page ?? query.page,
-    totalPages: Math.ceil(totalHits / SEARCH_PAGE_SIZE),
+    totalPages: Math.ceil(totalHits / RECIPES_PER_PAGE),
     facets,
   };
 }
@@ -236,7 +236,7 @@ type SearchedRecipe = Pick<RecipeSearchDocument, (typeof HIT_ATTRIBUTES)[number]
  * The hits the caller may still see, as SQLite holds them now. The index can be behind, as while
  * an update waits to be retried: a recipe made private since must not show to anyone else.
  */
-function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSearchHit[] {
+function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSummary[] {
   if (hits.length === 0) return [];
   const rows = db
     .select({ id: recipe.id, ownerId: recipe.ownerId, visibility: recipe.visibility })
@@ -265,7 +265,7 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSe
         mealType: hit.mealType,
         diet: hit.diet,
         tags: hit.customTags,
-        allergens: hit.allergens as RecipeSearchHit['allergens'],
+        allergens: hit.allergens as RecipeSummary['allergens'],
         visibility: row.visibility,
       },
     ];

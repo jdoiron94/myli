@@ -232,6 +232,12 @@ export const ENDPOINTS: readonly EndpointCase[] = [
       request(t, 'POST', `/invitations/${(await openInvitation(t)).id}/revoke`, cookie),
   },
   {
+    method: 'get',
+    path: '/recipes',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'GET', '/recipes?page=1', cookie),
+  },
+  {
     method: 'post',
     path: '/recipes',
     access: 'recipe.create',
