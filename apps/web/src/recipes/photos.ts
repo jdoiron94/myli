@@ -53,7 +53,7 @@ export function imageSources(image: Image) {
 // A change to those classes needs a change here. The browser picks the next size up, so an
 // estimate a little off costs nothing.
 
-/** The recipe page's cover: the content's whole width. */
+/** The recipe page's cover, and the photos in its slideshow: the content's whole width. */
 export const COVER_SIZES = '(min-width: 64rem) 992px, calc(100vw - 2rem)';
 
 /**
@@ -62,10 +62,6 @@ export const COVER_SIZES = '(min-width: 64rem) 992px, calc(100vw - 2rem)';
  */
 export const STEP_PHOTO_SIZES =
   '(min-width: 64rem) 538px, (min-width: 48rem) calc((100vw - 5rem) * 0.6 - 1.75rem), calc(100vw - 2rem)';
-
-/** The recipe page's other photos: three to a row from `md` up, two on phones, 0.75rem apart. */
-export const GALLERY_SIZES =
-  '(min-width: 64rem) 323px, (min-width: 48rem) calc((100vw - 3.5rem) / 3), calc((100vw - 2.75rem) / 2)';
 
 /**
  * A photo in the editor: four to a row from `md` up, three from `sm`, 1rem apart, and on phones,

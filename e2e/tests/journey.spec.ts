@@ -387,8 +387,8 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       'Contains wheat',
       'American',
     ]);
-    // The cover chosen, the upright one, at the top, the step's in its step, and the other after
-    // everything else.
+    // The cover chosen, the upright one, first in a slideshow at the top, then the other photo;
+    // the step's in its step.
     const photos = main.locator('img');
     await expect(photos).toHaveCount(3);
     const stepPhoto = page
@@ -405,14 +405,30 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       });
       expect(left).toBeCloseTo(right, 0);
     });
-    const [cover, , other] = await photos.all();
-    if (!cover || !other) throw new Error('expected the cover and another photo');
+    const slideshow = main.getByRole('region', { name: 'Photos' });
+    const cover = slideshow.getByRole('group', { name: '1 of 2' }).locator('img');
+    const other = slideshow.getByRole('group', { name: '2 of 2' }).locator('img');
+    const showing = slideshow.getByText(/of 2$/);
     await loaded(cover);
+    await expect(showing).toHaveText('Photo 1 of 2');
+    await expect(other).not.toBeInViewport();
+    // The next photo slides in, and focus stays on the button at the end.
+    const next = slideshow.getByRole('button', { name: 'Next photo' });
+    await next.click();
+    await expect(other).toBeInViewport({ ratio: 0.99 });
+    await expect(cover).not.toBeInViewport();
+    await expect(showing).toHaveText('Photo 2 of 2');
+    await expect(next).toHaveAttribute('aria-disabled', 'true');
+    await expect(next).toBeFocused();
     await loaded(other);
     expect([await portrait(cover), await portrait(other)]).toEqual([true, false]);
+    // And back with the arrow keys.
+    await page.keyboard.press('ArrowLeft');
+    await expect(cover).toBeInViewport({ ratio: 0.99 });
+    await expect(showing).toHaveText('Photo 1 of 2');
     // Each with the alt text typed for it, the other photo without any.
     await expect(cover).toHaveAttribute('alt', 'The loaf cut open, showing its crumb.');
-    await expect(photos.nth(1)).toHaveAttribute('alt', 'The loaf going into the oven.');
+    await expect(stepPhoto).toHaveAttribute('alt', 'The loaf going into the oven.');
     await expect(other).toHaveAttribute('alt', '');
     await checkPage(page);
   });

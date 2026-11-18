@@ -20,8 +20,9 @@ import {
   shownTags,
 } from '@/recipes/format.ts';
 import IngredientList from '@/recipes/IngredientList.vue';
-import { COVER_SIZES, GALLERY_SIZES, STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
+import { STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
 import RecipeActions from '@/recipes/RecipeActions.vue';
+import RecipeCover from '@/recipes/RecipeCover.vue';
 import RecipePhoto from '@/recipes/RecipePhoto.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
 import ServingsControl from '@/recipes/ServingsControl.vue';
@@ -34,11 +35,13 @@ const query = useQuery(computed(() => recipeQuery(props.id)));
 const { failure, retrying, stillFailing, retry } = useRetry(query);
 const recipe = computed(() => query.data.value);
 
-/** The cover shows at the top, and the recipe's other photos, in order, after everything else. */
+/** The cover shows at the top, and with it, in a slideshow, the recipe's other photos in order. */
 const cover = computed(() =>
   recipe.value?.images.find(({ id }) => id === recipe.value?.coverImageId),
 );
-const gallery = computed(() => recipe.value?.images.filter((image) => image !== cover.value) ?? []);
+const otherPhotos = computed(
+  () => recipe.value?.images.filter((image) => image !== cover.value) ?? [],
+);
 
 /** The API answers 404 alike for a recipe that doesn't exist and one the reader may not see. */
 const notFound = computed(
@@ -164,12 +167,11 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
     </div>
 
     <template v-if="recipe">
-      <RecipePhoto
+      <RecipeCover
         v-if="cover"
-        :image="cover"
-        :sizes="COVER_SIZES"
-        eager
-        class="mt-6 aspect-[3/2] w-full rounded-lg object-cover md:aspect-[2/1]"
+        :cover="cover"
+        :others="otherPhotos"
+        class="mt-6"
       />
 
       <MarkdownContent
@@ -399,28 +401,6 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
           </dl>
         </section>
       </div>
-
-      <section
-        v-if="gallery.length > 0"
-        aria-labelledby="photos-heading"
-        class="mt-10"
-      >
-        <h2
-          id="photos-heading"
-          class="mb-3 text-xl font-semibold"
-        >
-          Photos
-        </h2>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <RecipePhoto
-            v-for="image in gallery"
-            :key="image.id"
-            :image="image"
-            :sizes="GALLERY_SIZES"
-            class="aspect-[4/3] w-full rounded-md object-cover"
-          />
-        </div>
-      </section>
     </template>
 
     <p

@@ -11,6 +11,65 @@ if (typeof window !== 'undefined') {
   Range.prototype.getBoundingClientRect = () => new DOMRect();
   // Lists that scroll the highlighted item into view, like the ingredient picker's, have none.
   Element.prototype.scrollIntoView = () => undefined;
+  // The photo slideshow's carousel (Embla) watches its slides' sizes and which are in view, and
+  // media queries, which jsdom doesn't have. Here, sizes never change, everything is in view as
+  // soon as it's watched, and no media query matches (`fakeDeviceScheme()` makes the device's
+  // dark setting one that can). With no sizes, the carousel can't move between slides here: the
+  // end-to-end tests do that.
+  globalThis.matchMedia = (media: string) =>
+    ({
+      media,
+      matches: false,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+      // Without the deprecated `addListener` and `removeListener`, which nothing here calls.
+    }) as unknown as MediaQueryList;
+  globalThis.ResizeObserver = class {
+    observe = () => undefined;
+    unobserve = () => undefined;
+    disconnect = () => undefined;
+  };
+  globalThis.IntersectionObserver = class {
+    readonly root = null;
+    readonly rootMargin = '0px';
+    readonly scrollMargin = '0px';
+    readonly thresholds = [0];
+    readonly #callback: IntersectionObserverCallback;
+    #watched = new Set<Element>();
+    constructor(callback: IntersectionObserverCallback) {
+      this.#callback = callback;
+    }
+    observe = (target: Element) => {
+      this.#watched.add(target);
+      setTimeout(() => {
+        if (!this.#watched.has(target)) return;
+        const rect = new DOMRect();
+        this.#callback(
+          [
+            {
+              target,
+              isIntersecting: true,
+              intersectionRatio: 1,
+              boundingClientRect: rect,
+              intersectionRect: rect,
+              rootBounds: null,
+              time: performance.now(),
+            },
+          ],
+          this,
+        );
+      });
+    };
+    unobserve = (target: Element) => {
+      this.#watched.delete(target);
+    };
+    disconnect = () => {
+      this.#watched.clear();
+    };
+    takeRecords = () => [];
+  };
 
   /** Requests that no handler answered during the current test. */
   const unhandledRequests: string[] = [];
