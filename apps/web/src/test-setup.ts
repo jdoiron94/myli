@@ -9,6 +9,8 @@ if (typeof window !== 'undefined') {
   // measures the cursor's range to scroll it into view, and gets nothing to scroll to.
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = () => new DOMRect();
+  // Lists that scroll the highlighted item into view, like the ingredient picker's, have none.
+  Element.prototype.scrollIntoView = () => undefined;
 
   /** Requests that no handler answered during the current test. */
   const unhandledRequests: string[] = [];
