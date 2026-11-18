@@ -67,9 +67,12 @@ export const STEP_PHOTO_SIZES =
 export const GALLERY_SIZES =
   '(min-width: 64rem) 323px, (min-width: 48rem) calc((100vw - 3.5rem) / 3), calc((100vw - 2.75rem) / 2)';
 
-/** A photo in the editor: four to a row from `md` up, three from `sm`, two on phones, 1rem apart. */
+/**
+ * A photo in the editor: four to a row from `md` up, three from `sm`, 1rem apart, and on phones,
+ * one, the content's whole width.
+ */
 export const EDITOR_PHOTO_SIZES =
-  '(min-width: 64rem) 236px, (min-width: 48rem) calc((100vw - 5rem) / 4), (min-width: 40rem) calc((100vw - 4rem) / 3), calc((100vw - 3rem) / 2)';
+  '(min-width: 64rem) 236px, (min-width: 48rem) calc((100vw - 5rem) / 4), (min-width: 40rem) calc((100vw - 4rem) / 3), calc(100vw - 2rem)';
 
 /** A step's photo in the editor: 12rem wide from `sm` up, 10rem on phones. */
 export const STEP_EDITOR_PHOTO_SIZES = '(min-width: 40rem) 12rem, 10rem';

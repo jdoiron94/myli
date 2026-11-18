@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ArrowLeftIcon, ArrowRightIcon, ImagePlusIcon, XIcon } from '@lucide/vue';
+import {
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowUpIcon,
+  ImagePlusIcon,
+  XIcon,
+} from '@lucide/vue';
 import { RECIPE_LIMITS } from '@myli/shared';
 import { useField, useFieldArray, useFieldError, useFormErrors } from 'vee-validate';
 import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
@@ -106,7 +113,7 @@ async function remove(index: number) {
       </FieldDescription>
       <ul
         v-if="shown.length > 0"
-        class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4"
       >
         <li
           v-for="(photo, index) in shown"
@@ -149,7 +156,15 @@ async function remove(index: number) {
                 data-move="-1"
                 @click="index === 0 || move(index, -1)"
               >
-                <ArrowLeftIcon aria-hidden="true" />
+                <!-- Up on phones, where the photos are one to a row; left beside each other. -->
+                <ArrowUpIcon
+                  aria-hidden="true"
+                  class="sm:hidden"
+                />
+                <ArrowLeftIcon
+                  aria-hidden="true"
+                  class="hidden sm:block"
+                />
               </Button>
               <Button
                 type="button"
@@ -161,7 +176,14 @@ async function remove(index: number) {
                 data-move="1"
                 @click="index === shown.length - 1 || move(index, 1)"
               >
-                <ArrowRightIcon aria-hidden="true" />
+                <ArrowDownIcon
+                  aria-hidden="true"
+                  class="sm:hidden"
+                />
+                <ArrowRightIcon
+                  aria-hidden="true"
+                  class="hidden sm:block"
+                />
               </Button>
               <Button
                 type="button"
