@@ -340,8 +340,14 @@ const PHOTO_FIELDS = [
   ).flat(),
 ] as const;
 
+/** The recipe's tags, and each one chosen, which the API refuses when it no longer exists. */
+const TAG_FIELDS = [
+  'tagIds',
+  ...Array.from({ length: RECIPE_LIMITS.tags }, (_, index) => `tagIds[${String(index)}]` as const),
+] as const;
+
 /** Every field of the form, by its path, for the API's field errors. */
-export const RECIPE_FORM_FIELDS = [...RECIPE_TEXT_FIELDS, ...PHOTO_FIELDS] as const;
+export const RECIPE_FORM_FIELDS = [...RECIPE_TEXT_FIELDS, ...PHOTO_FIELDS, ...TAG_FIELDS] as const;
 
 const typed = (value: number | null) => (value === null ? '' : String(value));
 

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { can, type TagType, type USER_TAG_TYPES } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
-import { useField, useFieldError } from 'vee-validate';
-import { computed, nextTick, useId, useTemplateRef } from 'vue';
+import { useField, useFieldError, useFormErrors, useSetFieldError } from 'vee-validate';
+import { computed, nextTick, useId, useTemplateRef, watch } from 'vue';
 import { useRetry } from '@/api/retry.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { useForgetErrors } from '@/lib/forms.ts';
 import NewTagField from './NewTagField.vue';
 import type { Tag } from './recipe.ts';
 import { tagsQuery } from './tags.ts';
@@ -34,6 +35,18 @@ const TYPES: ({ type: TagType; legend: string } & (
 
 const { value: chosen } = useField<number[]>('tagIds');
 const error = useFieldError('tagIds');
+const setError = useSetFieldError('tagIds');
+
+/**
+ * The API refuses a chosen tag that no longer exists, at its place in `tagIds`, which says nothing
+ * once the tags chosen change: those refusals are forgotten then.
+ */
+const formErrors = useFormErrors();
+const forgetRefusals = useForgetErrors((path) => /^tagIds\[\d+\]$/.test(path));
+const refusalOf = (tag: Tag) => {
+  const index = chosen.value.indexOf(tag.id);
+  return index === -1 ? undefined : formErrors.value[`tagIds[${String(index)}]`];
+};
 
 const tags = useQuery(tagsQuery);
 const { failure, retrying, stillFailing, retry } = useRetry(tags);
@@ -49,11 +62,37 @@ const byType = computed(() => {
 
 const id = useId();
 const checkboxId = (tag: Tag) => `${id}-tag-${String(tag.id)}`;
+const refusalId = (tag: Tag) => `${checkboxId(tag)}-refusal`;
 
 function toggle(tag: Tag, on: boolean) {
   const others = chosen.value.filter((tagId) => tagId !== tag.id);
   chosen.value = on ? [...others, tag.id] : others;
+  forgetRefusals();
 }
+
+/**
+ * A tag an admin deleted, or merged into another, leaves the list once it's fetched again. Chosen,
+ * it would have no checkbox to take it off, and saving would fail: it's taken off, saying so. Only
+ * a tag that was in the list before goes: one the list hasn't caught up with yet, like a tag added
+ * to the recipe since the list was fetched, is still to come.
+ */
+watch(
+  () => tags.data.value,
+  (now, before) => {
+    if (!now || !before) return;
+    const exists = new Set(now.map((tag) => tag.id));
+    const gone = before.filter((tag) => !exists.has(tag.id) && chosen.value.includes(tag.id));
+    if (gone.length === 0) return;
+    chosen.value = chosen.value.filter((tagId) => !gone.some((tag) => tag.id === tagId));
+    forgetRefusals();
+    const names = gone.map((tag) => tag.name);
+    setError(
+      names.length === 1
+        ? `${names.join('')} no longer exists, so it's no longer chosen.`
+        : `${names.join(', ')} no longer exist, so they're no longer chosen.`,
+    );
+  },
+);
 
 const root = useTemplateRef('root');
 
@@ -92,6 +131,8 @@ async function added(tag: Tag) {
               <Checkbox
                 :id="checkboxId(tag)"
                 :model-value="chosen.includes(tag.id)"
+                :aria-invalid="refusalOf(tag) ? true : undefined"
+                :aria-describedby="refusalOf(tag) ? refusalId(tag) : undefined"
                 @update:model-value="toggle(tag, $event === true)"
               />
               <FieldLabel
@@ -102,6 +143,16 @@ async function added(tag: Tag) {
               </FieldLabel>
             </Field>
           </div>
+          <template
+            v-for="tag in byType.get(group.type)"
+            :key="tag.id"
+          >
+            <FieldError
+              v-if="refusalOf(tag)"
+              :id="refusalId(tag)"
+              :errors="[`${tag.name}: ${refusalOf(tag) ?? ''}`]"
+            />
+          </template>
           <NewTagField
             v-if="group.type !== 'allergen' && canCreate"
             :type="group.type"
