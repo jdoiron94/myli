@@ -33,7 +33,12 @@ export const recipeListQuerySchema = z.object({
 export const recipeListSchema = z
   .object({
     recipes: z.array(recipeSummarySchema),
-    total: z.number().int().describe('How many recipes the caller may see, across every page.'),
+    total: z
+      .number()
+      .int()
+      .describe(
+        'How many recipes the list holds, across every page: only ones the caller may see.',
+      ),
     page: z.number().int(),
     totalPages: z.number().int(),
   })

@@ -85,6 +85,13 @@
       "when": 1795020199978,
       "tag": "0011_image_alt_text",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795053823967,
+      "tag": "0012_favorite",
+      "breakpoints": true
     }
   ]
 }

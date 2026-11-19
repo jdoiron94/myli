@@ -474,3 +474,25 @@ export const image = sqliteTable(
     index('image_recipe_idx').on(table.recipeId),
   ],
 );
+
+/**
+ * Each user's favorite recipes (spec §3.3), newest first by `created_at`. A favorite outlives the
+ * reader's access: while its recipe is deleted, or made private by someone else, it's kept but not
+ * shown, and it shows again if the recipe comes back.
+ */
+export const favorite = sqliteTable(
+  'favorite',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.recipeId] }),
+    index('favorite_recipe_id_idx').on(table.recipeId),
+  ],
+);
