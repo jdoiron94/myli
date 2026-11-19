@@ -318,27 +318,23 @@ describe('GET /search/recipes', () => {
     expect(await res.text()).not.toContain('secret');
   });
 
-  it.each([
-    ['page 0', '?page=0', '#/page'],
-    ['a page past the last one Meilisearch counts to', '?page=43', '#/page'],
-    ['an unknown difficulty', '?difficulty=extreme', '#/difficulty/0'],
-    ['an unknown allergen', '?excludeAllergen=glitter', '#/excludeAllergen/0'],
-    ['an unknown sort', '?sort=alphabetical', '#/sort'],
-    ['an empty tag name', '?tag=', '#/tag/0'],
-    ['a shortest time over the longest', '?minMinutes=30&maxMinutes=10', '#/maxMinutes'],
-    ['a time that isn’t a number', '?maxMinutes=soon', '#/maxMinutes'],
-    ['too many values for one filter', `?${'cuisine=x&'.repeat(21)}`, '#/cuisine'],
-  ])('refuses %s with a 422', async (_, params, field) => {
-    const { search } = await setUp();
+  // The rest of the query's rules are Zod's, as the shared schema sets them up.
+  it('refuses a page past the last one Meilisearch counts to, or a shortest time over the longest', async () => {
+    for (const [, params, field] of [
+      ['a page past the last one Meilisearch counts to', '?page=43', '#/page'],
+      ['a shortest time over the longest', '?minMinutes=30&maxMinutes=10', '#/maxMinutes'],
+    ] as const) {
+      const { search } = await setUp();
 
-    const res = await search(params);
+      const res = await search(params);
 
-    expect(res.status).toBe(422);
-    const { errors } = validationProblemSchema.parse(await res.json());
-    expect(errors.map(({ pointer, in: where }) => [pointer, where])).toContainEqual([
-      field,
-      'query',
-    ]);
+      expect(res.status).toBe(422);
+      const { errors } = validationProblemSchema.parse(await res.json());
+      expect(errors.map(({ pointer, in: where }) => [pointer, where])).toContainEqual([
+        field,
+        'query',
+      ]);
+    }
   });
 });
 

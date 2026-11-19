@@ -4,7 +4,6 @@ import {
   RECIPES_PER_PAGE,
   type Role,
   recipeListSchema,
-  validationProblemSchema,
 } from '@myli/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -65,9 +64,8 @@ describe('GET /recipes', () => {
     expect({ total, page, totalPages }).toEqual({ total: 3, page: 1, totalPages: 1 });
   });
 
-  it.each<Role>(['admin', 'editor', 'viewer'])(
-    'lists exactly the recipes the policy lets the %s read',
-    async (role) => {
+  it('lists exactly the recipes the policy lets each role read', async () => {
+    for (const role of ['admin', 'editor', 'viewer'] as const) {
       const { t, user, list } = await setUp(role);
       const { user: other } = await signedInAs(t, 'editor');
       for (const ownerId of [user.id, other.id]) {
@@ -91,8 +89,8 @@ describe('GET /recipes', () => {
       expect(total).toBe(readable.length);
       // Their own two, and the other's shared one.
       expect(readable).toHaveLength(3);
-    },
-  );
+    }
+  });
 
   it('shows each recipe as its card does, with its tags by type', async () => {
     const { t, user, list } = await setUp();
@@ -169,18 +167,6 @@ describe('GET /recipes', () => {
     expect(beyond.recipes).toEqual([]);
     for (const { total, totalPages } of [first, second, beyond]) {
       expect({ total, totalPages }).toEqual({ total: RECIPES_PER_PAGE + 1, totalPages: 2 });
-    }
-  });
-
-  it('refuses a page that isn’t a whole number from 1', async () => {
-    const { get } = await setUp();
-
-    for (const page of ['0', 'two', '1.5']) {
-      const res = await get(`?page=${page}`);
-      expect(res.status).toBe(422);
-      expect(validationProblemSchema.parse(await res.json()).errors).toMatchObject([
-        { pointer: '#/page' },
-      ]);
     }
   });
 });

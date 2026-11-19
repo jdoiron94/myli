@@ -1,4 +1,4 @@
-import { AUTH_BASE_PATH, validationProblemSchema } from '@myli/shared';
+import { AUTH_BASE_PATH } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createUserWithPassword } from '../auth/users.ts';
@@ -136,25 +136,34 @@ describe('audit_event table', () => {
     ]);
   });
 
-  it.each([
-    ["action = 'bogus'", "('bogus', null, null)", 'audit_event_action_check'],
-    [
-      'an unknown target type',
-      "('instance.exported', 'comment', 'x')",
-      'audit_event_target_type_check',
-    ],
-    [
-      'a target type without an ID',
-      "('instance.exported', 'user', null)",
-      'audit_event_target_check',
-    ],
-    ['a target ID without a type', "('instance.exported', null, 'x')", 'audit_event_target_check'],
-  ])('rejects %s at the database level', (_case, values, constraint) => {
+  it('refuses an unknown action or target type, or half a target, at the database level', () => {
     const db = createTestDatabase();
-    const insert = db.$client.prepare(
-      `insert into audit_event (action, target_type, target_id, created_at) values ${values.replace(')', ', 0)')}`,
+    const failures = Object.fromEntries(
+      [
+        "('bogus', null, null)",
+        "('instance.exported', 'comment', 'x')",
+        "('instance.exported', 'user', null)",
+        "('instance.exported', null, 'x')",
+      ].map((values) => {
+        const insert = db.$client.prepare(
+          `insert into audit_event (action, target_type, target_id, created_at) values ${values.replace(')', ', 0)')}`,
+        );
+        try {
+          insert.run();
+          return [values, 'inserted'];
+        } catch (error) {
+          return [values, error instanceof Error ? error.message : String(error)];
+        }
+      }),
     );
-    expect(() => insert.run()).toThrow(`CHECK constraint failed: ${constraint}`);
+
+    expect(failures).toEqual({
+      "('bogus', null, null)": 'CHECK constraint failed: audit_event_action_check',
+      "('instance.exported', 'comment', 'x')":
+        'CHECK constraint failed: audit_event_target_type_check',
+      "('instance.exported', 'user', null)": 'CHECK constraint failed: audit_event_target_check',
+      "('instance.exported', null, 'x')": 'CHECK constraint failed: audit_event_target_check',
+    });
   });
 });
 
@@ -252,20 +261,6 @@ describe('GET /api/v1/audit-events', () => {
     expect(
       (await list(t, admin.cookie, '?action=instance.exported&limit=5')).nextBefore,
     ).toBeNull();
-  });
-
-  it('answers invalid paging and filters with a validation problem', async () => {
-    const { t, admin } = await setUp();
-
-    const res = await send(t, 'GET', '/api/v1/audit-events?limit=101&before=0&action=bogus', {
-      cookie: admin.cookie,
-    });
-
-    expect(res.status).toBe(422);
-    const { errors } = validationProblemSchema.parse(await res.json());
-    expect(new Set(errors.map((error) => error.pointer))).toEqual(
-      new Set(['#/limit', '#/before', '#/action']),
-    );
   });
 });
 

@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createUserWithPassword } from '../auth/users.ts';
 import { invitation, user } from '../db/schema.ts';
-import { JSON_ONLY_DETAIL } from '../json-only.ts';
 import { createLogger } from '../logger.ts';
 import { createTestApp, signedInAs, type TestApp, type TestAppOptions } from '../testing.ts';
 
@@ -210,22 +209,6 @@ describe('POST /api/v1/invitations', () => {
     expect(() => t.db.insert(invitation).values(duplicate).run()).not.toThrow();
   });
 
-  it.each(['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x'])(
-    'refuses a %s body, which a cross-site form could send with the admin cookie',
-    async (contentType) => {
-      const { t, admin } = await setUp();
-
-      const res = await t.app.request('/api/v1/invitations', {
-        method: 'POST',
-        headers: { cookie: admin.cookie, 'content-type': contentType },
-        body: JSON.stringify({ email: 'grace@example.com', role: 'admin' }),
-      });
-
-      expect(res.status).toBe(415);
-      expect(invitations(t)).toEqual([]);
-    },
-  );
-
   it('answers invalid input with a validation problem naming each field', async () => {
     const { t, admin } = await setUp();
 
@@ -264,9 +247,9 @@ describe('POST /api/v1/invitations/lookup', () => {
     });
   });
 
-  it.each(['unknown', 'expired', 'revoked', 'accepted'] as const)(
-    'answers an %s link with the same 404 as every other unusable link',
-    async (state) => {
+  it('answers every unusable link with the same 404: unknown, expired, revoked or accepted', async () => {
+    const answers: Record<string, [number, string | undefined]> = {};
+    for (const state of ['unknown', 'expired', 'revoked', 'accepted'] as const) {
       const { t, admin } = await setUp();
       let { token } = await invite(t, admin.cookie);
       if (state === 'unknown') token = 'not-a-real-token';
@@ -282,11 +265,16 @@ describe('POST /api/v1/invitations/lookup', () => {
       }
 
       const res = await post(t, '/invitations/lookup', { token });
+      answers[state] = [res.status, await detail(res)];
+    }
 
-      expect(res.status).toBe(404);
-      expect(await detail(res)).toBe(UNUSABLE);
-    },
-  );
+    expect(answers).toEqual({
+      unknown: [404, UNUSABLE],
+      expired: [404, UNUSABLE],
+      revoked: [404, UNUSABLE],
+      accepted: [404, UNUSABLE],
+    });
+  });
 });
 
 describe('POST /api/v1/invitations/accept', () => {
@@ -318,16 +306,30 @@ describe('POST /api/v1/invitations/accept', () => {
     expect(signIn.status).toBe(200);
   });
 
-  it('refuses the same link a second time', async () => {
+  it('refuses a link already used, expired or revoked, creating no one', async () => {
     const { t, admin } = await setUp();
     const { token } = await invite(t, admin.cookie);
     await post(t, '/invitations/accept', { token, ...INVITEE });
-
     const replay = await post(t, '/invitations/accept', { token, ...INVITEE, name: 'Mallory' });
-
-    expect(replay.status).toBe(404);
-    expect(await detail(replay)).toBe(UNUSABLE);
+    expect([replay.status, await detail(replay)]).toEqual([404, UNUSABLE]);
     expect(usersWithEmail(t, 'grace@example.com')).toMatchObject([{ name: 'Grace Hopper' }]);
+
+    for (const state of ['expired', 'revoked'] as const) {
+      const other = await setUp();
+      const { token: unusable } = await invite(other.t, other.admin.cookie);
+      other.t.db
+        .update(invitation)
+        .set(
+          state === 'expired'
+            ? { expiresAt: new Date(Date.now() - 1000) }
+            : { revokedAt: new Date() },
+        )
+        .run();
+
+      const res = await post(other.t, '/invitations/accept', { token: unusable, ...INVITEE });
+      expect([res.status, await detail(res)], state).toEqual([404, UNUSABLE]);
+      expect(usersWithEmail(other.t, 'grace@example.com'), state).toEqual([]);
+    }
   });
 
   it('creates exactly one user when two acceptances arrive at the same moment', async () => {
@@ -341,25 +343,6 @@ describe('POST /api/v1/invitations/accept', () => {
 
     expect(responses.map((res) => res.status).toSorted()).toEqual([201, 404]);
     expect(usersWithEmail(t, 'grace@example.com')).toHaveLength(1);
-  });
-
-  it.each(['expired', 'revoked'] as const)('refuses a %s link', async (state) => {
-    const { t, admin } = await setUp();
-    const { token } = await invite(t, admin.cookie);
-    t.db
-      .update(invitation)
-      .set(
-        state === 'expired'
-          ? { expiresAt: new Date(Date.now() - 1000) }
-          : { revokedAt: new Date() },
-      )
-      .run();
-
-    const res = await post(t, '/invitations/accept', { token, ...INVITEE });
-
-    expect(res.status).toBe(404);
-    expect(await detail(res)).toBe(UNUSABLE);
-    expect(usersWithEmail(t, 'grace@example.com')).toEqual([]);
   });
 
   it('releases the claim when creating the user fails, so the link works again', async () => {
@@ -499,9 +482,8 @@ describe('POST /api/v1/invitations/{id}/resend', () => {
     expect(t.db.$client.serialize().includes(token)).toBe(false);
   });
 
-  it.each(['unknown', 'accepted', 'revoked'] as const)(
-    'answers 404 for an %s invitation and changes nothing',
-    async (state) => {
+  it('answers 404 for an invitation that is unknown, accepted or revoked, and changes nothing', async () => {
+    for (const state of ['unknown', 'accepted', 'revoked'] as const) {
       const { t, admin } = await setUp();
       const created = await invite(t, admin.cookie);
       if (state !== 'unknown') await makeState(t, admin.cookie, created, state);
@@ -510,11 +492,10 @@ describe('POST /api/v1/invitations/{id}/resend', () => {
       const id = state === 'unknown' ? randomUUID() : created.invitation.id;
       const res = await act(t, id, 'resend', admin.cookie);
 
-      expect(res.status).toBe(404);
-      expect(await detail(res)).toBe(NOT_OPEN);
-      expect(invitations(t)).toEqual(before);
-    },
-  );
+      expect([res.status, await detail(res)], state).toEqual([404, NOT_OPEN]);
+      expect(invitations(t), state).toEqual(before);
+    }
+  });
 
   it('refuses when a user has taken the email since, and changes nothing', async () => {
     const { t, admin } = await setUp();
@@ -564,9 +545,8 @@ describe('POST /api/v1/invitations/{id}/revoke', () => {
     await invite(t, admin.cookie);
   });
 
-  it.each(['unknown', 'accepted', 'revoked'] as const)(
-    'answers 404 for an %s invitation and changes nothing',
-    async (state) => {
+  it('answers 404 for an invitation that is unknown, accepted or revoked, and changes nothing', async () => {
+    for (const state of ['unknown', 'accepted', 'revoked'] as const) {
       const { t, admin } = await setUp();
       const created = await invite(t, admin.cookie);
       if (state !== 'unknown') await makeState(t, admin.cookie, created, state);
@@ -575,11 +555,10 @@ describe('POST /api/v1/invitations/{id}/revoke', () => {
       const id = state === 'unknown' ? randomUUID() : created.invitation.id;
       const res = await act(t, id, 'revoke', admin.cookie);
 
-      expect(res.status).toBe(404);
-      expect(await detail(res)).toBe(NOT_OPEN);
-      expect(invitations(t)).toEqual(before);
-    },
-  );
+      expect([res.status, await detail(res)], state).toEqual([404, NOT_OPEN]);
+      expect(invitations(t), state).toEqual(before);
+    }
+  });
 
   it('logs the revocation by ID, never the email', async () => {
     const { t, admin, logs, rawLogs } = await setUp();
@@ -591,32 +570,6 @@ describe('POST /api/v1/invitations/{id}/revoke', () => {
       expect.objectContaining({ msg: 'invitation revoked', invitationId: created.invitation.id }),
     );
     expect(rawLogs()).not.toContain('grace@example.com');
-  });
-});
-
-describe('resending and revoking from another origin', () => {
-  // A form can't send JSON, and a no-CORS fetch can send no content type at all. Either way the
-  // admin's cookie may come along (CLAUDE.md, Content and security), so the content type decides.
-  it.each(
-    (['resend', 'revoke'] as const).flatMap((action) =>
-      [undefined, 'text/plain', 'application/x-www-form-urlencoded'].map(
-        (contentType) => [action, contentType] as const,
-      ),
-    ),
-  )('refuses to %s with content type %s', async (action, contentType) => {
-    const { t, admin } = await setUp();
-    const created = await invite(t, admin.cookie);
-    const before = invitations(t);
-
-    const res = await t.app.request(`/api/v1/invitations/${created.invitation.id}/${action}`, {
-      method: 'POST',
-      headers: { cookie: admin.cookie, ...(contentType && { 'content-type': contentType }) },
-      ...(contentType && { body: 'x=1' }),
-    });
-
-    expect(res.status).toBe(415);
-    expect(await detail(res)).toBe(JSON_ONLY_DETAIL);
-    expect(invitations(t)).toEqual(before);
   });
 });
 

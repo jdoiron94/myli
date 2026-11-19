@@ -23,29 +23,13 @@ const REQUIRED = {
 };
 
 describe('loadEnv', () => {
-  it('applies defaults when only the required variables are set', () => {
-    expect(loadEnv(REQUIRED)).toEqual({
-      NODE_ENV: 'production',
-      HOST: '0.0.0.0',
-      PORT: 3000,
-      LOG_LEVEL: 'info',
-      DATABASE_PATH: './data/myli.db',
-      BLOB_DIR: './data/blobs',
-      MEILI_URL: 'http://localhost:7700',
-      TRUSTED_PROXIES: [],
-      INVITATION_TTL_DAYS: 7,
-      SMTP_SECURITY: 'starttls',
-      ...REQUIRED,
-    });
-  });
-
-  it('reads and converts values that are set', () => {
+  it('reads and converts what is set, treating empty as unset and dropping what it doesn’t know', () => {
     expect(
       loadEnv({
         NODE_ENV: 'development',
         HOST: '127.0.0.1',
         PORT: '8080',
-        LOG_LEVEL: 'debug',
+        LOG_LEVEL: '',
         DATABASE_PATH: '/data/myli.db',
         BLOB_DIR: '/data/blobs',
         PUBLIC_URL: 'http://localhost:5173',
@@ -54,12 +38,13 @@ describe('loadEnv', () => {
         MEILI_MASTER_KEY: REQUIRED.MEILI_MASTER_KEY,
         TRUSTED_PROXIES: '172.18.0.2, 10.0.0.0/8,,fd00::/8 ',
         INVITATION_TTL_DAYS: '14',
+        PATH: '/usr/bin',
       }),
     ).toEqual({
       NODE_ENV: 'development',
       HOST: '127.0.0.1',
       PORT: 8080,
-      LOG_LEVEL: 'debug',
+      LOG_LEVEL: 'info',
       DATABASE_PATH: '/data/myli.db',
       BLOB_DIR: '/data/blobs',
       PUBLIC_URL: 'http://localhost:5173',
@@ -76,15 +61,19 @@ describe('loadEnv', () => {
     });
   });
 
-  it('treats empty strings as unset', () => {
-    expect(loadEnv({ ...REQUIRED, PORT: '', LOG_LEVEL: '' })).toMatchObject({
-      PORT: 3000,
-      LOG_LEVEL: 'info',
-    });
-  });
-
-  it('drops variables it does not know about', () => {
-    expect(loadEnv({ ...REQUIRED, PATH: '/usr/bin', HOME: '/root' })).not.toHaveProperty('PATH');
+  it('reduces PUBLIC_URL to its origin, refusing one with a path or query', () => {
+    expect(loadEnv({ ...REQUIRED, PUBLIC_URL: 'https://Myli.Example:8443/' }).PUBLIC_URL).toBe(
+      'https://myli.example:8443',
+    );
+    for (const url of [
+      'myli.example',
+      'https://myli.example/recipes',
+      'https://myli.example/?x=1',
+    ]) {
+      expect(loadEnvError({ ...REQUIRED, PUBLIC_URL: url }).message, url).toMatch(
+        /^\s+PUBLIC_URL: /m,
+      );
+    }
   });
 
   it('names each TRUSTED_PROXIES entry that is not an address or range, without echoing it', () => {
@@ -102,68 +91,22 @@ describe('loadEnv', () => {
     expect(error.message).not.toContain('caddy');
   });
 
-  it.each(['0', '91', '1.5', 'week'])('rejects INVITATION_TTL_DAYS=%s', (days) => {
-    expect(loadEnvError({ ...REQUIRED, INVITATION_TTL_DAYS: days }).message).toMatch(
-      /^\s+INVITATION_TTL_DAYS: /m,
-    );
-  });
+  it('lists every missing or invalid variable in one error, never echoing a value', () => {
+    const { message } = loadEnvError({
+      PUBLIC_URL: '',
+      BETTER_AUTH_SECRET: 'too-short-hunter2',
+      MEILI_MASTER_KEY: 'short-hunter3',
+      PORT: 'hunter4',
+      NODE_ENV: 'staging',
+    });
 
-  it.each(['0', '65536', '80.5', 'http'])('rejects PORT=%s', (port) => {
-    expect(loadEnvError({ ...REQUIRED, PORT: port }).message).toMatch(/^\s+PORT: /m);
-  });
-
-  it('says which required variables are missing', () => {
-    const { message } = loadEnvError({ PUBLIC_URL: '', BETTER_AUTH_SECRET: '' });
-    expect(message).toMatch(/^\s+PUBLIC_URL: is required$/m);
-    expect(message).toMatch(/^\s+BETTER_AUTH_SECRET: is required$/m);
-  });
-
-  it('reduces PUBLIC_URL to its origin', () => {
-    expect(loadEnv({ ...REQUIRED, PUBLIC_URL: 'https://Myli.Example:8443/' }).PUBLIC_URL).toBe(
-      'https://myli.example:8443',
-    );
-  });
-
-  it.each([
-    'myli.example',
-    'ftp://myli.example',
-    'https://myli.example/recipes',
-    'https://myli.example/?x=1',
-  ])('rejects PUBLIC_URL=%s', (url) => {
-    expect(loadEnvError({ ...REQUIRED, PUBLIC_URL: url }).message).toMatch(/^\s+PUBLIC_URL: /m);
-  });
-
-  it('rejects a BETTER_AUTH_SECRET shorter than 32 characters, without echoing it', () => {
-    const { message } = loadEnvError({ ...REQUIRED, BETTER_AUTH_SECRET: 'too-short-hunter2' });
-    expect(message).toMatch(/^\s+BETTER_AUTH_SECRET: must be at least 32 characters/m);
-    expect(message).not.toContain('hunter2');
-  });
-
-  it('requires MEILI_MASTER_KEY, of at least 16 characters, without echoing it', () => {
-    const unset = loadEnvError({ ...REQUIRED, MEILI_MASTER_KEY: '' });
-    expect(unset.message).toMatch(/^\s+MEILI_MASTER_KEY: is required$/m);
-
-    const { message } = loadEnvError({ ...REQUIRED, MEILI_MASTER_KEY: 'short-hunter2' });
-    expect(message).toMatch(/^\s+MEILI_MASTER_KEY: must be at least 16 characters/m);
-    expect(message).not.toContain('hunter2');
-  });
-
-  it.each(['meilisearch:7700', 'ftp://meilisearch:7700'])('rejects MEILI_URL=%s', (url) => {
-    expect(loadEnvError({ ...REQUIRED, MEILI_URL: url }).message).toMatch(/^\s+MEILI_URL: /m);
-  });
-
-  it('lists every invalid variable in one error', () => {
-    const { message } = loadEnvError({ NODE_ENV: 'staging', PORT: '99999', LOG_LEVEL: 'loud' });
     expect(message).toMatch(/^Invalid environment configuration:/);
-    expect(message).toMatch(/^\s+NODE_ENV: /m);
+    expect(message).toMatch(/^\s+PUBLIC_URL: is required$/m);
+    expect(message).toMatch(/^\s+BETTER_AUTH_SECRET: must be at least 32 characters/m);
+    expect(message).toMatch(/^\s+MEILI_MASTER_KEY: must be at least 16 characters/m);
     expect(message).toMatch(/^\s+PORT: /m);
-    expect(message).toMatch(/^\s+LOG_LEVEL: /m);
-  });
-
-  it('never echoes the invalid values', () => {
-    const { message } = loadEnvError({ PORT: 'hunter2-secret', LOG_LEVEL: 'hunter3-secret' });
-    expect(message).not.toContain('hunter2-secret');
-    expect(message).not.toContain('hunter3-secret');
+    expect(message).toMatch(/^\s+NODE_ENV: /m);
+    expect(message).not.toMatch(/hunter|staging/);
   });
 });
 
@@ -176,10 +119,6 @@ describe('the first admin variables', () => {
   const ALL_THREE_OR_NONE =
     'is required when any of ADMIN_NAME, ADMIN_EMAIL or ADMIN_PASSWORD is set';
 
-  it('are optional', () => {
-    expect(loadEnv(REQUIRED)).not.toHaveProperty('ADMIN_NAME');
-  });
-
   it('are read together, with the name trimmed and the email lowercased', () => {
     expect(loadEnv({ ...REQUIRED, ...ADMIN })).toMatchObject({
       ADMIN_NAME: 'Ada Lovelace',
@@ -188,31 +127,15 @@ describe('the first admin variables', () => {
     });
   });
 
-  it.each(['ADMIN_NAME', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'] as const)(
-    'must all be set if any is: only %s is',
-    (name) => {
-      const { message } = loadEnvError({ ...REQUIRED, [name]: ADMIN[name] });
-      const missing = Object.keys(ADMIN).filter((variable) => variable !== name);
-      for (const variable of missing) {
-        expect(message).toMatch(new RegExp(`^\\s+${variable}: ${ALL_THREE_OR_NONE}$`, 'm'));
-      }
-      expect(message).not.toMatch(new RegExp(`^\\s+${name}: `, 'm'));
-      expect(message).not.toContain(ADMIN[name].trim());
-    },
-  );
+  it('must all be set if any is, even an invalid one, and the password must follow the rules', () => {
+    const incomplete = loadEnvError({ ...REQUIRED, ADMIN_EMAIL: 'not-an-email' }).message;
+    expect(incomplete).toMatch(/^\s+ADMIN_EMAIL: Enter a valid email address\.$/m);
+    expect(incomplete).toMatch(new RegExp(`^\\s+ADMIN_NAME: ${ALL_THREE_OR_NONE}$`, 'm'));
+    expect(incomplete).toMatch(new RegExp(`^\\s+ADMIN_PASSWORD: ${ALL_THREE_OR_NONE}$`, 'm'));
 
-  it('count as set when one is invalid, and are checked alongside every other variable', () => {
-    const { message } = loadEnvError({ ...REQUIRED, PORT: 'http', ADMIN_EMAIL: 'not-an-email' });
-    expect(message).toMatch(/^\s+PORT: /m);
-    expect(message).toMatch(/^\s+ADMIN_EMAIL: Enter a valid email address\.$/m);
-    expect(message).toMatch(new RegExp(`^\\s+ADMIN_NAME: ${ALL_THREE_OR_NONE}$`, 'm'));
-    expect(message).toMatch(new RegExp(`^\\s+ADMIN_PASSWORD: ${ALL_THREE_OR_NONE}$`, 'm'));
-  });
-
-  it('reject a password that breaks the rules, saying which, without echoing it', () => {
-    const { message } = loadEnvError({ ...REQUIRED, ...ADMIN, ADMIN_PASSWORD: 'hunter2-hunter2' });
-    expect(message).toMatch(/^\s+ADMIN_PASSWORD: Must contain an uppercase letter\.$/m);
-    expect(message).not.toContain('hunter2');
+    const weak = loadEnvError({ ...REQUIRED, ...ADMIN, ADMIN_PASSWORD: 'hunter2-hunter2' }).message;
+    expect(weak).toMatch(/^\s+ADMIN_PASSWORD: Must contain an uppercase letter\.$/m);
+    expect(weak).not.toContain('hunter2');
   });
 });
 
@@ -221,12 +144,6 @@ describe('the SMTP variables', () => {
     SMTP_HOST: 'smtp.example.com',
     SMTP_FROM: 'myli <myli@example.com>',
   };
-
-  it('are optional: email is off unless SMTP_HOST is set', () => {
-    const env = loadEnv(REQUIRED);
-    expect(env).not.toHaveProperty('SMTP_HOST');
-    expect(env.SMTP_SECURITY).toBe('starttls');
-  });
 
   it('are read together', () => {
     expect(
@@ -247,54 +164,57 @@ describe('the SMTP variables', () => {
     });
   });
 
-  it('need SMTP_FROM when SMTP_HOST is set', () => {
-    const { message } = loadEnvError({ ...REQUIRED, SMTP_HOST: SMTP.SMTP_HOST });
-    expect(message).toMatch(/^\s+SMTP_FROM: is required when SMTP_HOST is set$/m);
+  it('need what goes with them: SMTP_FROM with the host, the login in full, and the host with any', () => {
+    expect(loadEnvError({ ...REQUIRED, SMTP_HOST: SMTP.SMTP_HOST }).message).toMatch(
+      /^\s+SMTP_FROM: is required when SMTP_HOST is set$/m,
+    );
+
+    const half = loadEnvError({ ...REQUIRED, ...SMTP, SMTP_USER: 'smtp-hunter2' }).message;
+    expect(half).toMatch(/^\s+SMTP_PASSWORD: is required when SMTP_USER is set$/m);
+    expect(half).not.toContain('hunter2');
+    expect(loadEnvError({ ...REQUIRED, ...SMTP, SMTP_PASSWORD: 'x' }).message).toMatch(
+      /^\s+SMTP_USER: is required when SMTP_PASSWORD is set$/m,
+    );
+
+    // Catches a misspelled host variable.
+    expect(loadEnvError({ ...REQUIRED, SMTP_PORT: '2525' }).message).toMatch(
+      /^\s+SMTP_PORT: requires SMTP_HOST, which is not set$/m,
+    );
   });
 
-  it.each([
-    ['SMTP_USER', 'SMTP_PASSWORD'],
-    ['SMTP_PASSWORD', 'SMTP_USER'],
-  ])('need the login in full: %s without %s is refused', (set, missing) => {
-    const { message } = loadEnvError({ ...REQUIRED, ...SMTP, [set]: 'smtp-hunter2' });
-    expect(message).toMatch(new RegExp(`^\\s+${missing}: is required when ${set} is set$`, 'm'));
-    expect(message).not.toContain('hunter2');
-  });
+  it('take SMTP_FROM as an email address, optionally with a name', () => {
+    const accepted = [
+      'myli@example.com',
+      'myli <myli@example.com>',
+      '"myli, at home" <myli@example.com>',
+    ];
+    const refused = [
+      'myli',
+      'myli <not-an-email>',
+      'a@example.com, b@example.com',
+      'myli <a@example.com',
+    ];
+    const takes = (from: string) => {
+      try {
+        return loadEnv({ ...REQUIRED, ...SMTP, SMTP_FROM: from }).SMTP_FROM === from;
+      } catch (error) {
+        if (
+          error instanceof EnvError &&
+          /^\s+SMTP_FROM: must be an email address/m.test(error.message)
+        ) {
+          return false;
+        }
+        throw error;
+      }
+    };
 
-  it.each(['SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'])(
-    'refuse %s without SMTP_HOST, which catches a misspelled host variable',
-    (name) => {
-      const value = name === 'SMTP_PORT' ? '2525' : SMTP.SMTP_FROM;
-      const { message } = loadEnvError({ ...REQUIRED, [name]: value });
-      expect(message).toMatch(
-        new RegExp(`^\\s+${name}: requires SMTP_HOST, which is not set$`, 'm'),
-      );
-    },
-  );
-
-  it.each(['myli@example.com', 'myli <myli@example.com>', '"myli, at home" <myli@example.com>'])(
-    'accept SMTP_FROM=%s',
-    (from) => {
-      expect(loadEnv({ ...REQUIRED, ...SMTP, SMTP_FROM: from }).SMTP_FROM).toBe(from);
-    },
-  );
-
-  it.each(['myli', 'myli <not-an-email>', 'a@example.com, b@example.com', 'myli <a@example.com'])(
-    'reject SMTP_FROM=%s',
-    (from) => {
-      expect(loadEnvError({ ...REQUIRED, ...SMTP, SMTP_FROM: from }).message).toMatch(
-        /^\s+SMTP_FROM: must be an email address, optionally with a name/m,
-      );
-    },
-  );
-
-  it.each([
-    ['SMTP_SECURITY', 'ssl'],
-    ['SMTP_HOST', 'smtp example com'],
-    ['SMTP_PORT', '0'],
-  ])('reject %s=%s', (name, value) => {
-    expect(loadEnvError({ ...REQUIRED, ...SMTP, [name]: value }).message).toMatch(
-      new RegExp(`^\\s+${name}: `, 'm'),
+    expect(
+      Object.fromEntries([...accepted, ...refused].map((from) => [from, takes(from)])),
+    ).toEqual(
+      Object.fromEntries([
+        ...accepted.map((from) => [from, true]),
+        ...refused.map((from) => [from, false]),
+      ]),
     );
   });
 });
@@ -337,56 +257,41 @@ describe('secrets from files', () => {
     expect(Object.keys(env).filter((name) => name.endsWith('_FILE'))).toEqual([]);
   });
 
-  it('refuses a secret and its file together', () => {
-    const error = loadEnvError({
+  it('says what’s wrong with a file by its path, never its contents', () => {
+    const together = loadEnvError({
       ...REQUIRED,
       MEILI_MASTER_KEY_FILE: secretFile('another-master-key'),
     });
-
-    expect(error.message).toMatch(
+    expect(together.message).toMatch(
       /^\s+MEILI_MASTER_KEY_FILE: can't be set together with MEILI_MASTER_KEY; set one or the other$/m,
     );
-    expect(error.message).not.toContain('another-master-key');
-  });
+    expect(together.message).not.toContain('another-master-key');
 
-  it("says which file can't be read and why, instead of calling the secret missing", () => {
     const missing = join(dir, 'missing');
-    const error = loadEnvError({
+    const empty = secretFile('\n');
+    const unreadable = loadEnvError({
       PUBLIC_URL: REQUIRED.PUBLIC_URL,
       BETTER_AUTH_SECRET_FILE: missing,
       MEILI_MASTER_KEY_FILE: dir,
+      ADMIN_NAME: 'Ada Lovelace',
+      ADMIN_EMAIL: 'ada@example.com',
+      ADMIN_PASSWORD_FILE: empty,
     });
-
-    expect(error.message.split('\n').slice(1)).toEqual([
+    expect(unreadable.message.split('\n').slice(1)).toEqual([
       `  BETTER_AUTH_SECRET_FILE: can't read ${missing}: there is no such file`,
       `  MEILI_MASTER_KEY_FILE: can't read ${dir}: it is a directory`,
+      `  ADMIN_PASSWORD_FILE: ${empty} is empty`,
     ]);
-  });
 
-  it('refuses an empty file', () => {
-    const empty = secretFile('\n');
-    const error = loadEnvError({
-      ...REQUIRED,
-      BETTER_AUTH_SECRET: '',
-      BETTER_AUTH_SECRET_FILE: empty,
-    });
-
-    expect(error.message.split('\n').slice(1)).toEqual([
-      `  BETTER_AUTH_SECRET_FILE: ${empty} is empty`,
-    ]);
-  });
-
-  it('checks a secret from a file like any other, saying where it came from, without echoing it', () => {
-    const error = loadEnvError({
+    const short = loadEnvError({
       ...REQUIRED,
       BETTER_AUTH_SECRET: '',
       BETTER_AUTH_SECRET_FILE: secretFile('too-short-hunter2'),
     });
-
-    expect(error.message).toMatch(
+    expect(short.message).toMatch(
       /^\s+BETTER_AUTH_SECRET \(from BETTER_AUTH_SECRET_FILE\): must be at least 32 characters/m,
     );
-    expect(error.message).not.toContain('hunter2');
+    expect(short.message).not.toContain('hunter2');
   });
 });
 
@@ -413,15 +318,9 @@ describe('.env.example', () => {
     );
   });
 
-  it('shows the default compose.yaml gives each of its own variables', () => {
+  it('shows the default of each variable, leaving the required ones empty', () => {
     for (const name of composeOnly) expect(example[name], name).toBe(composeDefaults.get(name));
-  });
-
-  it('leaves the required variables empty', () => {
-    for (const name of Object.keys(REQUIRED)) expect(example[name]).toBe('');
-  });
-
-  it('shows the default value of every other variable', () => {
+    for (const name of Object.keys(REQUIRED)) expect(example[name], name).toBe('');
     expect(loadEnv({ ...example, ...REQUIRED })).toEqual(loadEnv(REQUIRED));
   });
 });

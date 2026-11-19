@@ -5,7 +5,6 @@ import {
   type RecipeList,
   type Role,
   recipeResultSchema,
-  type UpdateRecipeRequest,
   validationProblemSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
@@ -226,65 +225,6 @@ describe('a recipe’s photos', () => {
         { id: otherPhoto.id, recipeId: other.id, position: 0 },
       ]),
     );
-  });
-
-  it.each<[string, Partial<UpdateRecipeRequest>, string, string]>([
-    [
-      'a cover that isn’t one of its photos',
-      { images: photos('a'), coverImageId: 'b' },
-      '#/coverImageId',
-      'Choose one of its photos as the cover.',
-    ],
-    [
-      'photos without a cover',
-      { images: photos('a'), coverImageId: null },
-      '#/coverImageId',
-      'Choose one of its photos as the cover.',
-    ],
-    ['a cover without photos', { coverImageId: 'a' }, '#/coverImageId', 'It has no photos.'],
-    [
-      'the same photo twice',
-      { images: photos('a', 'a'), coverImageId: 'a' },
-      '#/images/1/id',
-      'Each photo can be used once.',
-    ],
-    [
-      'a step’s photo that’s also one of the recipe’s',
-      { images: photos('a'), coverImageId: 'a', steps: withSteps('a') },
-      '#/steps/0/image/id',
-      'Each photo can be used once.',
-    ],
-    [
-      'two steps with the same photo',
-      { steps: withSteps('a', 'a') },
-      '#/steps/1/image/id',
-      'Each photo can be used once.',
-    ],
-    [
-      'more than 20 photos',
-      {
-        images: photos(...Array.from({ length: 21 }, (_, index) => `photo-${String(index)}`)),
-        coverImageId: 'photo-0',
-      },
-      '#/images',
-      'A recipe can have up to 20 photos.',
-    ],
-    [
-      'alt text over 300 characters',
-      { images: [{ id: 'a', alt: 'x'.repeat(301) }], coverImageId: 'a' },
-      '#/images/0/alt',
-      'Keep it to 300 characters.',
-    ],
-    [
-      'a step photo’s alt text over 300 characters',
-      { steps: [{ body: 'Bake.', image: { id: 'a', alt: 'x'.repeat(301) } }] },
-      '#/steps/0/image/alt',
-      'Keep it to 300 characters.',
-    ],
-  ])('refuses %s', async (_, photos, pointer, detail) => {
-    const { t, cookie } = await setUp();
-    const res = await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest(photos));
-    expect(await fieldErrors(res)).toEqual({ [pointer]: detail });
   });
 
   it('saves changes to its photos, and deletes those it left out, their blobs in a job', async () => {

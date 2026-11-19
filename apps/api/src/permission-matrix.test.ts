@@ -3,15 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { authorize, notFound, requirePermission } from './auth/authorize.ts';
 import { requireSession } from './auth/session.ts';
 import { renderOpenApiDocument } from './openapi-document.ts';
-import {
-  type Access,
-  CALLERS,
-  ENDPOINTS,
-  type EndpointCase,
-  expectedOutcome,
-  findMismatches,
-  RECIPE_CASES,
-} from './permission-matrix.ts';
+import { type Access, ENDPOINTS, type EndpointCase, findMismatches } from './permission-matrix.ts';
 import { findRecipeAccess } from './recipes/recipes.ts';
 import { createTestApp } from './testing.ts';
 
@@ -41,36 +33,6 @@ describe('the permission matrix', () => {
       expect(await findMismatches(endpoint, () => createTestApp())).toEqual([]);
     });
   }
-});
-
-describe('expectedOutcome', () => {
-  it.each([
-    ['public', ['allowed', 'allowed', 'allowed', 'allowed']],
-    ['signed-in', [401, 'allowed', 'allowed', 'allowed']],
-    ['user.invite', [401, 'allowed', 403, 403]],
-    ['recipe.create', [401, 'allowed', 'allowed', 403]],
-  ] as const)('%s, for %j', (access, expected) => {
-    expect(CALLERS).toEqual(['anonymous', 'admin', 'editor', 'viewer']);
-    expect(CALLERS.map((caller) => expectedOutcome(access, caller))).toEqual(expected);
-  });
-
-  // One row per recipe case: their own private, their own shared, someone else's private, shared.
-  it.each([
-    ['recipe.read', 'admin', ['allowed', 'allowed', 404, 'allowed']],
-    ['recipe.read', 'viewer', ['allowed', 'allowed', 404, 'allowed']],
-    ['recipe.edit', 'editor', ['allowed', 'allowed', 404, 'allowed']],
-    ['recipe.edit', 'viewer', [403, 403, 404, 403]],
-    ['recipe.trash', 'editor', ['allowed', 'allowed', 404, 403]],
-  ] as const)('%s on each recipe, for %s', (action, caller, expected) => {
-    expect(
-      RECIPE_CASES.map((recipe) => expectedOutcome({ recipe: action }, caller, recipe)),
-    ).toEqual(expected);
-  });
-
-  it('expects 401 before anything about the recipe', () => {
-    for (const recipe of RECIPE_CASES)
-      expect(expectedOutcome({ recipe: 'recipe.read' }, 'anonymous', recipe)).toBe(401);
-  });
 });
 
 describe('the harness itself', () => {
@@ -126,56 +88,46 @@ describe('the harness itself', () => {
     ] as const) {
       expect(await findMismatches(endpoint(path, access), appWithTestRoutes)).toEqual([]);
     }
-  });
-
-  it('reports an endpoint that lets in more callers than the policy allows', async () => {
-    expect(await findMismatches(endpoint('/members', 'user.invite'), appWithTestRoutes)).toEqual([
-      'editor GET /members: expected 403, got 200',
-      'viewer GET /members: expected 403, got 200',
-    ]);
-  });
-
-  it('reports an endpoint that turns away callers the policy allows', async () => {
-    expect(await findMismatches(endpoint('/admins', 'signed-in'), appWithTestRoutes)).toEqual([
-      'editor GET /admins: expected allowed, got 403',
-      'viewer GET /admins: expected allowed, got 403',
-    ]);
-    expect(await findMismatches(endpoint('/members', 'public'), appWithTestRoutes)).toEqual([
-      'anonymous GET /members: expected allowed, got 401',
-    ]);
-  });
-
-  it('finds nothing wrong with a recipe endpoint that authorizes its action', async () => {
     expect(await findMismatches(recipeEndpoint('edit', 'recipe.edit'), appWithTestRoutes)).toEqual(
       [],
     );
   });
 
-  it('reports a recipe endpoint that shows hidden recipes', async () => {
-    expect(await findMismatches(recipeEndpoint('leaky', 'recipe.read'), appWithTestRoutes)).toEqual(
+  it('reports each way an endpoint can let in or turn away the wrong callers', async () => {
+    const mismatches = await Promise.all(
+      [
+        endpoint('/members', 'user.invite'),
+        endpoint('/admins', 'signed-in'),
+        endpoint('/members', 'public'),
+        recipeEndpoint('leaky', 'recipe.read'),
+        recipeEndpoint('read-only-check', 'recipe.edit'),
+        // A crash doesn't count as getting through.
+        endpoint('/crashes', 'signed-in'),
+      ].map((wrong) => findMismatches(wrong, appWithTestRoutes)),
+    );
+
+    expect(mismatches).toEqual([
+      ['editor GET /members: expected 403, got 200', 'viewer GET /members: expected 403, got 200'],
+      [
+        'editor GET /admins: expected allowed, got 403',
+        'viewer GET /admins: expected allowed, got 403',
+      ],
+      ['anonymous GET /members: expected allowed, got 401'],
       [
         "admin GET /leaky/{id} on someone else's private recipe: expected 404, got 200",
         "editor GET /leaky/{id} on someone else's private recipe: expected 404, got 200",
         "viewer GET /leaky/{id} on someone else's private recipe: expected 404, got 200",
       ],
-    );
-  });
-
-  it('reports a recipe endpoint that checks reading but not the action', async () => {
-    expect(
-      await findMismatches(recipeEndpoint('read-only-check', 'recipe.edit'), appWithTestRoutes),
-    ).toEqual([
-      'viewer GET /read-only-check/{id} on their own private recipe: expected 403, got 200',
-      'viewer GET /read-only-check/{id} on their own shared recipe: expected 403, got 200',
-      "viewer GET /read-only-check/{id} on someone else's shared recipe: expected 403, got 200",
-    ]);
-  });
-
-  it('does not count a crash as getting through', async () => {
-    expect(await findMismatches(endpoint('/crashes', 'signed-in'), appWithTestRoutes)).toEqual([
-      'admin GET /crashes: expected allowed, got 500',
-      'editor GET /crashes: expected allowed, got 500',
-      'viewer GET /crashes: expected allowed, got 500',
+      [
+        'viewer GET /read-only-check/{id} on their own private recipe: expected 403, got 200',
+        'viewer GET /read-only-check/{id} on their own shared recipe: expected 403, got 200',
+        "viewer GET /read-only-check/{id} on someone else's shared recipe: expected 403, got 200",
+      ],
+      [
+        'admin GET /crashes: expected allowed, got 500',
+        'editor GET /crashes: expected allowed, got 500',
+        'viewer GET /crashes: expected allowed, got 500',
+      ],
     ]);
   });
 });

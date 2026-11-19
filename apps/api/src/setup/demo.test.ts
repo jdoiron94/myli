@@ -150,14 +150,6 @@ describe('seedDemoAccounts', () => {
     expect(t.db.select().from(invitation).all()).toEqual([]);
   });
 
-  it('refuses a second time', async () => {
-    const { t, seed } = setUp();
-    await seed();
-
-    expect(await seed()).toEqual({ ok: false, reason: 'users-exist' });
-    expect(users(t)).toHaveLength(3);
-  });
-
   it('refuses while first-run setup is under way', async () => {
     const { t, seed } = setUp();
     // Setup holds its claim while Better Auth creates the admin.

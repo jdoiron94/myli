@@ -129,14 +129,18 @@ describe('password rules on Better Auth endpoints', () => {
 });
 
 describe('the user table', () => {
-  it.each(['user', 'admin,editor', ''])('refuses role %j', (role) => {
+  it('refuses any role but admin, editor and viewer, one per user', () => {
     const { db } = createTestApp();
-    expect(() =>
-      db
-        .insert(user)
-        .values({ id: 'u1', name: 'Ada', email: ADA.email, role: role as Role })
-        .run(),
-    ).toThrow(/CHECK constraint failed: user_role_check/);
+    for (const role of ['user', 'admin,editor', '']) {
+      expect(
+        () =>
+          db
+            .insert(user)
+            .values({ id: 'u1', name: 'Ada', email: ADA.email, role: role as Role })
+            .run(),
+        role,
+      ).toThrow(/CHECK constraint failed: user_role_check/);
+    }
   });
 });
 

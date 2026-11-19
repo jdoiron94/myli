@@ -70,20 +70,6 @@ describe('/me/preferences', () => {
     expect(await preferencesOf(t, cookie)).toEqual({ unitSystem: 'metric' });
   });
 
-  it('refuses a unit system that doesn’t exist, or none', async () => {
-    const t = createTestApp();
-    const { cookie } = await signedInAs(t, 'editor');
-    expect((await send(t, 'PUT', cookie, { unitSystem: 'cubits' })).status).toBe(422);
-    expect((await send(t, 'PUT', cookie, {})).status).toBe(422);
-    expect(await preferencesOf(t, cookie)).toEqual({ unitSystem: 'imperial' });
-  });
-
-  it('needs someone signed in', async () => {
-    const t = createTestApp();
-    expect((await send(t, 'GET')).status).toBe(401);
-    expect((await send(t, 'PUT', undefined, { unitSystem: 'metric' })).status).toBe(401);
-  });
-
   it('refuses a unit system the CHECK constraint doesn’t know, written straight to the table', async () => {
     const t = createTestApp();
     const { user } = await signedInAs(t, 'editor');

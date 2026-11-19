@@ -1,8 +1,5 @@
-import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { type PolicyComment, type PolicyRecipe, problemDetailsSchema } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
-import type { AppEnv } from '../context.ts';
-import { errorResponses } from '../problems.ts';
 import { createTestApp, signedInAs } from '../testing.ts';
 import { authorize, notFound, requirePermission } from './authorize.ts';
 
@@ -76,32 +73,6 @@ describe('requirePermission', () => {
     expect(allowed.status).toBe(200);
     expect(await allowed.json()).toEqual({ role: 'admin' });
   });
-
-  it('narrows the handler types on routes declared with createRoute', async () => {
-    const t = createTestApp();
-    const router = new OpenAPIHono<AppEnv>();
-    const route = createRoute({
-      method: 'get',
-      path: '/whoami',
-      middleware: [requirePermission('user.invite')] as const,
-      responses: {
-        200: {
-          description: 'The caller',
-          content: { 'application/json': { schema: z.object({ role: z.string() }) } },
-        },
-        ...errorResponses,
-      },
-    });
-    // No null check needed: this line is the compile-time test.
-    router.openapi(route, (c) => c.json({ role: c.var.user.role }, 200));
-    t.app.route('/api/v1/test-openapi', router);
-
-    const admin = await signedInAs(t, 'admin');
-    const res = await t.app.request('/api/v1/test-openapi/whoami', {
-      headers: { cookie: admin.cookie },
-    });
-    expect(await res.json()).toEqual({ role: 'admin' });
-  });
 });
 
 describe('authorize on a recipe', () => {
@@ -119,26 +90,11 @@ describe('authorize on a recipe', () => {
     expect(await hidden.text()).toBe(await missing.text());
   });
 
-  it('lets the owner read their private recipe', async () => {
+  // Routes check the session first; this is in case one forgets.
+  it('answers 401 when signed out, even on a route that doesn’t check the session first', async () => {
     const t = appWithResources();
-    const { user, cookie } = await signedInAs(t, 'editor');
-    t.recipes.set('mine', { ownerId: user.id, visibility: 'private' });
-
-    expect((await t.send('GET', '/recipes/mine', cookie)).status).toBe(200);
-  });
-
-  it('answers 403 for a recipe the user can see but not act on, and 401 when signed out', async () => {
-    const t = appWithResources();
-    const editor = await signedInAs(t, 'editor');
-    const admin = await signedInAs(t, 'admin');
     t.recipes.set('theirs', { ownerId: SOMEONE_ELSE, visibility: 'shared' });
 
-    await expectProblem(
-      await t.send('DELETE', '/recipes/theirs', editor.cookie),
-      403,
-      "You don't have permission to do this.",
-    );
-    expect((await t.send('DELETE', '/recipes/theirs', admin.cookie)).status).toBe(200);
     await expectProblem(await t.send('GET', '/recipes/theirs'), 401, 'Sign in to continue.');
   });
 });

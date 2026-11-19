@@ -6,94 +6,102 @@ import { JSON_ONLY_DETAIL, jsonOnly } from './json-only.ts';
 import { onError } from './problems.ts';
 import { createTestApp } from './testing.ts';
 
-const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'] as const;
-
-/** One route answering 204 to every method, behind the middleware. */
-function appWithEveryMethod() {
-  const app = new Hono<AppEnv>();
-  app.onError(onError);
-  app.use(jsonOnly());
-  app.on(['GET', 'HEAD', 'OPTIONS', ...WRITE_METHODS], '/thing', (c) => c.body(null, 204));
-  return app;
-}
-
-/** A request with this content type, and a body whenever there is a content type to describe. */
-function send(method: string, contentType?: string) {
-  return appWithEveryMethod().request('/thing', {
-    method,
-    ...(contentType !== undefined && { headers: { 'content-type': contentType }, body: '{}' }),
-  });
+/** Each request's status, keyed by its method, path and content type. */
+async function statuses(
+  app: Hono<AppEnv>,
+  requests: [method: string, path: string, type?: string][],
+) {
+  return Object.fromEntries(
+    await Promise.all(
+      requests.map(async ([method, path, contentType]) => {
+        const res = await app.request(path, {
+          method,
+          ...(contentType !== undefined && {
+            headers: { 'content-type': contentType },
+            body: '{}',
+          }),
+        });
+        return [`${method} ${path} ${contentType ?? '(none)'}`, res.status] as const;
+      }),
+    ),
+  );
 }
 
 describe('jsonOnly', () => {
-  it.each(['GET', 'HEAD', 'OPTIONS'])('lets %s through without a content type', async (method) => {
-    expect((await send(method)).status).toBe(204);
-  });
-
   // What a page on another origin can send with the user's cookie and no CORS preflight: an HTML
   // form's three encodings, or a no-CORS fetch or sendBeacon without a body. Plus near misses.
-  it.each(
-    WRITE_METHODS.flatMap((method) =>
-      [
-        undefined,
-        'text/plain',
-        'text/plain;charset=UTF-8',
-        'application/x-www-form-urlencoded',
-        'multipart/form-data; boundary=x',
-        'application/jsonx',
-        'text/json',
-        'application/problem+json',
-      ].map((contentType) => [method, contentType] as const),
-    ),
-  )('refuses %s with content type %s', async (method, contentType) => {
-    const res = await send(method, contentType);
+  it('lets reads through, and writes only as JSON, refusing with a problem', async () => {
+    const app = new Hono<AppEnv>();
+    app.onError(onError);
+    app.use(jsonOnly());
+    app.on(['GET', 'HEAD', 'OPTIONS', 'POST', 'DELETE'], '/thing', (c) => c.body(null, 204));
+    const requests: [string, string, string?][] = [
+      ['GET', '/thing'],
+      ['HEAD', '/thing'],
+      ['OPTIONS', '/thing'],
+      ['POST', '/thing', 'application/json'],
+      ['POST', '/thing', 'Application/JSON; charset=utf-8'],
+      ['DELETE', '/thing', 'application/json'],
+      ['POST', '/thing'],
+      ['DELETE', '/thing'],
+      ['POST', '/thing', 'text/plain;charset=UTF-8'],
+      ['POST', '/thing', 'application/x-www-form-urlencoded'],
+      ['POST', '/thing', 'multipart/form-data; boundary=x'],
+      ['POST', '/thing', 'application/jsonx'],
+      ['POST', '/thing', 'text/json'],
+      ['POST', '/thing', 'application/problem+json'],
+    ];
 
-    expect(res.status).toBe(415);
-    expect(res.headers.get('content-type')).toBe(PROBLEM_CONTENT_TYPE);
-    expect(await res.json()).toMatchObject({ status: 415, detail: JSON_ONLY_DETAIL });
+    expect(await statuses(app, requests)).toEqual({
+      'GET /thing (none)': 204,
+      'HEAD /thing (none)': 204,
+      'OPTIONS /thing (none)': 204,
+      'POST /thing application/json': 204,
+      'POST /thing Application/JSON; charset=utf-8': 204,
+      'DELETE /thing application/json': 204,
+      'POST /thing (none)': 415,
+      'DELETE /thing (none)': 415,
+      'POST /thing text/plain;charset=UTF-8': 415,
+      'POST /thing application/x-www-form-urlencoded': 415,
+      'POST /thing multipart/form-data; boundary=x': 415,
+      'POST /thing application/jsonx': 415,
+      'POST /thing text/json': 415,
+      'POST /thing application/problem+json': 415,
+    });
+    const refused = await app.request('/thing', { method: 'POST' });
+    expect(refused.headers.get('content-type')).toBe(PROBLEM_CONTENT_TYPE);
+    expect(await refused.json()).toMatchObject({ status: 415, detail: JSON_ONLY_DETAIL });
   });
 
-  it.each(
-    WRITE_METHODS.flatMap((method) =>
-      ['application/json', 'Application/JSON; charset=utf-8'].map(
-        (contentType) => [method, contentType] as const,
-      ),
-    ),
-  )('lets %s with %s through', async (method, contentType) => {
-    expect((await send(method, contentType)).status).toBe(204);
-  });
-
-  describe('the image upload, the one exception', () => {
-    /** The upload route and its neighbors, answering 204 behind the middleware. */
-    function send(method: string, path: string, contentType: string) {
-      const app = new Hono<AppEnv>();
-      app.onError(onError);
-      app.use(jsonOnly());
-      app.on(['POST', 'PUT'], ['/api/v1/images', '/api/v1/images/x', '/api/v1/recipes'], (c) =>
-        c.body(null, 204),
-      );
-      return app.request(path, { method, headers: { 'content-type': contentType }, body: 'x' });
-    }
-
-    it.each(['image/jpeg', 'image/png', 'Image/WebP; charset=binary'])(
-      'lets an upload sent as %s through',
-      async (contentType) => {
-        expect((await send('POST', '/api/v1/images', contentType)).status).toBe(204);
-      },
+  it('lets JPEG, PNG and WebP through only as an upload of an image', async () => {
+    const app = new Hono<AppEnv>();
+    app.onError(onError);
+    app.use(jsonOnly());
+    app.on(['POST', 'PUT'], ['/api/v1/images', '/api/v1/images/x', '/api/v1/recipes'], (c) =>
+      c.body(null, 204),
     );
-
-    it.each([
+    const requests: [string, string, string?][] = [
+      ['POST', '/api/v1/images', 'image/jpeg'],
+      ['POST', '/api/v1/images', 'image/png'],
+      ['POST', '/api/v1/images', 'Image/WebP; charset=binary'],
       ['POST', '/api/v1/images', 'image/gif'],
       ['POST', '/api/v1/images', 'image/svg+xml'],
       ['POST', '/api/v1/images', 'multipart/form-data; boundary=x'],
       ['PUT', '/api/v1/images', 'image/jpeg'],
       ['POST', '/api/v1/images/x', 'image/jpeg'],
       ['POST', '/api/v1/recipes', 'image/jpeg'],
-    ])('refuses %s %s as %s', async (method, path, contentType) => {
-      const res = await send(method, path, contentType);
+    ];
 
-      expect(res.status).toBe(415);
-      expect(await res.json()).toMatchObject({ detail: JSON_ONLY_DETAIL });
+    expect(await statuses(app, requests)).toEqual({
+      'POST /api/v1/images image/jpeg': 204,
+      'POST /api/v1/images image/png': 204,
+      'POST /api/v1/images Image/WebP; charset=binary': 204,
+      'POST /api/v1/images image/gif': 415,
+      'POST /api/v1/images image/svg+xml': 415,
+      'POST /api/v1/images multipart/form-data; boundary=x': 415,
+      'PUT /api/v1/images image/jpeg': 415,
+      'POST /api/v1/images/x image/jpeg': 415,
+      'POST /api/v1/recipes image/jpeg': 415,
     });
   });
 
