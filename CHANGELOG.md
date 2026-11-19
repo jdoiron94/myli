@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/jdoiron94/myli/compare/v0.6.0...v0.7.0) (2026-11-19)
+
+
+### Features
+
+* **api:** keep the photos a save leaves out, for older revisions ([a15b58f](https://github.com/jdoiron94/myli/commit/a15b58f1e3f17ca4a9ba073c7dd1681650b4366e))
+* **api:** list, read and restore a recipe's revisions ([bc8ce7a](https://github.com/jdoiron94/myli/commit/bc8ce7addcb14accd893676ebf396fcf85fb157c))
+* **api:** record each save as a revision of the recipe ([0b366ca](https://github.com/jdoiron94/myli/commit/0b366ca57205b02e8d48175a16f2b9c644a02162))
+* **api:** refuse recipe writes based on an older version ([af54d97](https://github.com/jdoiron94/myli/commit/af54d973e06a9b00d3b0d811f75409d0e534c833))
+* **api:** save, continue and discard a recipe's draft ([e3f1329](https://github.com/jdoiron94/myli/commit/e3f1329ceb093165f97a6d5c4a2cc723e669fde5))
+
 ## [0.6.0](https://github.com/jdoiron94/myli/compare/v0.5.0...v0.6.0) (2026-11-19)
 
 
