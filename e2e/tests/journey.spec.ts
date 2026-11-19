@@ -663,9 +663,30 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       page.getByRole('main').getByRole('list', { name: 'Tags' }).getByRole('listitem'),
     ).toHaveText(['Contains wheat', 'American']);
     await checkPage(page);
+  });
 
-    await page.getByRole('link', { name: 'See it as published' }).click();
-    await expect(page.getByText('Revision 2', { exact: true })).toBeVisible();
+  await test.step('restoring the first revision publishes it again, as the third', async () => {
+    await page.getByRole('button', { name: 'Restore this revision' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Restore revision 1?' });
+    await expect(dialog).toBeVisible();
+    await checkPage(page, { popup: true });
+    await dialog.getByRole('button', { name: 'Restore' }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'Restored' })).toHaveText(
+      'Restored revision 1. It’s published as revision 3.',
+    );
+    await expect(page.getByText('Revision 3', { exact: true })).toBeVisible();
+    // Its tags are the same tags, with the names they have now.
+    await expect(
+      page.getByRole('main').getByRole('list', { name: 'Tags' }).getByRole('listitem'),
+    ).toHaveText(['Contains wheat', 'Southern']);
+
+    await page.getByRole('link', { name: 'History' }).click();
+    await expect(
+      page.getByRole('list', { name: 'Revisions' }).getByRole('listitem').first(),
+    ).toContainText('Restored from revision #1');
+    await page.getByRole('link', { name: 'Back to recipe' }).click();
+    await expect(page.getByText('Revision 3', { exact: true })).toBeVisible();
   });
 
   await test.step('the recipe is deleted once asked, which the audit log records', async () => {
