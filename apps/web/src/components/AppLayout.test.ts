@@ -134,9 +134,9 @@ describe('the main navigation', () => {
       .getAllByRole('link')
       .map((link) => link.textContent.trim());
 
-  it('links admins to search and a new recipe, and gathers the admin pages in one menu', async () => {
+  it('links admins to search, favorites and a new recipe, and gathers the admin pages in one menu', async () => {
     const { user } = await renderApp('/', { signedInAs: 'admin' });
-    expect(linkNames()).toEqual(['Search', 'New recipe']);
+    expect(linkNames()).toEqual(['Search', 'Favorites', 'New recipe']);
 
     await user.click(adminButton());
 
@@ -199,7 +199,7 @@ describe('the main navigation', () => {
     });
   });
 
-  it('links viewers to search only, since they can’t write recipes', async () => {
+  it('links viewers to search only, since they keep no favorites and can’t write recipes', async () => {
     const { router, user } = await renderApp('/', { signedInAs: 'viewer' });
     expect(linkNames()).toEqual(['Search']);
     expect(within(nav()).queryByRole('button')).toBeNull();

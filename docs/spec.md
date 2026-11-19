@@ -53,7 +53,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 - The matrix is implemented once, as a policy module in `packages/shared`. The UI uses it to hide controls; the API uses it to enforce. Neither has inline role checks.
 - Pages a role can't use, like the admin pages, aren't linked for it. Opening one anyway says the user doesn't have access, at the same address.
-- The header links to search for everyone, and to a new recipe for those who can write one. It gathers the admin pages in one Admin menu, which shows only for a role that can open one of them.
+- The header links to search for everyone, to their favorites for those who keep them, and to a new recipe for those who can write one. It gathers the admin pages in one Admin menu, which shows only for a role that can open one of them.
 - **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, favorites, revisions, public links and their photos.
 - No one can act on a recipe they can't see. An admin's "any" in the table means any recipe they can see: shared recipes and their own private ones.
 - A request for a resource the caller may not see returns `404`, so its existence isn't revealed. A request the caller may see but not act on returns `403`.
@@ -261,7 +261,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - Stored through the `BlobStore` abstraction (§6).
 
 **Personal organization (editors and admins)**
-- **Favorites:** a per-user flag on a recipe, for any recipe its user can see. Their favorites are listed most recently chosen first, from the database. One they can no longer see, because it was deleted or made private by its owner, is left out and not counted, and shows again if the recipe comes back.
+- **Favorites:** a per-user flag on a recipe, for any recipe its user can see, set with the Favorite button on the recipe's page. The Favorites page, linked from the header, lists them most recently chosen first, from the database, 24 to a page. One they can no longer see, because it was deleted or made private by its owner, is left out and not counted, and shows again if the recipe comes back.
 - **Collections:** named, per-user, ordered groups of recipes. Other users never see them.
 - **Personal notes:** one private markdown note per user per recipe.
 
