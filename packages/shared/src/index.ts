@@ -153,10 +153,14 @@ export {
 export {
   ALLERGENS,
   createTagRequestSchema,
+  mergeTagRequestSchema,
+  renameTagRequestSchema,
   TAG_NAME_MAX_LENGTH,
   TAG_TYPES,
   type Tag,
   type TagType,
+  type TagUsage,
+  tagIdParamsSchema,
   tagListQuerySchema,
   tagListSchema,
   tagNameKey,
@@ -164,6 +168,7 @@ export {
   tagResultSchema,
   tagSchema,
   tagTypeSchema,
+  tagUsageSchema,
   USER_TAG_TYPES,
 } from './tags.ts';
 export {

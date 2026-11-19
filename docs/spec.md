@@ -152,9 +152,11 @@ There are three roles: **admin**, **editor** and **viewer**.
   - recipe deleted, restored or purged
   - revision restored
   - public link created or revoked
+  - tag renamed, merged or deleted
   - full-instance export
 - Each event stores actor, action, target, timestamp, IP address and user agent.
 - **Recipe events** name the recipe by its title only while it's shared. Admins may not see private recipes (§2), so a private recipe's title never enters the log.
+- **Tag events** keep the tag's type and name (and a rename's new name, a merge's other tag), and how many recipes had it, counting only those the admin may see.
 - **Sign-ins:**
   - Only email-and-password sign-ins whose credentials were checked are recorded. Requests refused for coming from another origin, being malformed or being rate limited are not.
   - A failed sign-in has no actor. It keeps the email that was tried and the reason (wrong email or password, or a deactivated account), and targets the account when that email has one.
@@ -241,6 +243,11 @@ There are three roles: **admin**, **editor** and **viewer**.
 - A tag's name is unique within its type, ignoring case and extra spaces: creating "italian" when "Italian" exists gives back the existing tag rather than a second one. The same name can exist in two types. Names are 1–50 characters.
 - Allergen and diet tags are set by hand.
 - **On a recipe's page,** its tags show in one row. What it contains comes first, in one tag that stands out ("Contains milk, wheat"), then cuisine, meal type, diet and custom tags.
+- **Admins manage tags:** they rename, merge and delete them, and see how many recipes have each, counting only recipes the admin may see. The allergens can't be changed.
+  - **Rename:** a name another tag of the type already has, ignoring case and spacing, is refused, with a pointer to merging. Changing only a tag's case or spacing is a rename.
+  - **Merge** a tag into another of its type: every recipe that had it has the other instead, once, and it's gone.
+  - **Delete:** the tag comes off every recipe that had it. The admin confirms it first.
+  - Each is recorded in the audit log (§3.1), and every recipe with the tag, private ones included, is indexed again.
 - **In the editor,** every tag of each type shows as a checkbox, so picking one is a click and what exists is in view. Under each type but the allergens, editors can add a new tag, which is checked straight away; a name the type already has checks that tag instead.
 
 **Images**
@@ -413,7 +420,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 
 - **SQLite is authoritative.** Meilisearch is a derived read model. It is never backed up and can always be rebuilt from SQLite.
 - **Sync through a transactional outbox.**
-  - Every write that changes a recipe's search document inserts a `job` row in the same SQLite transaction. That includes publishing, rating changes, tag renames and merges, visibility changes, deleting, restoring and purging.
+  - Every write that changes a recipe's search document inserts a `job` row in the same SQLite transaction. That includes publishing, rating changes, tag renames, merges and deletes, visibility changes, deleting, restoring and purging.
   - An in-process worker reads pending jobs and sends the full document to Meilisearch as an upsert or delete.
   - Jobs are idempotent, retried with backoff, and dead-lettered after a maximum number of attempts. Index updates keep trying for about thirteen hours, so a Meilisearch outage doesn't leave the index behind; other jobs give up after a few minutes.
   - Recipe writes succeed even while Meilisearch is down.

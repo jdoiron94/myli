@@ -78,3 +78,28 @@ export const createTagRequestSchema = z
   .meta({ id: 'CreateTagRequest' });
 
 export const tagResultSchema = z.object({ tag: tagSchema }).meta({ id: 'TagResult' });
+
+/** The path parameter of one tag. */
+export const tagIdParamsSchema = z.object({ id: z.coerce.number().int().positive() });
+
+export const renameTagRequestSchema = z
+  .object({ name: tagNameSchema })
+  .meta({ id: 'RenameTagRequest' });
+
+export const mergeTagRequestSchema = z
+  .object({
+    intoId: z.int().positive().describe('Another tag of the same type, which takes its place.'),
+  })
+  .meta({ id: 'MergeTagRequest' });
+
+export const tagUsageSchema = z
+  .object({
+    usage: z
+      .array(z.object({ tagId: z.int().positive(), recipes: z.int().nonnegative() }))
+      .describe(
+        'How many recipes the caller may see have each tag. A tag no recipe has is left out.',
+      ),
+  })
+  .meta({ id: 'TagUsage' });
+
+export type TagUsage = z.infer<typeof tagUsageSchema>;

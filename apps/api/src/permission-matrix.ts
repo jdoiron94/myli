@@ -18,6 +18,7 @@ import { createUserWithPassword } from './auth/users.ts';
 import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
 import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './recipes/testing.ts';
+import { findOrCreateTag } from './tags/tags.ts';
 import { signedInAs, type TestApp } from './testing.ts';
 
 export const CALLERS = ['anonymous', ...ROLES] as const;
@@ -97,6 +98,11 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
 }
 
 /** The ID of a new viewer, made directly in the database, for user-management requests. */
+/** A cuisine tag's ID, created if there isn't one with this name. */
+function someTagId(t: TestApp, name: string): string {
+  return String(findOrCreateTag(t.db, 'cuisine', name).tag.id);
+}
+
 async function someUserId(t: TestApp): Promise<string> {
   const created = await createUserWithPassword(t.auth, {
     name: 'Managed User',
@@ -318,6 +324,34 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/tags',
     access: 'tag.create',
     send: (t, cookie) => request(t, 'POST', '/tags', cookie, { type: 'cuisine', name: 'Italian' }),
+  },
+  {
+    method: 'get',
+    path: '/tags/usage',
+    access: 'tag.manage',
+    send: (t, cookie) => request(t, 'GET', '/tags/usage', cookie),
+  },
+  {
+    method: 'put',
+    path: '/tags/{id}',
+    access: 'tag.manage',
+    send: (t, cookie) =>
+      request(t, 'PUT', `/tags/${someTagId(t, 'Italien')}`, cookie, { name: 'Italian' }),
+  },
+  {
+    method: 'post',
+    path: '/tags/{id}/merge',
+    access: 'tag.manage',
+    send: (t, cookie) =>
+      request(t, 'POST', `/tags/${someTagId(t, 'Italien')}/merge`, cookie, {
+        intoId: someTagId(t, 'Italian'),
+      }),
+  },
+  {
+    method: 'delete',
+    path: '/tags/{id}',
+    access: 'tag.manage',
+    send: (t, cookie) => request(t, 'DELETE', `/tags/${someTagId(t, 'Italien')}`, cookie),
   },
   {
     method: 'get',

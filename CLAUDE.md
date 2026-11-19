@@ -86,7 +86,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Web pages** that need a role-only action set `meta.permission` (e.g. `'user.invite'`), which the router checks with `can()`. Someone without it sees the no-access page at the same address. Links to such a page show only when `can()` allows it: the header's links (`NAV_PAGES` in `AppLayout.vue`) and its Admin menu (`ADMIN_PAGES`, rendered by `AdminMenu.vue`) read each page's `meta.permission` and `meta.title` from the router. A new admin page goes in `ADMIN_PAGES`, not in the header itself.
   - A page whose action depends on the recipe, like editing it, can't be checked by the router. It checks `can()` once the recipe is loaded, against the session query, so a role taken away while it's open takes the page away too, and says so in its one heading (`EditRecipePage.vue`). Links to it show only when `can()` allows it.
 - **Viewers are strictly read-only.**
-- **Private recipes must never leak** through direct ID access, search results, someone else's favorites, revision endpoints, public links, their photos or deactivating their owner. Each of those paths has a test.
+- **Private recipes must never leak** through direct ID access, search results, someone else's favorites, tag counts and tag audit events, revision endpoints, public links, their photos or deactivating their owner. Each of those paths has a test.
 
 ### Database
 - The Drizzle schema in `apps/api/src/db/schema.ts` is authoritative. After changing it, run `pnpm db:generate` and commit the new migration in `apps/api/drizzle/` (`pnpm test` fails if a schema change has no migration).

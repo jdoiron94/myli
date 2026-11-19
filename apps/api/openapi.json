@@ -250,6 +250,9 @@
               "revision.restored",
               "public_link.created",
               "public_link.revoked",
+              "tag.renamed",
+              "tag.merged",
+              "tag.deleted",
               "instance.exported"
             ]
           },
@@ -283,7 +286,8 @@
                 "enum": [
                   "invitation",
                   "user",
-                  "recipe"
+                  "recipe",
+                  "tag"
                 ]
               },
               "id": {
@@ -1617,6 +1621,61 @@
           "name"
         ]
       },
+      "TagUsage": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tagId": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "recipes": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "tagId",
+                "recipes"
+              ]
+            },
+            "description": "How many recipes the caller may see have each tag. A tag no recipe has is left out."
+          }
+        },
+        "required": [
+          "usage"
+        ]
+      },
+      "RenameTagRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "MergeTagRequest": {
+        "type": "object",
+        "properties": {
+          "intoId": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Another tag of the same type, which takes its place."
+          }
+        },
+        "required": [
+          "intoId"
+        ]
+      },
       "PreferencesResult": {
         "type": "object",
         "properties": {
@@ -2120,6 +2179,9 @@
                 "revision.restored",
                 "public_link.created",
                 "public_link.revoked",
+                "tag.renamed",
+                "tag.merged",
+                "tag.deleted",
                 "instance.exported"
               ],
               "description": "Only events of this kind."
@@ -3071,6 +3133,214 @@
           },
           "201": {
             "description": "The new tag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/usage": {
+      "get": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Count the recipes with each tag",
+        "description": "Admins. Counts only the recipes the caller may see, so recipes kept private by others are left out.",
+        "responses": {
+          "200": {
+            "description": "The count for each tag that some recipe the caller may see has.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagUsage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{id}": {
+      "put": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Rename a tag",
+        "description": "Admins. Allergen tags are a fixed list and are refused with status 409. Every recipe with the tag is indexed again, and an audit event records the change. A name another tag of the same type has, ignoring case and spacing, is refused at `name`: merge the two instead.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The renamed tag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Delete a tag",
+        "description": "Admins. Allergen tags are a fixed list and are refused with status 409. Every recipe with the tag is indexed again, and an audit event records the change. The tag comes off every recipe that had it.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The tag is deleted."
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{id}/merge": {
+      "post": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Merge a tag into another",
+        "description": "Admins. Allergen tags are a fixed list and are refused with status 409. Every recipe with the tag is indexed again, and an audit event records the change. Every recipe with the tag gets the other one instead, and the tag is deleted. The other tag must be of the same type.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeTagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The tag it was merged into.",
             "content": {
               "application/json": {
                 "schema": {
