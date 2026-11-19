@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/jdoiron94/myli/compare/v0.4.0...v0.5.0) (2026-11-19)
+
+
+### Features
+
+* **api:** keep favorite recipes, and list them ([ce19bd2](https://github.com/jdoiron94/myli/commit/ce19bd285d79d653c75765079d6988ee767e4293))
+* **web:** cook a recipe in cook mode, with the screen kept on ([ffd39c4](https://github.com/jdoiron94/myli/commit/ffd39c465a52d82e3c19c312e12a7f04970346f4))
+* **web:** keep favorites from a recipe's page, and list them ([4998a2a](https://github.com/jdoiron94/myli/commit/4998a2a1c8316c75d43345bdeb9965b460405745))
+* **web:** list a recipe's equipment in cook mode ([57ccdfe](https://github.com/jdoiron94/myli/commit/57ccdfe15fcf212befa1903beb643a0304695ab3))
+* **web:** print a recipe, without its controls and in the light theme ([e596d6d](https://github.com/jdoiron94/myli/commit/e596d6d90f027a734e14fb4c2f97f57725d43791))
+
 ## [0.4.0](https://github.com/jdoiron94/myli/compare/v0.3.0...v0.4.0) (2026-11-18)
 
 
