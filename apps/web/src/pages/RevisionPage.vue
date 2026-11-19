@@ -1,14 +1,36 @@
 <script setup lang="ts">
-import { ArrowLeftIcon } from '@lucide/vue';
+import { ArrowLeftIcon, RotateCcwIcon } from '@lucide/vue';
+import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
-import { computed, watchEffect } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { computed, ref, watchEffect } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { preferencesQuery } from '@/account/preferences.ts';
+import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { allOf, useRetry } from '@/api/retry.ts';
+import { sessionQuery } from '@/auth/session.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { goWithNotice } from '@/lib/page-notice.ts';
 import RecipeBody from '@/recipes/RecipeBody.vue';
-import { recipeQuery, recipeRevisionQuery } from '@/recipes/recipe.ts';
+import {
+  type Recipe,
+  recipeQuery,
+  recipeRevisionQuery,
+  staleRecipe,
+  useRestoreRevision,
+} from '@/recipes/recipe.ts';
 import { useServings } from '@/recipes/servings.ts';
 import { documentTitle } from '@/router.ts';
 
@@ -53,6 +75,47 @@ const servings = useServings(
 );
 
 const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+// Whoever may edit the recipe may restore an earlier revision. The one published is what it shows.
+const { data: user } = useQuery(sessionQuery);
+const canRestore = computed(() => {
+  const shown = recipe.value;
+  if (!shown || !revision.value || revision.value.number === shown.revision) return false;
+  return can(user.value ?? null, 'recipe.edit', {
+    ownerId: shown.owner.id,
+    visibility: shown.visibility,
+  });
+});
+
+const restore = useRestoreRevision();
+const restoreFailure = ref<string>();
+const router = useRouter();
+
+/** Restores it, based on the recipe as this page shows it, then goes to the recipe. */
+async function restoreRevision() {
+  const shown = recipe.value;
+  if (!shown || restore.isPending.value) return;
+  restoreFailure.value = undefined;
+  let restored: Recipe;
+  try {
+    restored = await restore.mutateAsync({
+      id: props.id,
+      number: props.number,
+      version: shown.version,
+    });
+  } catch (error) {
+    restoreFailure.value = staleRecipe(error)
+      ? 'Someone changed this recipe after this page loaded, so this revision wasn’t restored. ' +
+        'The page shows the recipe as it is now: restore it again if you still want to.'
+      : failureMessage(error);
+    return;
+  }
+  void goWithNotice(
+    router,
+    { name: 'recipe', params: { id: props.id } },
+    `Restored revision ${String(props.number)}. It’s published as revision ${String(restored.revision)}.`,
+  );
+}
 </script>
 
 <template>
@@ -101,6 +164,42 @@ const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', ti
           </RouterLink>
         </p>
       </div>
+
+      <AlertDialog v-if="canRestore">
+        <AlertDialogTrigger as-child>
+          <Button
+            variant="outline"
+            size="sm"
+            class="mt-4 print:hidden"
+          >
+            <RotateCcwIcon aria-hidden="true" />
+            Restore this revision
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore revision {{ number }}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The recipe is published as it was then, as its next revision, with the message
+              “Restored from revision #{{ number }}”. Every revision stays in the history, and a
+              draft, if there is one, stays as it is. Tags deleted since are left out.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction @click="restoreRevision">
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <!-- Always there, so screen readers announce what it says as it changes. -->
+      <p
+        role="status"
+        class="max-w-prose text-sm not-empty:mt-2"
+      >
+        {{ restoreFailure }}
+      </p>
 
       <RecipeBody
         v-model:servings="servings"

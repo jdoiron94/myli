@@ -200,6 +200,19 @@ export const useDiscardDraft = () => {
 };
 
 /** Makes a recipe private or shared, unless it changed since `version`. Only its owner can. */
+/**
+ * Publishes a revision's content again, as the recipe's next revision. Its draft, if any, stays.
+ */
+export const useRestoreRevision = () =>
+  useRecipeMutation(
+    async ({ id, number, version }: { id: string; number: number; version: number }) =>
+      responseData(
+        await api.POST('/recipes/{id}/revisions/{number}/restore', {
+          params: { path: { id, number }, header: basedOn(version) },
+        }),
+      ).recipe,
+  );
+
 export const useChangeVisibility = () =>
   useRecipeMutation(
     async ({ id, version, visibility }: { id: string; version: number; visibility: Visibility }) =>

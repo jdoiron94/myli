@@ -317,6 +317,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - The history compares any two revisions, the earlier first, and links each to a comparison with the one before it. Text shows as typed, markdown included: what was taken out struck through, what was put in underlined, each said for screen readers, never by color alone. A tag renamed in between counts as the same tag.
 - **Restore** publishes an older revision's snapshot as a **new** revision, with the automatic message "Restored from revision #n". History is never rewritten or deleted.
   - Tags deleted since are left out.
+  - A revision's page offers it to whoever may edit the recipe, unless it's the one published. It asks first, then goes to the recipe, which says which revision it's published as. Refused because someone changed the recipe meanwhile, it says so and shows the recipe as it is now.
   - It's recorded in the audit log, with the recipe's title only when it's shared, as deleting it is.
   - An existing draft is kept.
   - That draft now started from an older revision than the published one, which it says, so whoever opens it can tell the recipe was published since. An editor that had it open during the restore is refused by the concurrency check below.
