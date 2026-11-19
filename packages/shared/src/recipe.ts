@@ -41,6 +41,8 @@ export const RECIPE_LIMITS = {
   /** A photo's description, its alt text. */
   imageAlt: 300,
   nutrition: 100_000,
+  /** What a revision changed, as its author says. */
+  revisionMessage: 200,
 } as const;
 
 const L = RECIPE_LIMITS;
@@ -261,12 +263,29 @@ export const createRecipeRequestSchema = z
 
 export type CreateRecipeRequest = z.output<typeof createRecipeRequestSchema>;
 
+/** All of a recipe that editing it changes, as a draft holds it. */
+export const recipeContentSchema = z
+  .object(recipeContentShape)
+  .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
+  .superRefine(checkPhotos)
+  .meta({ id: 'RecipeContent' });
+
+export type RecipeContent = z.output<typeof recipeContentSchema>;
+
 /**
- * Saving an existing recipe replaces all of it, lines, steps and tags included. Its visibility is
- * changed on its own, by its owner only.
+ * Publishing an existing recipe replaces all of it, lines, steps and tags included, and records a
+ * revision. Its visibility is changed on its own, by its owner only.
  */
 export const updateRecipeRequestSchema = z
-  .object(recipeContentShape)
+  .object({
+    ...recipeContentShape,
+    message: z
+      .string()
+      .trim()
+      .max(L.revisionMessage, tooLong(L.revisionMessage))
+      .optional()
+      .describe('What changed, for the history. Optional.'),
+  })
   .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
   .superRefine(checkPhotos)
   .meta({ id: 'UpdateRecipeRequest' });
@@ -361,6 +380,42 @@ export const ifMatchHeadersSchema = z.object({
       'The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412.',
     ),
 });
+
+/**
+ * The working copy of a recipe's next version (spec §3.3). There's one per recipe at most, which
+ * anyone who may edit the recipe can continue; the published recipe stays as it is meanwhile.
+ */
+export const recipeDraftSchema = z
+  .object({
+    content: recipeContentSchema,
+    photos: z
+      .array(imageSchema)
+      .describe('Each photo `content` names, for showing it. Their alt text is in `content`.'),
+    author: z.object({ id: z.string(), name: z.string() }).describe('Who saved it last.'),
+    updatedAt: z.iso.datetime(),
+    revision: z
+      .int()
+      .positive()
+      .describe(
+        'The revision it started from: the latest one when it was first saved. A newer one means the recipe was published since, by a restore.',
+      ),
+    version: z
+      .int()
+      .positive()
+      .describe(
+        "The recipe's version now, which a change to the draft or the recipe sends in `If-Match`.",
+      ),
+  })
+  .meta({ id: 'RecipeDraft' });
+
+export type RecipeDraft = z.infer<typeof recipeDraftSchema>;
+
+export const recipeDraftResultSchema = z
+  .object({
+    // A union rather than `.nullable()`, which would inline the draft instead of naming it.
+    draft: z.union([recipeDraftSchema, z.null()]).describe('`null` when there is none.'),
+  })
+  .meta({ id: 'RecipeDraftResult' });
 
 /** `type` of a write refused because the recipe changed since the caller loaded it. */
 export const STALE_RECIPE_PROBLEM_TYPE = '/problems/stale-recipe';

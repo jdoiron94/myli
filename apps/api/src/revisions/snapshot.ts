@@ -1,7 +1,7 @@
 import { type Recipe, recipeSchema } from '@myli/shared';
 import { eq, max } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Tx } from '../db/database.ts';
+import type { Db, Tx } from '../db/database.ts';
 import { recipeRevision } from '../db/schema.ts';
 
 /** A photo as a revision keeps it: which one, and its alt text then. */
@@ -64,14 +64,19 @@ export function recordRevision(
   authorId: string,
   message: string | null = null,
 ): number {
-  const latest = tx
-    .select({ number: max(recipeRevision.number) })
-    .from(recipeRevision)
-    .where(eq(recipeRevision.recipeId, published.id))
-    .get();
-  const number = (latest?.number ?? 0) + 1;
+  const number = latestRevision(tx, published.id) + 1;
   tx.insert(recipeRevision)
     .values({ recipeId: published.id, number, snapshot: snapshotOf(published), authorId, message })
     .run();
   return number;
+}
+
+/** The number of the recipe's latest revision, the one published; 0 before it has any. */
+export function latestRevision(db: Db | Tx, recipeId: string): number {
+  const latest = db
+    .select({ number: max(recipeRevision.number) })
+    .from(recipeRevision)
+    .where(eq(recipeRevision.recipeId, recipeId))
+    .get();
+  return latest?.number ?? 0;
 }

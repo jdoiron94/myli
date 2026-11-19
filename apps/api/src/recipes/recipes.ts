@@ -3,13 +3,22 @@ import {
   normalizeIngredientName,
   type PolicyRecipe,
   type Recipe,
-  type UpdateRecipeRequest,
+  type RecipeContent,
   type Visibility,
 } from '@myli/shared';
 import { and, asc, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
-import { image, recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
+import {
+  image,
+  recipe,
+  recipeDraft,
+  recipeIngredient,
+  recipeStep,
+  recipeTag,
+  tag,
+  user,
+} from '../db/schema.ts';
 import { toImage } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
 import { recordRevision } from '../revisions/snapshot.ts';
@@ -17,15 +26,15 @@ import { indexRecipeJob } from '../search/indexing.ts';
 import { byTypeThenName } from '../tags/tags.ts';
 
 /**
- * Recipes (spec §3.2). Until Phase 2 adds drafts, saving writes the one live version directly, and
- * the last save wins. A deleted recipe is hidden everywhere, exactly as if it didn't exist.
+ * Recipes (spec §3.2). The live tables hold the published version; publishing writes them and
+ * records a revision, and a write based on an older version is refused (ADR 0007). Drafts are in
+ * `drafts/drafts.ts`. A deleted recipe is hidden everywhere, exactly as if it didn't exist.
  *
  * Every write that changes a recipe's search document queues `indexRecipeJob` in its transaction,
  * so the index follows whether or not Meilisearch is up (spec §4).
  */
 
 /** Everything about a recipe that editing it sets. */
-export type RecipeContent = UpdateRecipeRequest;
 
 /** Optional text is stored as `null` when it's empty. */
 const orNull = (text: string | null) => (text === null || text === '' ? null : text);
@@ -107,7 +116,7 @@ function missingTagIndexes(tx: Tx, tagIds: readonly number[]): number[] {
  * Each photo the content names, with its alt text, where it names it, and its place among the
  * recipe's photos (`null` for a step's).
  */
-function photoUses(content: RecipeContent) {
+export function photoUses(content: RecipeContent) {
   return [
     ...content.images.map(({ id, alt }, index) => ({
       id,
@@ -179,11 +188,13 @@ function writePhotos(tx: Tx, recipeId: string, uses: readonly PhotoUse[]): void 
     .run();
 }
 
-/** A new recipe's ID, or why it couldn't be created. */
-export type CreateResult =
-  | { ok: true; id: string }
+/** Why content can't be saved: tags in `tagIds` that don't exist, or photos it can't use. */
+export type ContentRefusal =
   | { ok: false; reason: 'missing-tags'; missingTags: number[] }
   | { ok: false; reason: 'unusable-images'; paths: PropertyKey[][] };
+
+/** A new recipe's ID, or why it couldn't be created. */
+export type CreateResult = { ok: true; id: string } | ContentRefusal;
 
 /** The saved recipe's ID, or why it couldn't be saved. */
 export type SaveResult = CreateResult | WriteFailure;
@@ -197,25 +208,42 @@ export type WriteResult = { ok: true } | WriteFailure;
 const live = (id: string) => and(eq(recipe.id, id), isNull(recipe.deletedAt));
 
 /** Records the recipe as a save in this transaction has just left it, as its next revision. */
-function recordPublished(tx: Tx, id: string, authorId: string) {
+function recordPublished(tx: Tx, id: string, authorId: string, message: string | null = null) {
   const published = loadRecipe(tx, id);
   // Written in this transaction: only a bug could lose it.
   if (!published) throw new Error('a recipe just saved could not be read back');
-  recordRevision(tx, published, authorId);
+  recordRevision(tx, published, authorId, message);
+}
+
+/**
+ * Why `editorId` can't save `content` to the recipe (`null` for a new one), if they can't: a tag
+ * that no longer exists, or a photo that's neither the recipe's nor their own unsaved upload.
+ */
+export function refusedContent(
+  tx: Tx,
+  recipeId: string | null,
+  editorId: string,
+  content: RecipeContent,
+): ContentRefusal | undefined {
+  const missingTags = missingTagIndexes(tx, content.tagIds);
+  if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
+  const unusable = unusablePhotos(tx, recipeId, editorId, photoUses(content));
+  if (unusable.length > 0) return { ok: false, reason: 'unusable-images', paths: unusable };
+  return undefined;
 }
 
 /**
  * Whether the live recipe is still at `version`, the one the write was based on (ADR 0007). Checked
  * first, so a write based on an old version is refused as that, whatever else is wrong with it.
  */
-function atVersion(tx: Tx, id: string, version: number): WriteResult {
+export function atVersion(tx: Tx, id: string, version: number): WriteResult {
   const row = tx.select({ version: recipe.version }).from(recipe).where(live(id)).get();
   if (!row) return { ok: false, reason: 'not-found' };
   return row.version === version ? { ok: true } : { ok: false, reason: 'stale' };
 }
 
 /** The live recipe's row at `version`, which a write moves on to the next one. */
-const liveAt = (id: string, version: number) => and(live(id), eq(recipe.version, version));
+export const liveAt = (id: string, version: number) => and(live(id), eq(recipe.version, version));
 
 /**
  * Creates a recipe owned by `ownerId`, unless one of its tags doesn't exist or it names a photo
@@ -223,11 +251,8 @@ const liveAt = (id: string, version: number) => and(live(id), eq(recipe.version,
  */
 export function createRecipe(db: Db, ownerId: string, request: CreateRecipeRequest): CreateResult {
   return db.transaction((tx): CreateResult => {
-    const missingTags = missingTagIndexes(tx, request.tagIds);
-    if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
-    const photos = photoUses(request);
-    const unusable = unusablePhotos(tx, null, ownerId, photos);
-    if (unusable.length > 0) return { ok: false, reason: 'unusable-images', paths: unusable };
+    const refused = refusedContent(tx, null, ownerId, request);
+    if (refused) return refused;
 
     const { id } = tx
       .insert(recipe)
@@ -235,7 +260,7 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
       .returning({ id: recipe.id })
       .get();
     writeParts(tx, id, request);
-    writePhotos(tx, id, photos);
+    writePhotos(tx, id, photoUses(request));
     recordPublished(tx, id, ownerId);
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
@@ -243,9 +268,10 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
 }
 
 /**
- * Saves a recipe's content over what it had, lines, steps, tags and photos included, as edited by
- * `editorId`, whose uploads it can add. Its owner and visibility stay. Refused if the recipe is no
- * longer at `version`, the one the edit started from.
+ * Publishes a recipe's content over what it had, lines, steps, tags and photos included, as edited
+ * by `editorId`, whose uploads it can add, and records it as the next revision, with `message`.
+ * Its owner and visibility stay, and its draft goes: what was published replaces it. Refused if the
+ * recipe is no longer at `version`, the one the edit started from.
  */
 export function updateRecipe(
   db: Db,
@@ -253,15 +279,13 @@ export function updateRecipe(
   content: RecipeContent,
   editorId: string,
   version: number,
+  { message = null }: { message?: string | null } = {},
 ): SaveResult {
   return db.transaction((tx): SaveResult => {
     const current = atVersion(tx, id, version);
     if (!current.ok) return current;
-    const missingTags = missingTagIndexes(tx, content.tagIds);
-    if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
-    const photos = photoUses(content);
-    const unusable = unusablePhotos(tx, id, editorId, photos);
-    if (unusable.length > 0) return { ok: false, reason: 'unusable-images', paths: unusable };
+    const refused = refusedContent(tx, id, editorId, content);
+    if (refused) return refused;
 
     const [updated] = tx
       .update(recipe)
@@ -275,8 +299,9 @@ export function updateRecipe(
     tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
     tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
     writeParts(tx, id, content);
-    writePhotos(tx, id, photos);
-    recordPublished(tx, id, editorId);
+    writePhotos(tx, id, photoUses(content));
+    tx.delete(recipeDraft).where(eq(recipeDraft.recipeId, id)).run();
+    recordPublished(tx, id, editorId, message);
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
