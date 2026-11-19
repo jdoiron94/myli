@@ -151,8 +151,8 @@
     @apply bg-background text-foreground;
   }
   /* Tailwind 4 leaves buttons with the arrow, as browsers do. Here everything that can be clicked
-     shows the pointer: buttons (radios and checkboxes are buttons too), and the labels that toggle
-     checkboxes and radios. Menu items keep the arrow, as menus do, and so do disabled controls. */
+     shows the pointer: buttons (radios and checkboxes are buttons too), the labels that toggle
+     checkboxes and radios, and menu items (below). Disabled controls keep the arrow. */
   button:not(:disabled, [aria-disabled="true"]),
   [role="button"]:not([aria-disabled="true"]),
   [data-slot="field"]:has(> button:is([role="checkbox"], [role="radio"]):not(:disabled))
@@ -169,6 +169,12 @@
  * Markdown that users wrote (MarkdownContent.vue). Tailwind's reset takes away the browser's
  * spacing and list markers, so they're put back here, from the theme's colors.
  */
+/* Menu items show the pointer too. This rule is outside the layers because shadcn-vue's items set
+   `cursor-default` as a utility, and a style outside every layer wins over one inside. */
+[role^="menuitem"]:not([data-disabled]) {
+  cursor: pointer;
+}
+
 @layer components {
   .markdown {
     @apply leading-relaxed break-words;

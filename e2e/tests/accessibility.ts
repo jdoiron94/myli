@@ -44,7 +44,8 @@ async function settle(page: Page) {
 
 /**
  * What can be clicked but doesn't show the pointer: enabled buttons, radios and checkboxes among
- * them, and the labels that toggle those, as they're shown (only in the popup, if one is open).
+ * them, the labels that toggle those, and menu items, as they're shown (only in the popup, if one
+ * is open).
  */
 function withoutPointer(page: Page, popup: boolean) {
   return page.evaluate(
@@ -56,7 +57,11 @@ function withoutPointer(page: Page, popup: boolean) {
         !element.matches(':disabled') &&
         element.getAttribute('aria-disabled') !== 'true';
       const clickable = [
-        ...[...root.querySelectorAll('button, [role="button"]')].filter(enabled),
+        ...[
+          ...root.querySelectorAll(
+            'button, [role="button"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]',
+          ),
+        ].filter(enabled),
         ...[...root.querySelectorAll('label[for]')].filter((label) => {
           const control = document.getElementById(label.getAttribute('for') ?? '');
           return (
