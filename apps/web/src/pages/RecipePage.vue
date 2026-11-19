@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { LockIcon, TriangleAlertIcon } from '@lucide/vue';
-import { recipeTotalMinutes, scaleFactor } from '@myli/shared';
+import { recipeTotalMinutes } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
-import { computed, nextTick, ref, useTemplateRef, watch, watchEffect } from 'vue';
+import { computed, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
-import { useUnitSystem } from '@/account/preferences.ts';
-import { failureMessage } from '@/api/failure.ts';
+import { preferencesQuery } from '@/account/preferences.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import MarkdownContent from '@/components/MarkdownContent.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
-import { Button } from '@/components/ui/button';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
 import {
   DIFFICULTY_LABELS,
@@ -19,19 +17,19 @@ import {
   nutritionFacts,
   shownTags,
 } from '@/recipes/format.ts';
-import IngredientList from '@/recipes/IngredientList.vue';
-import { STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
 import RecipeActions from '@/recipes/RecipeActions.vue';
 import RecipeCover from '@/recipes/RecipeCover.vue';
-import RecipePhoto from '@/recipes/RecipePhoto.vue';
+import RecipeSteps from '@/recipes/RecipeSteps.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
-import ServingsControl from '@/recipes/ServingsControl.vue';
-import UnitSystemChoice from '@/recipes/UnitSystemChoice.vue';
+import ScaledIngredients from '@/recipes/ScaledIngredients.vue';
+import { useServings } from '@/recipes/servings.ts';
 import { documentTitle } from '@/router.ts';
 
 const props = defineProps<{ id: string }>();
 
 const query = useQuery(computed(() => recipeQuery(props.id)));
+// Asked for alongside the recipe, not after it, so its amounts can show as soon as it does.
+useQuery(preferencesQuery);
 const { failure, retrying, stillFailing, retry } = useRetry(query);
 const recipe = computed(() => query.data.value);
 
@@ -63,38 +61,11 @@ watchEffect(() => {
   }
 });
 
-// Scaling changes only what's shown (spec §3.2). It starts at the recipe's own servings, and again
-// for each recipe.
-const chosenServings = ref<number>();
-watch(
+// Scaling changes only what's shown (spec §3.2), and goes with the reader to cook mode and back.
+const servings = useServings(
   () => props.id,
-  () => {
-    chosenServings.value = undefined;
-  },
+  () => recipe.value?.servings,
 );
-const servings = computed({
-  get: () => chosenServings.value ?? recipe.value?.servings ?? 1,
-  set: (value: number) => {
-    chosenServings.value = value;
-  },
-});
-const scaled = computed(
-  () => recipe.value !== undefined && servings.value !== recipe.value.servings,
-);
-const factor = computed(() =>
-  recipe.value ? scaleFactor(recipe.value.servings, servings.value) : 1,
-);
-const servingsText = (count: number) => `${String(count)} ${count === 1 ? 'serving' : 'servings'}`;
-
-const servingsControl = useTemplateRef('servingsControl');
-/** Back to the recipe's own servings. The button goes, so focus goes to the number instead. */
-async function unscale() {
-  chosenServings.value = undefined;
-  await nextTick();
-  servingsControl.value?.focus();
-}
-
-const units = useUnitSystem();
 
 const updatedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 
@@ -257,60 +228,10 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
             >
               Ingredients
             </h2>
-            <template v-if="recipe.ingredientGroups.length > 0">
-              <div class="mb-4">
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
-                  <ServingsControl
-                    ref="servingsControl"
-                    v-model="servings"
-                  />
-                  <UnitSystemChoice
-                    v-if="units.ready.value"
-                    :model-value="units.system.value"
-                    @update:model-value="units.choose"
-                  />
-                </div>
-                <!-- Always there, so screen readers announce what it says as it changes: hiding it while
-                     empty would stop that, so it only loses its margin. -->
-                <p
-                  role="status"
-                  class="text-sm text-muted-foreground not-empty:mt-3"
-                >
-                  <template v-if="scaled">
-                    Amounts for {{ servingsText(servings) }}, scaled from the recipe's
-                    {{ recipe.servings }}.
-                  </template>
-                </p>
-                <Button
-                  v-if="scaled"
-                  variant="outline"
-                  size="sm"
-                  class="mt-2"
-                  @click="unscale"
-                >
-                  Back to {{ servingsText(recipe.servings) }}
-                </Button>
-                <p
-                  v-if="units.failure.value"
-                  role="alert"
-                  class="mt-3 text-sm text-destructive"
-                >
-                  Your choice of units couldn't be saved. {{ failureMessage(units.failure.value) }}
-                </p>
-              </div>
-              <IngredientList
-                v-if="units.ready.value"
-                :groups="recipe.ingredientGroups"
-                :system="units.system.value"
-                :factor="factor"
-              />
-            </template>
-            <p
-              v-else
-              class="text-muted-foreground"
-            >
-              No ingredients yet.
-            </p>
+            <ScaledIngredients
+              v-model:servings="servings"
+              :recipe="recipe"
+            />
           </section>
 
           <section
@@ -344,34 +265,7 @@ const nutrition = computed(() => (recipe.value ? nutritionFacts(recipe.value.nut
           >
             Steps
           </h2>
-          <ol
-            v-if="recipe.steps.length > 0"
-            class="list-decimal space-y-4 ps-6 marker:font-semibold"
-          >
-            <li
-              v-for="(step, index) in recipe.steps"
-              :key="index"
-              class="ps-1"
-            >
-              <MarkdownContent
-                :source="step.body"
-              />
-              <!-- Shown whole, never cropped, as it may show how something's done. On phones it
-                   takes back the list's indent (1.75rem), so it's as far from either side. -->
-              <RecipePhoto
-                v-if="step.image"
-                :image="step.image"
-                :sizes="STEP_PHOTO_SIZES"
-                class="-ms-7 mt-3 block h-auto max-h-[32rem] w-auto max-w-[calc(100%_+_1.75rem)] rounded-md md:ms-0 md:max-w-full"
-              />
-            </li>
-          </ol>
-          <p
-            v-else
-            class="text-muted-foreground"
-          >
-            No steps yet.
-          </p>
+          <RecipeSteps :steps="recipe.steps" />
         </section>
 
         <section

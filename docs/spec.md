@@ -375,14 +375,17 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 
 ### 3.6 Cook mode
 
+- **Opened** from the Cook mode button on a recipe's page, by anyone who can see the recipe. It has its own address, under the recipe's, and a link back to it.
 - **Layout:**
-  - a large-type, distraction-free view
-  - a servings selector
+  - a large-type, distraction-free view, under the app's usual header
+  - a servings selector, and the units switch
   - scaled ingredients
-  - **all steps on one page**
+  - **all steps on one page**, with their photos
+- **Servings go along:** cook mode opens at the servings chosen on the recipe's page, and the link back keeps those chosen in cook mode. The address holds them (`?servings=6`), so a reload keeps them too.
 - **Screen stays awake** while cook mode is open, using the Screen Wake Lock API, and releases when cook mode closes.
   - The API only works in a secure context: HTTPS or `localhost`. Caddy serves HTTPS so this works on phones over the LAN, with certificates from its own local CA, which each device trusts once (ADR 0013).
-  - If wake lock isn't available, the UI says so plainly; nothing else is affected.
+  - The page says whether the screen stays on. If wake lock isn't available, or the browser refuses it (in battery saver mode, say), it says so plainly; nothing else is affected.
+  - Browsers let go of the lock while the page is hidden, so it's asked for again each time the page shows.
 - **Out of scope:** timers, voice control, saved progress, a one-step-at-a-time view (§7).
 
 ### 3.7 Import and export
