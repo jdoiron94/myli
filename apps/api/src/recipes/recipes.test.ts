@@ -3,6 +3,8 @@ import {
   type Recipe,
   type Role,
   recipeResultSchema,
+  STALE_RECIPE_PROBLEM_TYPE,
+  staleRecipeProblemSchema,
   validationProblemSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
@@ -11,18 +13,26 @@ import { auditEvent, job, recipeIngredient, recipe as recipeTable, tag } from '.
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { deactivateUser } from '../users/manage.ts';
 import { deleteRecipe } from './recipes.ts';
-import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
+import { ifMatch, insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-function send(t: TestApp, method: string, path: string, cookie?: string, body?: unknown) {
+function send(
+  t: TestApp,
+  method: string,
+  path: string,
+  cookie?: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+) {
   return t.app.request(`/api/v1${path}`, {
     method,
     headers: {
       ...(method !== 'GET' && { 'content-type': 'application/json' }),
       ...(cookie !== undefined && { cookie }),
+      ...headers,
     },
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
@@ -88,6 +98,7 @@ describe('POST /recipes', () => {
         })),
       })),
       tags: [{ id: tagId(t, 'wheat'), type: 'allergen', name: 'wheat' }],
+      version: 1,
       createdAt: expect.any(String),
       updatedAt: created.createdAt,
     });
@@ -277,7 +288,7 @@ describe('GET /recipes/{id}', () => {
 
 describe('PUT /recipes/{id}', () => {
   const save = (t: TestApp, id: string, cookie: string, body: unknown) =>
-    send(t, 'PUT', `/recipes/${id}`, cookie, body);
+    send(t, 'PUT', `/recipes/${id}`, cookie, body, ifMatch(t.db, id));
 
   it('replaces the content, lines, steps and tags, and keeps the owner and visibility', async () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-16T10:00:00Z') });
@@ -366,15 +377,6 @@ describe('PUT /recipes/{id}', () => {
     expect((await save(t, id, cookie, sampleRecipeContent())).status).toBe(404);
   });
 
-  it('keeps the last save, until drafts bring a concurrency check', async () => {
-    const { t, user, cookie } = await setUp('editor');
-    const id = insertRecipe(t.db, user.id);
-    const other = await signedInAs(t, 'editor');
-    await save(t, id, cookie, sampleRecipeContent({ title: 'First' }));
-    await save(t, id, other.cookie, sampleRecipeContent({ title: 'Second' }));
-    expect((await recipeFrom(await send(t, 'GET', `/recipes/${id}`, cookie))).title).toBe('Second');
-  });
-
   it('ignores a visibility in the body: it’s changed on its own', async () => {
     const { t, user, cookie } = await setUp('editor');
     const id = insertRecipe(t.db, user.id, 'shared');
@@ -387,7 +389,7 @@ describe('PUT /recipes/{id}', () => {
 
 describe('PUT /recipes/{id}/visibility', () => {
   const setVisibility = (t: TestApp, id: string, cookie: string, visibility: string) =>
-    send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility });
+    send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility }, ifMatch(t.db, id));
 
   it('lets the owner make a shared recipe private, which hides it from everyone else', async () => {
     const { t, user, cookie } = await setUp('editor');
@@ -407,7 +409,7 @@ describe('PUT /recipes/{id}/visibility', () => {
     const id = insertRecipe(t.db, user.id, 'shared');
     const res = await setVisibility(t, id, cookie, 'shared');
     expect(res.status).toBe(200);
-    expect((await recipeFrom(res)).visibility).toBe('shared');
+    expect(await recipeFrom(res)).toMatchObject({ visibility: 'shared', version: 1 });
   });
 
   it('answers 404 for a deleted recipe', async () => {
@@ -420,7 +422,7 @@ describe('PUT /recipes/{id}/visibility', () => {
 
 describe('DELETE /recipes/{id}', () => {
   const remove = (t: TestApp, id: string, cookie: string) =>
-    send(t, 'DELETE', `/recipes/${id}`, cookie);
+    send(t, 'DELETE', `/recipes/${id}`, cookie, undefined, ifMatch(t.db, id));
   const deletions = (t: TestApp) =>
     t.db.select().from(auditEvent).where(eq(auditEvent.action, 'recipe.deleted')).all();
 
@@ -433,13 +435,13 @@ describe('DELETE /recipes/{id}', () => {
     expect(await res.text()).toBe('');
 
     expect((await send(t, 'GET', `/recipes/${id}`, cookie)).status).toBe(404);
-    expect((await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent())).status).toBe(
-      404,
-    );
-    expect(
-      (await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' })).status,
-    ).toBe(404);
-    expect((await remove(t, id, cookie)).status).toBe(404);
+    const current = ifMatch(t.db, id);
+    const gone = [
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(), current),
+      await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' }, current),
+      await remove(t, id, cookie),
+    ].map((res) => res.status);
+    expect(gone).toEqual([404, 404, 404]);
 
     const row = t.db.select().from(recipeTable).where(eq(recipeTable.id, id)).get();
     expect(row?.deletedAt).toBeInstanceOf(Date);
@@ -453,7 +455,12 @@ describe('DELETE /recipes/{id}', () => {
     const id = insertRecipe(t.db, user.id, 'shared');
     await t.app.request(`/api/v1/recipes/${id}`, {
       method: 'DELETE',
-      headers: { cookie, 'content-type': 'application/json', 'user-agent': 'Recipe Tests' },
+      headers: {
+        cookie,
+        'content-type': 'application/json',
+        'user-agent': 'Recipe Tests',
+        ...ifMatch(t.db, id),
+      },
     });
 
     expect(deletions(t)).toEqual([
@@ -482,14 +489,101 @@ describe('DELETE /recipes/{id}', () => {
     const id = insertRecipe(t.db, user.id, 'shared');
     const origin = { actorId: user.id, ip: null, userAgent: null };
 
-    expect(deleteRecipe(t.db, origin, id)).toBe(true);
+    expect(deleteRecipe(t.db, origin, id, 1)).toEqual({ ok: true });
     const { deletedAt } = t.db.select().from(recipeTable).where(eq(recipeTable.id, id)).get() ?? {};
-    expect(deleteRecipe(t.db, origin, id)).toBe(false);
-    expect(deleteRecipe(t.db, origin, 'no-such-recipe')).toBe(false);
+    expect(deleteRecipe(t.db, origin, id, 2)).toEqual({ ok: false, reason: 'not-found' });
+    expect(deleteRecipe(t.db, origin, 'no-such-recipe', 1)).toEqual({
+      ok: false,
+      reason: 'not-found',
+    });
     expect(deletions(t)).toHaveLength(1);
     expect(t.db.select().from(recipeTable).where(eq(recipeTable.id, id)).get()?.deletedAt).toEqual(
       deletedAt,
     );
+  });
+});
+
+describe('changing a recipe someone else changed meanwhile', () => {
+  it('moves the version on with every change, and sends it as the ETag', async () => {
+    const { t, cookie } = await setUp('editor');
+    const res = await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest());
+    const { id, version } = await recipeFrom(res);
+    expect([version, res.headers.get('etag')]).toEqual([1, '"1"']);
+
+    const saved = await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(), {
+      'if-match': '"1"',
+    });
+    expect([(await recipeFrom(saved)).version, saved.headers.get('etag')]).toEqual([2, '"2"']);
+    expect((await send(t, 'GET', `/recipes/${id}`, cookie)).headers.get('etag')).toBe('"2"');
+  });
+
+  it('refuses a change based on an older version with 412, and the recipe as it is now', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const other = await signedInAs(t, 'editor');
+    const loaded = ifMatch(t.db, id);
+    await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent({ title: 'First' }), loaded);
+
+    const res = await send(
+      t,
+      'PUT',
+      `/recipes/${id}`,
+      other.cookie,
+      sampleRecipeContent({ title: 'Second' }),
+      loaded,
+    );
+    expect(res.status).toBe(412);
+    const problem = staleRecipeProblemSchema.parse(await res.json());
+    expect(problem).toMatchObject({ type: STALE_RECIPE_PROBLEM_TYPE, status: 412 });
+    expect(problem.recipe).toEqual(
+      await recipeFrom(await send(t, 'GET', `/recipes/${id}`, cookie)),
+    );
+    expect(problem.recipe).toMatchObject({ title: 'First', version: 2 });
+
+    // Only one strong ETag of the current version will do.
+    const tries = ['"1"', '*', 'W/"2"', '"2", "3"', '2'];
+    const statuses = Object.fromEntries(
+      await Promise.all(
+        tries.map(async (value) => {
+          const tried = await send(
+            t,
+            'PUT',
+            `/recipes/${id}/visibility`,
+            cookie,
+            {
+              visibility: 'private',
+            },
+            { 'if-match': value },
+          );
+          return [value, tried.status];
+        }),
+      ),
+    );
+    expect(statuses).toEqual(Object.fromEntries(tries.map((value) => [value, 412])));
+    const stale = await send(t, 'DELETE', `/recipes/${id}`, cookie, undefined, loaded);
+    expect(stale.status).toBe(412);
+    expect(await recipeFrom(await send(t, 'GET', `/recipes/${id}`, cookie))).toMatchObject({
+      title: 'First',
+      visibility: 'shared',
+      version: 2,
+    });
+  });
+
+  it('answers 428 to a change that doesn’t say which version it’s based on', async () => {
+    const { t, user, cookie } = await setUp('editor');
+    const id = insertRecipe(t.db, user.id, 'shared');
+    const statuses = [
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent({ title: 'Blind' })),
+      await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' }),
+      await send(t, 'DELETE', `/recipes/${id}`, cookie),
+    ].map((res) => res.status);
+
+    expect(statuses).toEqual([428, 428, 428]);
+    expect(await recipeFrom(await send(t, 'GET', `/recipes/${id}`, cookie))).toMatchObject({
+      title: 'Weeknight Bread',
+      visibility: 'shared',
+      version: 1,
+    });
   });
 });
 
@@ -510,14 +604,21 @@ describe('the search index', () => {
     );
     expect(indexed(t)).toEqual([{ recipeId: id }]);
 
-    expect(
-      (await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent({ title: 'Rye' })))
-        .status,
-    ).toBe(200);
-    expect(
-      (await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'shared' })).status,
-    ).toBe(200);
-    expect((await send(t, 'DELETE', `/recipes/${id}`, cookie)).status).toBe(204);
+    const statuses = [
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(), ifMatch(t.db, id)),
+      await send(
+        t,
+        'PUT',
+        `/recipes/${id}/visibility`,
+        cookie,
+        { visibility: 'shared' },
+        {
+          'if-match': '"2"',
+        },
+      ),
+      await send(t, 'DELETE', `/recipes/${id}`, cookie, undefined, { 'if-match': '"3"' }),
+    ].map((res) => res.status);
+    expect(statuses).toEqual([200, 200, 204]);
 
     expect(indexed(t)).toEqual([
       { recipeId: id },
@@ -533,23 +634,36 @@ describe('the search index', () => {
     const id = insertRecipe(t.db, user.id);
     const before = indexed(t).length;
     const missingTag = { tagIds: [987_654] };
+    const current = ifMatch(t.db, id);
+    const stale = { 'if-match': '"7"' };
 
     const refused = [
       await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest(missingTag)),
-      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(missingTag)),
-      await send(t, 'PUT', `/recipes/${id}`, viewer.cookie, sampleRecipeContent()),
-      await send(t, 'PUT', `/recipes/${id}/visibility`, viewer.cookie, { visibility: 'private' }),
-      await send(t, 'DELETE', `/recipes/${id}`, viewer.cookie),
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(missingTag), current),
+      await send(t, 'PUT', `/recipes/${id}`, viewer.cookie, sampleRecipeContent(), current),
+      await send(
+        t,
+        'PUT',
+        `/recipes/${id}/visibility`,
+        viewer.cookie,
+        { visibility: 'private' },
+        current,
+      ),
+      await send(t, 'DELETE', `/recipes/${id}`, viewer.cookie, undefined, current),
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(), stale),
+      await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' }, stale),
+      await send(t, 'DELETE', `/recipes/${id}`, cookie, undefined, stale),
     ].map((res) => res.status);
-    expect(refused).toEqual([422, 422, 403, 403, 403]);
+    expect(refused).toEqual([422, 422, 403, 403, 403, 412, 412, 412]);
     expect(indexed(t)).toHaveLength(before);
 
-    deleteRecipe(t.db, { actorId: user.id, ip: null, userAgent: null }, id);
+    deleteRecipe(t.db, { actorId: user.id, ip: null, userAgent: null }, id, 1);
     const afterDelete = indexed(t).length;
+    const latest = ifMatch(t.db, id);
     const gone = [
-      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent()),
-      await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' }),
-      await send(t, 'DELETE', `/recipes/${id}`, cookie),
+      await send(t, 'PUT', `/recipes/${id}`, cookie, sampleRecipeContent(), latest),
+      await send(t, 'PUT', `/recipes/${id}/visibility`, cookie, { visibility: 'private' }, latest),
+      await send(t, 'DELETE', `/recipes/${id}`, cookie, undefined, latest),
     ].map((res) => res.status);
     expect(gone).toEqual([404, 404, 404]);
     expect(indexed(t)).toHaveLength(afterDelete);

@@ -103,6 +103,7 @@ export {
   DIFFICULTIES,
   type Difficulty,
   difficultySchema,
+  ifMatchHeadersSchema,
   ingredientGroupInputSchema,
   ingredientLineInputSchema,
   ingredientLineSchema,
@@ -112,8 +113,12 @@ export {
   recipeResultSchema,
   recipeSchema,
   recipeTotalMinutes,
+  STALE_RECIPE_PROBLEM_TYPE,
+  type StaleRecipeProblem,
+  staleRecipeProblemSchema,
   type UpdateRecipeRequest,
   updateRecipeRequestSchema,
+  versionETag,
 } from './recipe.ts';
 export {
   RECIPES_PER_PAGE,

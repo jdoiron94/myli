@@ -1,5 +1,12 @@
-import type { CreateRecipeRequest, UpdateRecipeRequest, Visibility } from '@myli/shared';
+import {
+  type CreateRecipeRequest,
+  type UpdateRecipeRequest,
+  type Visibility,
+  versionETag,
+} from '@myli/shared';
+import { eq } from 'drizzle-orm';
 import type { Db } from '../db/database.ts';
+import { recipe } from '../db/schema.ts';
 import { createRecipe } from './recipes.ts';
 
 /** A complete, valid request to save a recipe. Override any part of it. */
@@ -67,6 +74,13 @@ export function sampleRecipeRequest(
   overrides: Partial<CreateRecipeRequest> = {},
 ): CreateRecipeRequest {
   return { ...sampleRecipeContent(), visibility: 'shared', ...overrides };
+}
+
+/** The `If-Match` header for a recipe's current version, as a client that just loaded it sends. */
+export function ifMatch(db: Db, id: string): { 'if-match': string } {
+  const row = db.select({ version: recipe.version }).from(recipe).where(eq(recipe.id, id)).get();
+  if (!row) throw new Error(`no recipe ${id}`);
+  return { 'if-match': versionETag(row.version) };
 }
 
 /** A new recipe owned by `ownerId`, written straight to the database. Its ID. */

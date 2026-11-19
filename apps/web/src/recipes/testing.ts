@@ -1,11 +1,10 @@
-import { ALLERGENS } from '@myli/shared';
+import { ALLERGENS, STALE_RECIPE_PROBLEM_TYPE } from '@myli/shared';
 import { within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { answerPreferences } from '@/account/testing.ts';
 import { apiServer, problemResponse, testUsers } from '@/testing.ts';
 import type { Image, Recipe, RecipeSummary, Tag } from './recipe.ts';
 
-/** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
 /** A 1600×1200 photo, with the sizes the API makes of one that wide. */
 export const sampleImage = (id: string, alt = ''): Image => ({
   id,
@@ -19,6 +18,7 @@ export const sampleImage = (id: string, alt = ''): Image => ({
   ],
 });
 
+/** A recipe as the API would send it, owned by the editor `renderApp` signs in by default. */
 export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
     id: 'recipe-bread',
@@ -77,6 +77,7 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
     tags: [],
     images: [],
     coverImageId: null,
+    version: 1,
     createdAt: '2026-11-10T09:00:00.000Z',
     updatedAt: '2026-11-12T09:00:00.000Z',
     ...overrides,
@@ -87,6 +88,13 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
  * Answers GET /recipes/{id} with this recipe, and 404 for any other, and counts the requests. Also
  * answers the reader's preferences with imperial, unless the test answers them itself afterwards.
  */
+/** The API's 412 for a change based on an older version, holding the recipe as it is now. */
+export const staleRecipeResponse = (recipe: Recipe) =>
+  problemResponse(412, 'This recipe changed after you loaded it.', {
+    type: STALE_RECIPE_PROBLEM_TYPE,
+    recipe,
+  });
+
 export function answerRecipe(recipe: Recipe) {
   answerPreferences();
   const requests: string[] = [];

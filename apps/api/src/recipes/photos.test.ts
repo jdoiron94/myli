@@ -5,6 +5,7 @@ import {
   type RecipeList,
   type Role,
   recipeResultSchema,
+  type UpdateRecipeRequest,
   validationProblemSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
@@ -13,7 +14,7 @@ import { createMemoryBlobStore } from '../blobs/memory.ts';
 import { image, job, recipe as recipeTable } from '../db/schema.ts';
 import { testImage } from '../images/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
-import { sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
+import { ifMatch, sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
 
 const UNAVAILABLE = "This photo isn't available any more. Upload it again.";
 
@@ -24,6 +25,14 @@ function send(t: TestApp, method: string, path: string, cookie: string, body?: u
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 }
+
+/** Saves the recipe's content, as someone who just loaded its current version. */
+const saveRecipe = (t: TestApp, id: string, cookie: string, content: UpdateRecipeRequest) =>
+  t.app.request(`/api/v1/recipes/${id}`, {
+    method: 'PUT',
+    headers: { cookie, 'content-type': 'application/json', ...ifMatch(t.db, id) },
+    body: JSON.stringify(content),
+  });
 
 async function recipeFrom(res: Response): Promise<Recipe> {
   expect(res.status).toBeLessThan(300);
@@ -168,10 +177,9 @@ describe('a recipe’s photos', () => {
 
     // Changed, or taken away, as the recipe is saved.
     await recipeFrom(
-      await send(
+      await saveRecipe(
         t,
-        'PUT',
-        `/recipes/${id}`,
+        id,
         cookie,
         sampleRecipeContent({
           images: [{ id: a.id, alt: 'A loaf on a board.' }],
@@ -248,10 +256,9 @@ describe('a recipe’s photos', () => {
 
     // b and the new upload in place of a; a moves to a new step, and the first step loses c.
     const saved = await recipeFrom(
-      await send(
+      await saveRecipe(
         t,
-        'PUT',
-        `/recipes/${id}`,
+        id,
         cookie,
         sampleRecipeContent({
           images: photos(b.id, added.id),
@@ -293,13 +300,7 @@ describe('a recipe’s photos', () => {
     const keys = [...(keysOf(t, a.id) ?? []), ...(keysOf(t, b.id) ?? [])];
 
     const saved = await recipeFrom(
-      await send(
-        t,
-        'PUT',
-        `/recipes/${id}`,
-        cookie,
-        sampleRecipeContent({ steps: withSteps(null) }),
-      ),
+      await saveRecipe(t, id, cookie, sampleRecipeContent({ steps: withSteps(null) })),
     );
 
     expect(saved).toMatchObject({ images: [], coverImageId: null, steps: [{ image: null }] });
@@ -316,10 +317,9 @@ describe('a recipe’s photos', () => {
     const editor = await signedInAs(t, 'editor');
     const editorsUpload = await upload(t, editor.cookie);
     const save = (ids: string[]) =>
-      send(
+      saveRecipe(
         t,
-        'PUT',
-        `/recipes/${id}`,
+        id,
         editor.cookie,
         sampleRecipeContent({ images: photos(...ids), coverImageId: ids[0] ?? null }),
       );
@@ -346,10 +346,9 @@ describe('a recipe’s photos', () => {
       await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest()),
     );
 
-    const res = await send(
+    const res = await saveRecipe(
       t,
-      'PUT',
-      `/recipes/${id}`,
+      id,
       cookie,
       sampleRecipeContent({ steps: withSteps(photo.id) }),
     );

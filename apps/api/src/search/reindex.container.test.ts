@@ -62,7 +62,7 @@ describe('rebuildRecipeIndex', () => {
   it('fills the index with exactly the live recipes, as SQLite holds them', async () => {
     const kept = [insertRecipe(db, 'owner'), insertRecipe(db, 'owner', 'private')];
     const deleted = insertRecipe(db, 'owner');
-    deleteRecipe(db, { actorId: 'owner', ip: null, userAgent: null }, deleted);
+    deleteRecipe(db, { actorId: 'owner', ip: null, userAgent: null }, deleted, 1);
     // What the index had before: a recipe since deleted, and one with an old title.
     await recipes()
       .addDocuments([

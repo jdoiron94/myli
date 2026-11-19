@@ -3,21 +3,26 @@ import {
   API_BASE_PATH,
   changeVisibilityRequestSchema,
   createRecipeRequestSchema,
+  ifMatchHeadersSchema,
   PROBLEM_CONTENT_TYPE,
   problemDetailsSchema,
+  type Recipe,
   type RecipeAction,
   recipeIdParamsSchema,
   recipeListQuerySchema,
   recipeListSchema,
   recipeResultSchema,
+  STALE_RECIPE_PROBLEM_TYPE,
+  staleRecipeProblemSchema,
   updateRecipeRequestSchema,
+  versionETag,
 } from '@myli/shared';
 import { auditOrigin } from '../audit/audit.ts';
 import { authorize, notFound, requirePermission } from '../auth/authorize.ts';
 import { requireSession } from '../auth/session.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
-import { errorResponses, InvalidFields } from '../problems.ts';
+import { errorResponses, HttpProblem, InvalidFields } from '../problems.ts';
 import { listRecipes } from './list.ts';
 import {
   createRecipe,
@@ -27,6 +32,7 @@ import {
   type SaveResult,
   setRecipeVisibility,
   updateRecipe,
+  type WriteResult,
 } from './recipes.ts';
 
 const problem = (description: string) => ({
@@ -34,10 +40,33 @@ const problem = (description: string) => ({
   content: { [PROBLEM_CONTENT_TYPE]: { schema: problemDetailsSchema } },
 });
 
-const result = (description: string) => ({
+interface HeaderObject {
+  schema: { type: 'string' };
+  description: string;
+}
+
+/** A response holding a recipe, with its version as the `ETag`. */
+const result = (description: string, headers: Record<string, HeaderObject> = {}) => ({
   description,
   content: { 'application/json': { schema: recipeResultSchema } },
+  headers: {
+    ETag: {
+      schema: { type: 'string' as const },
+      description: "The recipe's version, for the `If-Match` of a change to it.",
+    },
+    ...headers,
+  },
 });
+
+/** The answers a write to an existing recipe can get from its `If-Match` (ADR 0007). */
+const conditionalResponses = {
+  412: {
+    description:
+      'The recipe changed since the version in `If-Match`. The body holds it as it is now.',
+    content: { [PROBLEM_CONTENT_TYPE]: { schema: staleRecipeProblemSchema } },
+  },
+  428: problem('The request has no `If-Match`.'),
+};
 
 const postRecipe = createRoute({
   method: 'post',
@@ -56,10 +85,9 @@ const postRecipe = createRoute({
     },
   },
   responses: {
-    201: {
-      ...result('The new recipe.'),
-      headers: { Location: { schema: { type: 'string' }, description: 'Where it lives.' } },
-    },
+    201: result('The new recipe.', {
+      Location: { schema: { type: 'string' }, description: 'Where it lives.' },
+    }),
     ...errorResponses,
   },
 });
@@ -109,10 +137,12 @@ const putRecipe = createRoute({
   description:
     'Editors and admins, for shared recipes and their own private ones: editors can edit any ' +
     "shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and " +
-    'tags included; its owner and visibility stay. Until drafts arrive, the last save wins.',
+    'tags included; its owner and visibility stay. Send the version the edit started from in ' +
+    '`If-Match`: if someone saved the recipe meanwhile, the save is refused with 412.',
   middleware: [requireSession] as const,
   request: {
     params: recipeIdParamsSchema,
+    headers: ifMatchHeadersSchema,
     body: {
       required: true,
       content: { 'application/json': { schema: updateRecipeRequestSchema } },
@@ -122,6 +152,7 @@ const putRecipe = createRoute({
     200: result('The recipe as saved.'),
     403: problem('The caller may see the recipe but not edit it.'),
     404: problem('No recipe has this ID, or the caller may not see it.'),
+    ...conditionalResponses,
     ...errorResponses,
   },
 });
@@ -133,10 +164,12 @@ const putVisibility = createRoute({
   summary: "Change a recipe's visibility",
   description:
     "The recipe's owner only, admins included: a private recipe is seen by its owner alone, a " +
-    'shared one by everyone signed in. Setting the visibility it already has changes nothing.',
+    'shared one by everyone signed in. Setting the visibility it already has changes nothing. ' +
+    'Send its version in `If-Match`.',
   middleware: [requireSession] as const,
   request: {
     params: recipeIdParamsSchema,
+    headers: ifMatchHeadersSchema,
     body: {
       required: true,
       content: { 'application/json': { schema: changeVisibilityRequestSchema } },
@@ -146,6 +179,7 @@ const putVisibility = createRoute({
     200: result('The recipe, with its visibility now.'),
     403: problem("The caller may see the recipe but isn't its owner."),
     404: problem('No recipe has this ID, or the caller may not see it.'),
+    ...conditionalResponses,
     ...errorResponses,
   },
 });
@@ -158,34 +192,50 @@ const deleteRecipeRoute = createRoute({
   description:
     'Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, ' +
     'and the deletion is recorded in the audit log. (Restoring it from the trash comes with ' +
-    'Phase 2.) Send `Content-Type: application/json` even though there is no body.',
+    'Phase 2.) Send its version in `If-Match`, and `Content-Type: application/json` even though ' +
+    'there is no body.',
   middleware: [requireSession] as const,
-  request: { params: recipeIdParamsSchema },
+  request: { params: recipeIdParamsSchema, headers: ifMatchHeadersSchema },
   responses: {
     204: { description: 'Deleted.' },
     403: problem('The caller may see the recipe but not delete it.'),
     404: problem('No recipe has this ID, or the caller may not see it.'),
+    ...conditionalResponses,
     ...errorResponses,
   },
 });
 
 /**
- * The saved recipe's ID, or the problem that stopped the save: 404 if the recipe is gone, or the
- * 422 naming the tags in `tagIds` that don't exist.
+ * The version a write's `If-Match` names (ADR 0007): 428 without one. Anything but one strong
+ * `ETag`, `*` included, counts as version 0, which no recipe has, so it's refused as out of date.
  */
-function savedId(saved: SaveResult): string {
-  if (saved.ok) return saved.id;
-  if (saved.reason === 'not-found') throw notFound('Recipe');
-  if (saved.reason === 'unusable-images') {
-    throw new InvalidFields(
-      saved.paths.map((path) => ({
+function ifMatchVersion(header: string | undefined): number {
+  if (header === undefined) {
+    throw new HttpProblem(428, 'Send the version this change is based on, in If-Match.');
+  }
+  const match = /^"(\d{1,15})"$/.exec(header.trim());
+  return match ? Number(match[1]) : 0;
+}
+
+/** The headers of a response holding a recipe: its version, as the `ETag`. */
+const etag = (recipe: Recipe) => ({ ETag: versionETag(recipe.version) });
+
+/**
+ * The problem that stopped a save: 404 if the recipe is gone, or the 422 naming the photos it
+ * can't use or the tags in `tagIds` that don't exist.
+ */
+function refusal(failure: Exclude<SaveResult, { ok: true } | { reason: 'stale' }>): Error {
+  if (failure.reason === 'not-found') return notFound('Recipe');
+  if (failure.reason === 'unusable-images') {
+    return new InvalidFields(
+      failure.paths.map((path) => ({
         path,
         detail: "This photo isn't available any more. Upload it again.",
       })),
     );
   }
-  throw new InvalidFields(
-    saved.missingTags.map((index) => ({
+  return new InvalidFields(
+    failure.missingTags.map((index) => ({
       path: ['tagIds', index],
       detail: 'This tag no longer exists. Choose another.',
     })),
@@ -194,12 +244,17 @@ function savedId(saved: SaveResult): string {
 
 export function registerRecipeRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) {
   v1.openapi(postRecipe, (c) => {
-    const id = savedId(createRecipe(deps.db, c.var.user.id, c.req.valid('json')));
+    const saved = createRecipe(deps.db, c.var.user.id, c.req.valid('json'));
+    if (!saved.ok) throw refusal(saved);
+    const { id } = saved;
     const recipe = loadRecipe(deps.db, id);
     // Just written in the same process: only a bug could lose it.
     if (!recipe) throw new Error('a new recipe could not be read back');
     c.var.logger.info({ recipeId: id }, 'recipe created');
-    return c.json({ recipe }, 201, { Location: `${API_BASE_PATH}/recipes/${id}` });
+    return c.json({ recipe }, 201, {
+      Location: `${API_BASE_PATH}/recipes/${id}`,
+      ETag: versionETag(recipe.version),
+    });
   });
 
   v1.openapi(getRecipes, (c) =>
@@ -209,33 +264,54 @@ export function registerRecipeRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) 
   v1.openapi(getRecipe, (c) => {
     const { id } = c.req.valid('param');
     authorizeOn(c, 'recipe.read', id);
-    return c.json({ recipe: found(id) }, 200);
+    const recipe = found(id);
+    return c.json({ recipe }, 200, etag(recipe));
   });
 
   v1.openapi(putRecipe, (c) => {
     const { id } = c.req.valid('param');
     authorizeOn(c, 'recipe.edit', id);
-    savedId(updateRecipe(deps.db, id, c.req.valid('json'), c.var.user.id));
+    const version = ifMatchVersion(c.req.valid('header')['if-match']);
+    const saved = updateRecipe(deps.db, id, c.req.valid('json'), c.var.user.id, version);
+    if (!saved.ok) throw saved.reason === 'stale' ? staleProblem(id) : refusal(saved);
     c.var.logger.info({ recipeId: id }, 'recipe saved');
-    return c.json({ recipe: found(id) }, 200);
+    const recipe = found(id);
+    return c.json({ recipe }, 200, etag(recipe));
   });
 
   v1.openapi(putVisibility, (c) => {
     const { id } = c.req.valid('param');
     const { visibility } = c.req.valid('json');
     authorizeOn(c, 'recipe.setVisibility', id);
-    if (!setRecipeVisibility(deps.db, id, visibility)) throw notFound('Recipe');
+    const version = ifMatchVersion(c.req.valid('header')['if-match']);
+    written(id, setRecipeVisibility(deps.db, id, visibility, version));
     c.var.logger.info({ recipeId: id, visibility }, 'recipe visibility set');
-    return c.json({ recipe: found(id) }, 200);
+    const recipe = found(id);
+    return c.json({ recipe }, 200, etag(recipe));
   });
 
   v1.openapi(deleteRecipeRoute, (c) => {
     const { id } = c.req.valid('param');
     authorizeOn(c, 'recipe.trash', id);
-    if (!deleteRecipe(deps.db, auditOrigin(c), id)) throw notFound('Recipe');
+    const version = ifMatchVersion(c.req.valid('header')['if-match']);
+    written(id, deleteRecipe(deps.db, auditOrigin(c), id, version));
     c.var.logger.info({ recipeId: id }, 'recipe deleted');
     return c.body(null, 204);
   });
+
+  /** Throws unless the write happened: 404 if the recipe is gone, 412 if it changed meanwhile. */
+  function written(id: string, result: WriteResult) {
+    if (result.ok) return;
+    throw result.reason === 'stale' ? staleProblem(id) : notFound('Recipe');
+  }
+
+  /** The 412 for a write based on an old version, with the recipe as it is now. */
+  function staleProblem(id: string) {
+    return new HttpProblem(412, 'This recipe changed after you loaded it.', {
+      type: STALE_RECIPE_PROBLEM_TYPE,
+      recipe: found(id),
+    });
+  }
 
   /** Throws unless the caller may do `action` to the recipe: 401, 404 if hidden or gone, 403. */
   function authorizeOn(c: Parameters<typeof authorize>[0], action: RecipeAction, id: string) {

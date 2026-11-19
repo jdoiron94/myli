@@ -17,7 +17,12 @@ import {
 import { createUserWithPassword } from './auth/users.ts';
 import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
-import { insertRecipe, sampleRecipeContent, sampleRecipeRequest } from './recipes/testing.ts';
+import {
+  ifMatch,
+  insertRecipe,
+  sampleRecipeContent,
+  sampleRecipeRequest,
+} from './recipes/testing.ts';
 import { findOrCreateTag } from './tags/tags.ts';
 import { signedInAs, type TestApp } from './testing.ts';
 
@@ -68,12 +73,14 @@ function request(
   path: string,
   cookie: string | undefined,
   body?: unknown,
+  headers: Record<string, string> = {},
 ) {
   return t.app.request(`${API_BASE_PATH}${path}`, {
     method,
     headers: {
       ...(cookie !== undefined && { cookie }),
       ...(method !== 'GET' && { 'content-type': 'application/json' }),
+      ...headers,
     },
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
@@ -279,20 +286,35 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/recipes/{id}',
     access: { recipe: 'recipe.edit' },
     send: (t, cookie, recipeId) =>
-      request(t, 'PUT', `/recipes/${recipeId}`, cookie, sampleRecipeContent()),
+      request(
+        t,
+        'PUT',
+        `/recipes/${recipeId}`,
+        cookie,
+        sampleRecipeContent(),
+        ifMatch(t.db, recipeId),
+      ),
   },
   {
     method: 'put',
     path: '/recipes/{id}/visibility',
     access: { recipe: 'recipe.setVisibility' },
     send: (t, cookie, recipeId) =>
-      request(t, 'PUT', `/recipes/${recipeId}/visibility`, cookie, { visibility: 'shared' }),
+      request(
+        t,
+        'PUT',
+        `/recipes/${recipeId}/visibility`,
+        cookie,
+        { visibility: 'shared' },
+        ifMatch(t.db, recipeId),
+      ),
   },
   {
     method: 'delete',
     path: '/recipes/{id}',
     access: { recipe: 'recipe.trash' },
-    send: (t, cookie, recipeId) => request(t, 'DELETE', `/recipes/${recipeId}`, cookie),
+    send: (t, cookie, recipeId) =>
+      request(t, 'DELETE', `/recipes/${recipeId}`, cookie, undefined, ifMatch(t.db, recipeId)),
   },
   {
     method: 'get',

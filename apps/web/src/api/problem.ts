@@ -1,6 +1,7 @@
 import {
   type ProblemDetails,
   problemDetailsSchema,
+  staleRecipeProblemSchema,
   type ValidationProblem,
   validationProblemSchema,
 } from '@myli/shared';
@@ -31,6 +32,9 @@ export class ApiProblem extends Error {
 
     const validation = validationProblemSchema.safeParse(body);
     if (validation.success) return new ApiProblem(validation.data, validation.data.errors);
+    // Its own fields too, which parsing it as any other problem would drop.
+    const stale = staleRecipeProblemSchema.safeParse(body);
+    if (stale.success) return new ApiProblem(stale.data);
     const problem = problemDetailsSchema.safeParse(body);
     if (problem.success) return new ApiProblem(problem.data);
 

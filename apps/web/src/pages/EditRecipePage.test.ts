@@ -1,10 +1,16 @@
-import { AUTH_BASE_PATH, type User } from '@myli/shared';
+import { AUTH_BASE_PATH, type User, versionETag } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import type { Recipe, UpdateRecipeRequest } from '@/recipes/recipe.ts';
-import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
+import {
+  answerRecipe,
+  answerTags,
+  sampleImage,
+  sampleRecipe,
+  staleRecipeResponse,
+} from '@/recipes/testing.ts';
 import {
   accessibilityViolations,
   apiServer,
@@ -22,7 +28,9 @@ const checked = (name: string) =>
 
 /**
  * Stands in for the API's copy of one recipe: GET answers what's stored, and PUT stores the content
- * it's sent, or answers `refuse()` instead when given. Keeps each PUT's body.
+ * it's sent, or answers `refuse()` instead when given. As the API does, a PUT based on another
+ * version than the stored one gets 412. Keeps each PUT's body. `saveElsewhere()` saves changes as
+ * someone else would.
  */
 function storeRecipe(recipe: Recipe, refuse?: () => Response) {
   answerPreferences();
@@ -39,6 +47,9 @@ function storeRecipe(recipe: Recipe, refuse?: () => Response) {
       const body = json as UpdateRecipeRequest;
       saved.push(body);
       if (refuse) return refuse();
+      if (request.headers.get('if-match') !== versionETag(stored.version)) {
+        return staleRecipeResponse(stored);
+      }
       // As the API answers: each photo whole, with the alt text it was sent.
       const photo = ({ id, alt }: { id: string; alt: string }) => sampleImage(id, alt);
       stored = {
@@ -49,12 +60,16 @@ function storeRecipe(recipe: Recipe, refuse?: () => Response) {
           body: step.body,
           image: step.image && photo(step.image),
         })),
+        version: stored.version + 1,
         updatedAt: '2026-11-17T09:00:00.000Z',
       };
       return HttpResponse.json({ recipe: stored });
     }),
   );
-  return { saved, reads };
+  const saveElsewhere = (changes: Partial<Recipe>) => {
+    stored = { ...stored, ...changes, version: stored.version + 1 };
+  };
+  return { saved, reads, saveElsewhere };
 }
 
 async function openEditor(path = '/recipes/recipe-bread/edit', role?: User['role']) {
@@ -214,6 +229,23 @@ describe('the edit recipe page', () => {
     });
     reloaded.resolve(undefined);
     await screen.findByRole('radio', { name: 'US customary' });
+  });
+
+  it('won’t save over what someone saved since it opened, even once the page has it', async () => {
+    const { saved, saveElsewhere } = storeRecipe(sampleRecipe());
+    const { user, queryClient } = await openEditor();
+    saveElsewhere({ title: 'Their Bread' });
+    await queryClient.refetchQueries({ queryKey: ['recipes', 'recipe-bread'] });
+
+    await user.type(field('Title'), ' (mine)');
+    await user.click(saveButton());
+
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
+      'Someone saved this recipe after you opened it, and saving now would undo their changes. ' +
+        'Copy anything you want to keep, then open the editor again.',
+    );
+    expect(saved).toHaveLength(1);
+    expect(field('Title')).toHaveProperty('value', 'Weeknight Bread (mine)');
   });
 
   it('goes back to the recipe on cancel, saving nothing', async () => {
