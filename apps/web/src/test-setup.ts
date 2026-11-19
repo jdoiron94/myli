@@ -9,8 +9,13 @@ if (typeof window !== 'undefined') {
   // measures the cursor's range to scroll it into view, and gets nothing to scroll to.
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = () => new DOMRect();
-  // Lists that scroll the highlighted item into view, like the ingredient picker's, have none.
+  // Lists that scroll the highlighted item into view, like the ingredient picker's, have none, and
+  // the API docs' sidebar, which scrolls to the section in view, has nowhere to go.
   Element.prototype.scrollIntoView = () => undefined;
+  Element.prototype.scrollTo = () => undefined;
+  // Nor is there a canvas, which axe draws text on to tell icon fonts apart. jsdom answers null too,
+  // after printing that it isn't implemented.
+  HTMLCanvasElement.prototype.getContext = () => null;
   // The photo slideshow's carousel (Embla) watches its slides' sizes and which are in view, and
   // media queries, which jsdom doesn't have. Here, sizes never change, everything is in view as
   // soon as it's watched, and no media query matches (`fakeDeviceScheme()` makes the device's

@@ -79,5 +79,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // Tests leave out stylesheets, except the markdown editor's: ProseMirror checks it sets
+    // `white-space`, and warns on every editor without it.
+    css: { include: [/prosemirror\.css$/] },
   },
 });
