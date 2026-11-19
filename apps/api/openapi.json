@@ -1846,6 +1846,11 @@
               "exclusiveMinimum": 0
             },
             "maxItems": 50
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "What changed, for the history. Optional."
           }
         },
         "required": [
@@ -1876,6 +1881,275 @@
         },
         "required": [
           "visibility"
+        ]
+      },
+      "RecipeDraftResult": {
+        "type": "object",
+        "properties": {
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecipeDraft"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` when there is none."
+          }
+        },
+        "required": [
+          "draft"
+        ]
+      },
+      "RecipeDraft": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/RecipeContent"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            },
+            "description": "Each photo `content` names, for showing it. Their alt text is in `content`."
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "description": "Who saved it last."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The revision it started from: the latest one when it was first saved. A newer one means the recipe was published since, by a restore."
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The recipe's version now, which a change to the draft or the recipe sends in `If-Match`."
+          }
+        },
+        "required": [
+          "content",
+          "photos",
+          "author",
+          "updatedAt",
+          "revision",
+          "version"
+        ]
+      },
+      "RecipeContent": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "Markdown."
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecipeSource"
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 50
+          },
+          "yield": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "qty": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1000000
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 50
+              }
+            },
+            "required": [
+              "qty",
+              "unit"
+            ],
+            "description": "\"24 cookies\", separate from the servings."
+          },
+          "servings": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "The baseline scaling starts from."
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Only when it differs from prep plus cook: `null` means their sum."
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "nutrition": {
+            "$ref": "#/components/schemas/Nutrition"
+          },
+          "ingredientGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientGroupInput"
+            },
+            "maxItems": 20
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                },
+                "image": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "alt": {
+                      "type": "string",
+                      "maxLength": 300,
+                      "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "alt"
+                  ],
+                  "description": "Its photo, if it has one."
+                }
+              },
+              "required": [
+                "body",
+                "image"
+              ]
+            },
+            "maxItems": 100,
+            "description": "In order. Each body is markdown."
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "alt": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                }
+              },
+              "required": [
+                "id",
+                "alt"
+              ]
+            },
+            "maxItems": 20,
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again."
+          },
+          "coverImageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The photo shown for it in lists: one of `images`, or `null` when there are none."
+          },
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "source",
+          "equipment",
+          "yield",
+          "servings",
+          "prepMinutes",
+          "cookMinutes",
+          "totalMinutes",
+          "difficulty",
+          "nutrition",
+          "ingredientGroups",
+          "steps",
+          "images",
+          "coverImageId",
+          "tagIds"
         ]
       },
       "ImageResult": {
@@ -2994,8 +3268,8 @@
         "tags": [
           "Recipes"
         ],
-        "summary": "Save a recipe",
-        "description": "Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included; its owner and visibility stay. Send the version the edit started from in `If-Match`: if someone saved the recipe meanwhile, the save is refused with 412.",
+        "summary": "Publish a recipe",
+        "description": "Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included, and records it as the next revision, with the message if there is one. Its owner and visibility stay, and its draft is discarded. Send the version the edit started from in `If-Match`: if someone changed the recipe or its draft meanwhile, the save is refused with 412.",
         "parameters": [
           {
             "schema": {
@@ -3264,6 +3538,292 @@
           },
           "403": {
             "description": "The caller may see the recipe but isn't its owner.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "The recipe changed since the version in `If-Match`. The body holds it as it is now.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleRecipeProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "The request has no `If-Match`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/draft": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Get a recipe's draft",
+        "description": "Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. The draft, or `null` when the recipe has none.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The draft, or `null`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDraftResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not edit it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Save a recipe's draft",
+        "description": "Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. Saves the content as the recipe's one draft, replacing any it had, while the published recipe stays as it is. Its photos and tags are checked as publishing them would be. It moves the recipe on to its next version: send the one it was based on in `If-Match`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412."
+            },
+            "required": false,
+            "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412.",
+            "name": "if-match",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeContent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The draft as saved, with the version the recipe is at now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDraftResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not edit it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "The recipe changed since the version in `If-Match`. The body holds it as it is now.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleRecipeProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "The request has no `If-Match`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Discard a recipe's draft",
+        "description": "Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. The published recipe stays as it is. Discarding a draft moves the recipe on to its next version: send the one it was based on in `If-Match`, and `Content-Type: application/json` even though there is no body. Without a draft, nothing changes.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412."
+            },
+            "required": false,
+            "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412.",
+            "name": "if-match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Discarded, or there was none.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The recipe's version now."
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not edit it.",
             "content": {
               "application/problem+json": {
                 "schema": {

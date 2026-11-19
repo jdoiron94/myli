@@ -4,6 +4,7 @@ import {
   DEFAULT_ROLE,
   DIFFICULTIES,
   IMAGE_UPLOAD_TYPES,
+  type RecipeContent,
   ROLES,
   TAG_TYPES,
   UNIT_SYSTEMS,
@@ -508,6 +509,28 @@ export const recipeRevision = sqliteTable(
   },
   (table) => [uniqueIndex('recipe_revision_number_idx').on(table.recipeId, table.number)],
 );
+
+/**
+ * A recipe's draft, its one working copy (spec §3.3), until it's published or discarded. Changing
+ * it moves the recipe's `version` on, as any write to the recipe does.
+ */
+export const recipeDraft = sqliteTable('recipe_draft', {
+  recipeId: text('recipe_id')
+    .primaryKey()
+    .references(() => recipe.id),
+  /**
+   * As the API took it (`RecipeContent`). Stored drafts are read as they are, so a change to that
+   * format needs a migration of them.
+   */
+  content: text('content', { mode: 'json' }).$type<RecipeContent>().notNull(),
+  /** The revision it started from. */
+  revision: integer('revision').notNull(),
+  /** Who saved it last. */
+  authorId: text('author_id')
+    .notNull()
+    .references(() => user.id),
+  updatedAt: updatedAt(),
+});
 
 export const favorite = sqliteTable(
   'favorite',

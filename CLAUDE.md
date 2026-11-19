@@ -97,6 +97,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - **Revisions** (`recipe_revision`, ADR 0007): every write that changes a recipe's content records its next revision with `recordRevision()` (`revisions/snapshot.ts`), in the same transaction, from the recipe as `loadRecipe` reads it then. Revisions are never changed or deleted, except with their recipe when it's purged.
   - The snapshot's format is `recipeSnapshotSchema`, and stored snapshots are never rewritten. A change to it bumps `schemaVersion` and makes `readSnapshot()` upgrade older ones. The stored snapshot in `snapshot.test.ts` must keep reading, unchanged.
   - Recipes saved before revisions were kept get their first on startup (`backfillRevisions()`, run by `main.ts` after the migrations).
+- **Drafts** (`recipe_draft`, `drafts/drafts.ts`): one per recipe. Saving or discarding one moves the recipe's version on without touching what's published, its `updatedAt` included. Publishing (`updateRecipe`) discards it. Stored drafts are read as they are, so a change to `RecipeContent` needs a migration of them.
+  - The routes on one recipe share `recipes/http.ts`: `authorizeOn`, `If-Match` (`ifMatchVersion`), the 412 and the refusals of content.
 
 ### Background jobs
 - Side effects that can fail or are slow (sending email, updating Meilisearch) run as jobs, never inline in a request.

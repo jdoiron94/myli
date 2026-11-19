@@ -629,8 +629,8 @@ export interface paths {
             };
         };
         /**
-         * Save a recipe
-         * @description Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included; its owner and visibility stay. Send the version the edit started from in `If-Match`: if someone saved the recipe meanwhile, the save is refused with 412.
+         * Publish a recipe
+         * @description Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included, and records it as the next revision, with the message if there is one. Its owner and visibility stay, and its draft is discarded. Send the version the edit started from in `If-Match`: if someone changed the recipe or its draft meanwhile, the save is refused with 412.
          */
         put: {
             parameters: {
@@ -903,6 +903,251 @@ export interface paths {
         };
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a recipe's draft
+         * @description Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. The draft, or `null` when the recipe has none.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The draft, or `null`. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeDraftResult"];
+                    };
+                };
+                /** @description The caller may see the recipe but not edit it. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        /**
+         * Save a recipe's draft
+         * @description Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. Saves the content as the recipe's one draft, replacing any it had, while the published recipe stays as it is. Its photos and tags are checked as publishing them would be. It moves the recipe on to its next version: send the one it was based on in `If-Match`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecipeContent"];
+                };
+            };
+            responses: {
+                /** @description The draft as saved, with the version the recipe is at now. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeDraftResult"];
+                    };
+                };
+                /** @description The caller may see the recipe but not edit it. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Discard a recipe's draft
+         * @description Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. The published recipe stays as it is. Discarding a draft moves the recipe on to its next version: send the one it was based on in `If-Match`, and `Content-Type: application/json` even though there is no body. Without a draft, nothing changes.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Discarded, or there was none. */
+                204: {
+                    headers: {
+                        /** @description The recipe's version now. */
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The caller may see the recipe but not edit it. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -2804,9 +3049,71 @@ export interface components {
             /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
             coverImageId: string | null;
             tagIds: number[];
+            /** @description What changed, for the history. Optional. */
+            message?: string;
         };
         ChangeVisibilityRequest: {
             visibility: components["schemas"]["Visibility"];
+        };
+        RecipeDraftResult: {
+            /** @description `null` when there is none. */
+            draft: components["schemas"]["RecipeDraft"] | null;
+        };
+        RecipeDraft: {
+            content: components["schemas"]["RecipeContent"];
+            /** @description Each photo `content` names, for showing it. Their alt text is in `content`. */
+            photos: components["schemas"]["Image"][];
+            /** @description Who saved it last. */
+            author: {
+                id: string;
+                name: string;
+            };
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description The revision it started from: the latest one when it was first saved. A newer one means the recipe was published since, by a restore. */
+            revision: number;
+            /** @description The recipe's version now, which a change to the draft or the recipe sends in `If-Match`. */
+            version: number;
+        };
+        RecipeContent: {
+            title: string;
+            /** @description Markdown. */
+            description: string;
+            source: components["schemas"]["RecipeSource"];
+            equipment: string[];
+            /** @description "24 cookies", separate from the servings. */
+            yield: {
+                qty: number;
+                unit: string | null;
+            } | null;
+            /** @description The baseline scaling starts from. */
+            servings: number;
+            prepMinutes: number | null;
+            cookMinutes: number | null;
+            /** @description Only when it differs from prep plus cook: `null` means their sum. */
+            totalMinutes: number | null;
+            difficulty: components["schemas"]["Difficulty"];
+            nutrition: components["schemas"]["Nutrition"];
+            ingredientGroups: components["schemas"]["IngredientGroupInput"][];
+            /** @description In order. Each body is markdown. */
+            steps: {
+                body: string;
+                /** @description Its photo, if it has one. */
+                image: {
+                    id: string;
+                    /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                    alt: string;
+                } | null;
+            }[];
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again. */
+            images: {
+                id: string;
+                /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                alt: string;
+            }[];
+            /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
+            coverImageId: string | null;
+            tagIds: number[];
         };
         ImageResult: {
             image: components["schemas"]["Image"];

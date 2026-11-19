@@ -5,6 +5,7 @@ import type { Auth } from './auth/auth.ts';
 import type { BlobStore } from './blobs/store.ts';
 import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
+import { registerDraftRoutes } from './drafts/routes.ts';
 import type { Env } from './env.ts';
 import { registerFavoriteRoutes } from './favorites/routes.ts';
 import { registerImageRoutes } from './images/routes.ts';
@@ -56,6 +57,7 @@ export function createV1Router(deps: V1Deps) {
   registerAuditRoutes(v1, { db: deps.db });
   registerUserRoutes(v1, { db: deps.db });
   registerRecipeRoutes(v1, { db: deps.db });
+  registerDraftRoutes(v1, { db: deps.db });
   registerImageRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerTagRoutes(v1, { db: deps.db });
   registerPreferenceRoutes(v1, { db: deps.db });
