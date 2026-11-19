@@ -1,10 +1,11 @@
-import { AUTH_BASE_PATH, passwordSchema } from '@myli/shared';
+import { AUTH_BASE_PATH, passwordSchema, recipeListSchema } from '@myli/shared';
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { auditEvent, invitation, job, user } from '../db/schema.ts';
 import { createLogger } from '../logger.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
-import { DEMO_ACCOUNTS, demoPassword, seedDemoAccounts } from './demo.ts';
+import { DEMO_ACCOUNTS, type DemoAccount, demoPassword, seedDemoAccounts } from './demo.ts';
+import { DEMO_RECIPES, seedDemoRecipes } from './demo-recipes.ts';
 import { runSetup } from './setup.ts';
 
 function setUp() {
@@ -161,5 +162,51 @@ describe('seedDemoAccounts', () => {
     expect(await seed()).toEqual({ ok: false, reason: 'in-progress' });
     await setup;
     expect(users(t).map(({ email }) => email)).toEqual(['ada@example.com']);
+  });
+});
+
+describe('seedDemoRecipes', () => {
+  /** A demo account's session, signed in with the password the seed gave it. */
+  async function cookieOf(t: TestApp, { email, password }: DemoAccount) {
+    const res = await signIn(t, email, password);
+    return res.headers
+      .getSetCookie()
+      .map((cookie) => cookie.split(';')[0])
+      .join('; ');
+  }
+
+  it('saves every demo recipe, each account seeing all but the others’ private ones', async () => {
+    const { t, seed } = setUp();
+    const result = await seed();
+    if (!result.ok) throw new Error(`refused: ${result.reason}`);
+    const [admin, editor, viewer] = result.accounts;
+    if (!admin || !editor || !viewer) throw new Error('missing a demo account');
+
+    expect(seedDemoRecipes(t.db, { admin: admin.id, editor: editor.id })).toBe(DEMO_RECIPES.length);
+
+    const totals: Record<string, number> = {};
+    for (const account of [admin, editor, viewer]) {
+      const res = await t.app.request('/api/v1/recipes?page=1', {
+        headers: { cookie: await cookieOf(t, account) },
+      });
+      totals[account.role] = recipeListSchema.parse(await res.json()).total;
+    }
+    const privateOf = (owner: string) =>
+      DEMO_RECIPES.filter((recipe) => recipe.visibility === 'private' && recipe.owner === owner)
+        .length;
+    const shared = DEMO_RECIPES.length - privateOf('admin') - privateOf('editor');
+    expect(totals).toEqual({
+      admin: shared + privateOf('admin'),
+      editor: shared + privateOf('editor'),
+      viewer: shared,
+    });
+    // Each queued its search update, for the API's worker to send.
+    expect(
+      t.db
+        .select()
+        .from(job)
+        .all()
+        .filter(({ type }) => type === 'search.index-recipe'),
+    ).toHaveLength(DEMO_RECIPES.length);
   });
 });

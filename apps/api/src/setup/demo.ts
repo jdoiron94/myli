@@ -17,6 +17,8 @@ export const DEMO_ACCOUNTS = [
 ] as const satisfies readonly { role: Role; name: string; email: string }[];
 
 export interface DemoAccount {
+  /** The user's ID. */
+  id: string;
   role: Role;
   name: string;
   email: string;
@@ -72,7 +74,7 @@ export async function seedDemoAccounts(
     return { ok: false, reason: setup.reason === 'complete' ? 'users-exist' : 'in-progress' };
   }
   recordSetupCompleted(db, logger, origin, setup.user.id, 'demo-seed');
-  const accounts: DemoAccount[] = [{ ...admin, password: adminPassword }];
+  const accounts: DemoAccount[] = [{ ...admin, id: setup.user.id, password: adminPassword }];
 
   for (const account of invited) {
     const invitation = createInvitation(
@@ -92,7 +94,7 @@ export async function seedDemoAccounts(
     );
     if (!accepted.ok) throw new Error(`could not accept the demo ${account.role}'s invitation`);
     recordInvitationAccepted(db, logger, origin, accepted);
-    accounts.push({ ...account, password });
+    accounts.push({ ...account, id: accepted.user.id, password });
   }
 
   logger.info({ accounts: accounts.map(({ role }) => role) }, 'demo accounts created');
