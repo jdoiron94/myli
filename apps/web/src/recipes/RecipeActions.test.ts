@@ -4,6 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import {
+  answerDraft,
   apiServer,
   NO_RECIPES,
   NO_SEARCH_RESULTS,
@@ -13,7 +14,7 @@ import {
 } from '@/testing.ts';
 import type { Recipe, RecipeSummary } from './recipe.ts';
 import { recipeQuery } from './recipe.ts';
-import { sampleRecipe, staleRecipeResponse } from './testing.ts';
+import { answerTags, sampleDraft, sampleRecipe, staleRecipeResponse } from './testing.ts';
 
 const ACTIONS = ['Favorite', 'Edit recipe', 'Share with everyone', 'Make private', 'Delete recipe'];
 /** The actions the page offers, in order. */
@@ -91,6 +92,28 @@ describe('what a reader can do with a recipe', () => {
     await screen.findByRole('button', { name: 'Favorite' });
 
     expect(actions()).toEqual(['Favorite', 'Edit recipe']);
+  });
+
+  it('tells whoever may edit it that it has a draft, which they can continue', async () => {
+    storeRecipe(sampleRecipe({ version: 2 }));
+    answerDraft(sampleDraft({ content: { ...sampleDraft().content, title: 'Work in Progress' } }));
+    answerTags();
+    const { user } = await openRecipe('editor');
+
+    expect(
+      await screen.findByText(
+        /^Grace Hopper saved a draft of this recipe on .+, not published yet\.$/,
+      ),
+    ).toBeDefined();
+    await user.click(screen.getByRole('link', { name: 'Continue draft' }));
+
+    await screen.findByRole('heading', { level: 1, name: 'Edit recipe' });
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveProperty(
+      'value',
+      'Work in Progress',
+    );
+    // The editor's tags, the last of what it loads.
+    await screen.findByRole('checkbox', { name: 'Italian' });
   });
 
   it('keeps a recipe as a favorite once pressed, says why when it can’t, and lets it go', async () => {

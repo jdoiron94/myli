@@ -30,6 +30,7 @@ import { goWithNotice, pageNotice } from '@/lib/page-notice.ts';
 import { favoriteQuery, useSetFavorite } from './favorites.ts';
 import {
   type Recipe,
+  recipeDraftQuery,
   recipeQuery,
   staleRecipe,
   useChangeVisibility,
@@ -54,6 +55,18 @@ const canEdit = computed(() => allowed('recipe.edit'));
 const canSetVisibility = computed(() => allowed('recipe.setVisibility'));
 const canDelete = computed(() => allowed('recipe.trash'));
 const shared = computed(() => props.recipe.visibility === 'shared');
+
+// Whoever may edit the recipe may continue its draft, so they're told there is one.
+const draftQuery = useQuery(
+  computed(() => ({ ...recipeDraftQuery(props.recipe.id), enabled: canEdit.value })),
+);
+const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+const draftNote = computed(() => {
+  const draft = draftQuery.data.value;
+  if (!draft || !canEdit.value) return undefined;
+  const who = draft.author.id === user.value?.id ? 'You' : draft.author.name;
+  return `${who} saved a draft of this recipe on ${savedFormat.format(new Date(draft.updatedAt))}, not published yet.`;
+});
 
 // Cook mode opens at the servings chosen here, which are in the address.
 const route = useRoute();
@@ -181,7 +194,7 @@ async function remove() {
       >
         <RouterLink :to="{ name: 'edit-recipe', params: { id: recipe.id } }">
           <PencilIcon aria-hidden="true" />
-          Edit recipe
+          {{ draftNote ? 'Continue draft' : 'Edit recipe' }}
         </RouterLink>
       </Button>
 
@@ -253,6 +266,12 @@ async function remove() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    <p
+      v-if="draftNote"
+      class="mt-2 text-sm text-muted-foreground"
+    >
+      {{ draftNote }}
+    </p>
     <!-- Always there, so screen readers announce what it says as it changes. -->
     <p
       role="status"
