@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { atPhoneWidth, checkPage } from './accessibility.ts';
+import { checkPage } from './accessibility.ts';
 import { expect, test } from './fixtures.ts';
 import { solidPng } from './images.ts';
 
@@ -29,13 +29,6 @@ async function loaded(photo: Locator) {
   await expect
     .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0);
-}
-
-/** How wide an element shows, which it must. */
-async function shownWidth(element: Locator) {
-  const box = await element.boundingBox();
-  if (!box) throw new Error('expected it to show');
-  return box.width;
 }
 
 /** Whether a photo that loaded is taller than it's wide, as the file it came from was. */
@@ -347,11 +340,6 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(photos).toHaveCount(2);
     await expect(page.getByRole('radio', { name: 'Cover: photo 1' })).toBeChecked();
     for (const photo of await photos.all()) await loaded(photo);
-    // On a phone, one to a row, each the list's whole width.
-    await atPhoneWidth(page, async () => {
-      const width = await shownWidth(page.getByRole('group', { name: 'Photos' }).getByRole('list'));
-      for (const photo of await photos.all()) expect(await shownWidth(photo)).toBeCloseTo(width, 0);
-    });
     await page.getByRole('radio', { name: 'Cover: photo 2' }).check();
     await page
       .getByRole('textbox', { name: 'Alt text for photo 2' })
@@ -397,14 +385,6 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       .nth(1)
       .locator('img');
     await loaded(stepPhoto);
-    // On a phone, as far from either side of the page, though its step is indented.
-    await atPhoneWidth(page, async () => {
-      const { left, right } = await stepPhoto.evaluate((img) => {
-        const box = img.getBoundingClientRect();
-        return { left: box.left, right: document.documentElement.clientWidth - box.right };
-      });
-      expect(left).toBeCloseTo(right, 0);
-    });
     const slideshow = main.getByRole('region', { name: 'Photos' });
     const cover = slideshow.getByRole('group', { name: '1 of 2' }).locator('img');
     const other = slideshow.getByRole('group', { name: '2 of 2' }).locator('img');

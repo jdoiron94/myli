@@ -309,7 +309,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - **Tautologies:** a test that restates what it tests, such as a config value, a table the code also holds, a constant, or a component showing the prop it was given.
   - What typecheck or lint already guarantees.
   - A library's own behavior, beyond how we configure it.
-  - **Layout and decoration:** sizes, distances between elements, which icon shows. Someone looking at the page checks those. The only layout checks are `checkPage()`'s, which apply to every page: contrast, and no sideways scrolling at a phone's width.
+  - **Layout and decoration:** sizes, distances between elements, which icon shows. Someone looking at the page checks those. The only layout checks are `checkPage()`'s, which apply to every page: contrast, the pointer over everything that can be clicked, and no sideways scrolling at a phone's width.
   - One test per value when the values take the same path.
   - The same rule at several levels. Test it where it lives; above that, only that it's wired up, with one case.
 - **A table of cases is one test.** Compare every result in a single `toEqual`, keyed by input (`Object.fromEntries(inputs.map((input) => [input, parse(input)]))`), so one diff shows every mismatch. Don't use `it.each` or `it.for`, which make each row a test of its own; ESLint refuses them. A page whose cases each need a render can change its data in place, as the recipe page's source line does with `queryClient.setQueryData`.
@@ -340,7 +340,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
     - Compose gets only the docker CLI's own variables and the stack's, with `--env-file /dev/null`, never the shell's or `.env`. As with `start-api.ts`, there's no first admin and no SMTP.
     - Stopping the launcher removes the stack, volumes included. If it's killed, or stopped while still starting the stack, the stack keeps running, and Playwright would refuse to start on its port. `build-images.ts` removes such stacks before Playwright starts, so `pnpm test:containers` always begins clean.
     - Each run's CA is new, so the browsers ignore certificate errors there; `web-server.spec.ts` checks the certificate itself.
-  - `checkPage(page)` (`e2e/tests/accessibility.ts`) runs axe in the light and dark themes, color contrast included, and checks that the page doesn't scroll sideways at a phone's width. With a dialog or menu open, `checkPage(page, { popup: true })` checks just the popup, since reka-ui hides the rest of the page while one is open.
+  - `checkPage(page)` (`e2e/tests/accessibility.ts`) runs axe in the light and dark themes, color contrast included, and checks that everything that can be clicked shows the pointer and that the page doesn't scroll sideways at a phone's width. With a dialog or menu open, `checkPage(page, { popup: true })` checks just the popup, since reka-ui hides the rest of the page while one is open.
   - axe runs in Chromium only: running it over the Invitations page crashes the page's process in Playwright's Firefox 159 build. Firefox still goes through every step, both themes and the phone width.
   - A failed run keeps a trace and a screenshot in `e2e/test-results/`. Open the trace with `pnpm --filter @myli/e2e exec playwright show-trace <path>`.
 
