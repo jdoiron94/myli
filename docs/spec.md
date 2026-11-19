@@ -522,7 +522,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 - **Images:** multi-stage builds, non-root user, healthchecks, pinned versions.
 - **Releases:** versions follow the conventional commits (release-please). Each release tags the commit, creates a GitHub release with its changelog, and publishes both images to GHCR, privately, for linux/amd64, tagged with the version and `latest`.
 - **Backups:** a scheduled `VACUUM INTO` snapshot of SQLite plus an archive of the uploads volume, with a documented restore procedure. Meilisearch isn't backed up (§4).
-- **Demo data:** a seed script, for a new instance only, creates one account per role, with random passwords it prints once, and about 20 recipes.
+- **Demo data:** a seed script, for a new instance only, creates one account per role, with random passwords it prints once, and 20 recipes written by the admin and the editor, across cuisines, meals, diets and allergens. Each of the two keeps one private, which the other accounts never see.
 
 ## 7. Out of scope
 

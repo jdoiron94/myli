@@ -1,5 +1,6 @@
 /**
- * Creates one demo account per role on a new instance, and prints their passwords, once:
+ * Creates one demo account per role on a new instance, and prints their passwords, once, then the
+ * demo recipes, written by the admin and the editor:
  *
  *   docker compose exec api node src/seed-demo.ts    (in the API's container)
  *   pnpm seed                                         (here, with the repo's .env)
@@ -12,6 +13,7 @@ import { migrateDatabase, openDatabase } from './db/database.ts';
 import { loadEnvOrExit } from './env.ts';
 import { createLogger } from './logger.ts';
 import { seedDemoAccounts } from './setup/demo.ts';
+import { seedDemoRecipes } from './setup/demo-recipes.ts';
 
 const env = loadEnvOrExit();
 const logger = createLogger(env.LOG_LEVEL, process.stderr);
@@ -36,6 +38,12 @@ try {
     ttlDays: env.INVITATION_TTL_DAYS,
   });
   if (result.ok) {
+    const ownerId = (role: 'admin' | 'editor') => {
+      const id = result.accounts.find((account) => account.role === role)?.id;
+      if (id === undefined) throw new Error(`no demo ${role} to write recipes`);
+      return id;
+    };
+    const recipes = seedDemoRecipes(db, { admin: ownerId('admin'), editor: ownerId('editor') });
     const width = Math.max(...result.accounts.map(({ email }) => email.length));
     process.stdout.write(
       [
@@ -44,6 +52,8 @@ try {
         ...result.accounts.map(
           ({ role, email, password }) => `  ${role.padEnd(6)}  ${email.padEnd(width)}  ${password}`,
         ),
+        '',
+        `Added ${String(recipes)} demo recipes. Search finds them once the API has indexed them.`,
         '',
         `Sign in at ${env.PUBLIC_URL}`,
         '',
