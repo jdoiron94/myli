@@ -140,46 +140,48 @@ describe('createSearchService', () => {
     expect(setUp).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["the API's key is gone", apiError(403, 'invalid_api_key')],
-    ['the index is gone', apiError(404, 'index_not_found')],
-  ])('sets up again when %s, as after Meilisearch lost its data', async (_, lost) => {
-    const { client, getIndex } = fakeClient();
-    const { promise: setUpAgain, resolve: finishSetUpAgain } = Promise.withResolvers<Meilisearch>();
-    const setUp = vi
-      .fn<() => Promise<Meilisearch>>()
-      .mockResolvedValueOnce(client)
-      .mockReturnValueOnce(setUpAgain);
-    const { service, logs, messages } = serviceWith(setUp);
-    service.start();
-    await vi.advanceTimersByTimeAsync(0);
+  it('sets up again when the API’s key or the index is gone, as after Meilisearch lost its data', async () => {
+    for (const [, lost] of [
+      ["the API's key is gone", apiError(403, 'invalid_api_key')],
+      ['the index is gone', apiError(404, 'index_not_found')],
+    ]) {
+      const { client, getIndex } = fakeClient();
+      const { promise: setUpAgain, resolve: finishSetUpAgain } =
+        Promise.withResolvers<Meilisearch>();
+      const setUp = vi
+        .fn<() => Promise<Meilisearch>>()
+        .mockResolvedValueOnce(client)
+        .mockReturnValueOnce(setUpAgain);
+      const { service, logs, messages } = serviceWith(setUp);
+      service.start();
+      await vi.advanceTimersByTimeAsync(0);
 
-    getIndex.mockRejectedValueOnce(lost);
-    expect(await service.isReady()).toBe(false);
-    expect(setUp).toHaveBeenCalledTimes(2);
+      getIndex.mockRejectedValueOnce(lost);
+      expect(await service.isReady()).toBe(false);
+      expect(setUp).toHaveBeenCalledTimes(2);
 
-    // Not ready, and no client to use, until the new setup is done.
-    expect(service.client).toBeUndefined();
-    expect(await service.isReady()).toBe(false);
-    finishSetUpAgain(client);
-    await vi.advanceTimersByTimeAsync(0);
+      // Not ready, and no client to use, until the new setup is done.
+      expect(service.client).toBeUndefined();
+      expect(await service.isReady()).toBe(false);
+      finishSetUpAgain(client);
+      await vi.advanceTimersByTimeAsync(0);
 
-    expect(service.client).toBe(client);
-    expect(await service.isReady()).toBe(true);
-    expect(messages()).toEqual([
-      'search is ready',
-      'search lost its key or index, setting it up again',
-      'search is ready',
-    ]);
-    expect(logs[1]).toMatchObject({ level: 40 });
+      expect(service.client).toBe(client);
+      expect(await service.isReady()).toBe(true);
+      expect(messages()).toEqual([
+        'search is ready',
+        'search lost its key or index, setting it up again',
+        'search is ready',
+      ]);
+      expect(logs[1]).toMatchObject({ level: 40 });
+    }
   });
 
-  it.each([
-    ['unreachable', unreachable()],
-    ['failing', apiError(502, 'bad_gateway')],
-  ])(
-    'keeps its client while Meilisearch is %s, and is ready once it is back',
-    async (_, failure) => {
+  it('keeps its client while Meilisearch is unreachable or failing, and is ready once it is back', async () => {
+    for (const [, failure] of [
+      ['unreachable', unreachable()],
+      ['failing', apiError(502, 'bad_gateway')],
+    ]) {
       const { client, getIndex } = fakeClient();
       const setUp = vi.fn(() => Promise.resolve(client));
       const { service, messages } = serviceWith(setUp);
@@ -194,6 +196,6 @@ describe('createSearchService', () => {
       expect(await service.isReady()).toBe(true);
       expect(setUp).toHaveBeenCalledOnce();
       expect(messages()).toEqual(['search is ready']);
-    },
-  );
+    }
+  });
 });

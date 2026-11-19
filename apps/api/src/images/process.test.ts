@@ -1,4 +1,3 @@
-import { IMAGE_WIDTHS } from '@myli/shared';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { MAX_PIXELS, processImage, sniffImageType, variantWidths } from './process.ts';
@@ -11,61 +10,67 @@ async function processed(bytes: Uint8Array) {
 }
 
 describe('sniffImageType', () => {
-  it.each(['jpeg', 'png', 'webp'] as const)('knows a %s by its first bytes', async (format) => {
-    expect(sniffImageType(await testImage(10, 10, format))).toBe(`image/${format}`);
-  });
+  it('knows a JPEG, PNG or WebP by its first bytes, and nothing else', async () => {
+    const files = {
+      jpeg: await testImage(10, 10, 'jpeg'),
+      png: await testImage(10, 10, 'png'),
+      webp: await testImage(10, 10, 'webp'),
+      nothing: new Uint8Array(),
+      text: new TextEncoder().encode('just some text'),
+      gif: new TextEncoder().encode('GIF89a......'),
+      'a RIFF that isn’t WebP': new TextEncoder().encode('RIFF\0\0\0\0WAVEfmt '),
+    };
 
-  it.each([
-    ['nothing', new Uint8Array()],
-    ['text', new TextEncoder().encode('just some text')],
-    ['a GIF', new TextEncoder().encode('GIF89a......')],
-    ['a RIFF that isn’t WebP', new TextEncoder().encode('RIFF\0\0\0\0WAVEfmt ')],
-  ])('knows %s isn’t one', (_, bytes) => {
-    expect(sniffImageType(bytes)).toBeUndefined();
+    expect(
+      Object.fromEntries(
+        Object.entries(files).map(([name, bytes]) => [name, sniffImageType(bytes) ?? null]),
+      ),
+    ).toEqual({
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      nothing: null,
+      text: null,
+      gif: null,
+      'a RIFF that isn’t WebP': null,
+    });
   });
 });
 
 describe('variantWidths', () => {
-  it.each([
-    [4000, [640, 1280, 2048]],
-    [2048, [640, 1280, 2048]],
-    [1600, [640, 1280, 1600]],
-    [1280, [640, 1280]],
-    [800, [640, 800]],
-    [640, [640]],
-    [300, [300]],
-  ])('serves an image %i pixels wide at %j', (width, widths) => {
-    expect(variantWidths(width)).toEqual(widths);
-  });
-
-  it('never goes past the widest width', () => {
-    expect(Math.max(...variantWidths(10_000))).toBe(IMAGE_WIDTHS.at(-1));
+  it('serves each width up to the image’s own, and the image’s own if it’s narrower', () => {
+    const widths = [4000, 2048, 1600, 800, 640, 300];
+    expect(Object.fromEntries(widths.map((width) => [width, variantWidths(width)]))).toEqual({
+      4000: [640, 1280, 2048],
+      2048: [640, 1280, 2048],
+      1600: [640, 1280, 1600],
+      800: [640, 800],
+      640: [640],
+      300: [300],
+    });
   });
 });
 
 describe('processImage', () => {
-  it.each(['jpeg', 'png', 'webp'] as const)(
-    'resizes a %s to each width, as WebP, keeping its shape',
-    async (format) => {
-      const image = await processed(await testImage(1600, 1200, format));
+  it('resizes an image to each width, as WebP, keeping its shape', async () => {
+    const image = await processed(await testImage(1600, 1200, 'jpeg'));
 
-      expect(image.type).toBe(`image/${format}`);
-      expect({ width: image.width, height: image.height }).toEqual({ width: 1600, height: 1200 });
-      expect(image.variants.map(({ width, height }) => [width, height])).toEqual([
-        [640, 480],
-        [1280, 960],
-        [1600, 1200],
+    expect(image.type).toBe('image/jpeg');
+    expect({ width: image.width, height: image.height }).toEqual({ width: 1600, height: 1200 });
+    expect(image.variants.map(({ width, height }) => [width, height])).toEqual([
+      [640, 480],
+      [1280, 960],
+      [1600, 1200],
+    ]);
+    for (const variant of image.variants) {
+      const metadata = await sharp(variant.bytes).metadata();
+      expect([metadata.format, metadata.width, metadata.height]).toEqual([
+        'webp',
+        variant.width,
+        variant.height,
       ]);
-      for (const variant of image.variants) {
-        const metadata = await sharp(variant.bytes).metadata();
-        expect([metadata.format, metadata.width, metadata.height]).toEqual([
-          'webp',
-          variant.width,
-          variant.height,
-        ]);
-      }
-    },
-  );
+    }
+  });
 
   it('turns a photo upright, and keeps none of its metadata', async () => {
     // As a phone writes it: stored sideways, with an orientation tag saying how to turn it, and

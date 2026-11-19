@@ -53,29 +53,48 @@ export function describeBlobStore(name: string, make: () => BlobStore | Promise<
       expect((await read(store, 'images/a1/640.webp'))?.body).toBe('original');
     });
 
-    it.each([
-      '',
-      '640.webp/',
-      '../640.webp',
-      'images/../640.webp',
-      'images/./640.webp',
-      '/images/640.webp',
-      'images//640.webp',
-      '.images/640.webp',
-      'images/.640.webp',
-      'Images/640.webp',
-      'images\\640.webp',
-      'images/640',
-      'images/640.exe',
-      `images/${'a'.repeat(200)}.webp`,
-    ])('refuses the key %j for every action', async (key) => {
+    it('refuses a key that could reach outside its place, or name no content type, for every action', async () => {
       const store = await make();
+      const keys = [
+        '',
+        '640.webp/',
+        '../640.webp',
+        'images/../640.webp',
+        'images/./640.webp',
+        '/images/640.webp',
+        'images//640.webp',
+        '.images/640.webp',
+        'images/.640.webp',
+        'Images/640.webp',
+        'images\\640.webp',
+        'images/640',
+        'images/640.exe',
+        `images/${'a'.repeat(200)}.webp`,
+      ];
+      /** The actions that let the key through. */
+      async function allowed(key: string) {
+        const actions = {
+          put: () => store.put(key, bytes('x'), { contentType: 'image/webp' }),
+          get: () => store.get(key),
+          delete: () => store.delete(key),
+        };
+        const through: string[] = [];
+        for (const [action, run] of Object.entries(actions)) {
+          await run().then(
+            () => through.push(action),
+            (error: unknown) => {
+              if (!String(error).includes('invalid blob key'))
+                through.push(`${action}: ${String(error)}`);
+            },
+          );
+        }
+        return through;
+      }
 
-      await expect(store.put(key, bytes('x'), { contentType: 'image/webp' })).rejects.toThrow(
-        'invalid blob key',
+      const results = await Promise.all(
+        keys.map(async (key) => [key, await allowed(key)] as const),
       );
-      await expect(store.get(key)).rejects.toThrow('invalid blob key');
-      await expect(store.delete(key)).rejects.toThrow('invalid blob key');
+      expect(Object.fromEntries(results)).toEqual(Object.fromEntries(keys.map((key) => [key, []])));
     });
 
     it('refuses a content type the key’s extension doesn’t name', async () => {

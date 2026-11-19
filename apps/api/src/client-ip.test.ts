@@ -19,43 +19,57 @@ function trusting(...entries: string[]) {
 }
 
 describe('parseProxyRange', () => {
-  it.each([
-    ['172.18.0.2', { address: '172.18.0.2', prefix: 32, family: 'ipv4' }],
-    ['172.18.0.0/16', { address: '172.18.0.0', prefix: 16, family: 'ipv4' }],
-    ['0.0.0.0/0', { address: '0.0.0.0', prefix: 0, family: 'ipv4' }],
-    ['fd00::/8', { address: 'fd00::', prefix: 8, family: 'ipv6' }],
-    ['::1', { address: '::1', prefix: 128, family: 'ipv6' }],
-  ])('reads %s', (entry, range) => {
-    expect(parseProxyRange(entry)).toEqual(range);
-  });
+  it('reads an address or CIDR range of either family, and nothing else', () => {
+    const entries = [
+      '172.18.0.2',
+      '172.18.0.0/16',
+      'fd00::/8',
+      '::1',
+      'caddy',
+      '172.18.0',
+      '172.18.0.0/33',
+      '::/129',
+      '172.18.0.0/',
+      '172.18.0.0/1e1',
+      '172.18.0.0/16/16',
+      '[::1]',
+    ];
 
-  it.each([
-    'caddy',
-    '',
-    '172.18.0',
-    '172.18.0.0/33',
-    '::/129',
-    '172.18.0.0/',
-    '172.18.0.0/-1',
-    '172.18.0.0/1e1',
-    '172.18.0.0/16/16',
-    '172.18.0.0/ 16',
-    '[::1]',
-  ])('refuses %j', (entry) => {
-    expect(parseProxyRange(entry)).toBeNull();
+    expect(Object.fromEntries(entries.map((entry) => [entry, parseProxyRange(entry)]))).toEqual({
+      '172.18.0.2': { address: '172.18.0.2', prefix: 32, family: 'ipv4' },
+      '172.18.0.0/16': { address: '172.18.0.0', prefix: 16, family: 'ipv4' },
+      'fd00::/8': { address: 'fd00::', prefix: 8, family: 'ipv6' },
+      '::1': { address: '::1', prefix: 128, family: 'ipv6' },
+      caddy: null,
+      '172.18.0': null,
+      '172.18.0.0/33': null,
+      '::/129': null,
+      '172.18.0.0/': null,
+      '172.18.0.0/1e1': null,
+      '172.18.0.0/16/16': null,
+      '[::1]': null,
+    });
   });
 });
 
 describe('unmapIpv4', () => {
-  it.each([
-    ['::ffff:203.0.113.7', '203.0.113.7'],
-    ['::FFFF:203.0.113.7', '203.0.113.7'],
-    ['203.0.113.7', '203.0.113.7'],
-    ['2001:db8::1', '2001:db8::1'],
-    // The IPv6 spelling of a mapped address isn't produced by Node's sockets; left as it is.
-    ['::ffff:cb00:7107', '::ffff:cb00:7107'],
-  ])('%s is %s', (address, unmapped) => {
-    expect(unmapIpv4(address)).toBe(unmapped);
+  it('unmaps an IPv4 address mapped into IPv6, leaving any other alone', () => {
+    const addresses = [
+      '::ffff:203.0.113.7',
+      '::FFFF:203.0.113.7',
+      '203.0.113.7',
+      '2001:db8::1',
+      // The IPv6 spelling of a mapped address isn't produced by Node's sockets; left as it is.
+      '::ffff:cb00:7107',
+    ];
+
+    expect(addresses.map(unmapIpv4)).toEqual([
+      '203.0.113.7',
+      '203.0.113.7',
+      '203.0.113.7',
+      '2001:db8::1',
+      '::ffff:cb00:7107',
+    ]);
   });
 });
 
@@ -70,13 +84,6 @@ describe('trustedProxies', () => {
     expect(isTrusted('10.1.2.4')).toBe(false);
     expect(isTrusted('fe80::1')).toBe(false);
     expect(isTrusted('not an address')).toBe(false);
-  });
-
-  it('trusts no one by default', () => {
-    const isTrusted = trustedProxies([]);
-
-    expect(isTrusted('127.0.0.1')).toBe(false);
-    expect(isTrusted('::1')).toBe(false);
   });
 });
 

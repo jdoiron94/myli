@@ -62,22 +62,24 @@ describe('ensureApiKey', () => {
     expect(master.createKey).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['has an action fewer', { actions: API_KEY.actions.slice(1) }],
-    ['has an action more', { actions: [...API_KEY.actions, 'keys.get'] }],
-    ['has a different action', { actions: [...API_KEY.actions.slice(1), 'keys.get'] }],
-    ['reaches other indexes', { indexes: ['*'] }],
-    ['reaches another index as well', { indexes: [...API_KEY.indexes, 'users'] }],
-    ['expires', { expiresAt: '2099-01-01T00:00:00Z' }],
-  ])('replaces a key that %s, since Meilisearch cannot change one', async (_, grants) => {
-    const master = fakeMaster(storedKey(grants));
+  it('replaces a key that grants anything else, since Meilisearch cannot change one', async () => {
+    for (const [, grants] of [
+      ['has an action fewer', { actions: API_KEY.actions.slice(1) }],
+      ['has an action more', { actions: [...API_KEY.actions, 'keys.get'] }],
+      ['has a different action', { actions: [...API_KEY.actions.slice(1), 'keys.get'] }],
+      ['reaches other indexes', { indexes: ['*'] }],
+      ['reaches another index as well', { indexes: [...API_KEY.indexes, 'users'] }],
+      ['expires', { expiresAt: '2099-01-01T00:00:00Z' }],
+    ] as const) {
+      const master = fakeMaster(storedKey(grants));
 
-    expect(await ensureApiKey(master)).toBe('new-api-key');
-    expect(master.deleteKey).toHaveBeenCalledExactlyOnceWith(API_KEY.uid);
-    expect(master.createKey).toHaveBeenCalledExactlyOnceWith(API_KEY);
-    expect(master.deleteKey.mock.invocationCallOrder[0]).toBeLessThan(
-      master.createKey.mock.invocationCallOrder[0] ?? 0,
-    );
+      expect(await ensureApiKey(master)).toBe('new-api-key');
+      expect(master.deleteKey).toHaveBeenCalledExactlyOnceWith(API_KEY.uid);
+      expect(master.createKey).toHaveBeenCalledExactlyOnceWith(API_KEY);
+      expect(master.deleteKey.mock.invocationCallOrder[0]).toBeLessThan(
+        master.createKey.mock.invocationCallOrder[0] ?? 0,
+      );
+    }
   });
 
   it('fails without creating anything when Meilisearch refuses the master key', async () => {

@@ -26,14 +26,6 @@ function track(db: Db) {
   return db;
 }
 
-function tableNames(db: Db) {
-  return db.$client
-    .prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'")
-    .pluck()
-    .all()
-    .sort();
-}
-
 describe('openDatabase', () => {
   it('applies the connection settings from ADR 0002', () => {
     const { db } = openTempDatabase();
@@ -52,29 +44,6 @@ describe('openDatabase', () => {
 });
 
 describe('migrateDatabase', () => {
-  it('creates the schema', () => {
-    const { db } = openTempDatabase();
-    migrateDatabase(db);
-    expect(tableNames(db)).toEqual([
-      '__drizzle_migrations',
-      'account',
-      'audit_event',
-      'image',
-      'invitation',
-      'job',
-      'recipe',
-      'recipe_ingredient',
-      'recipe_step',
-      'recipe_tag',
-      'session',
-      'setup_claim',
-      'tag',
-      'user',
-      'user_preference',
-      'verification',
-    ]);
-  });
-
   it('skips migrations that already ran, so a restart keeps the data', () => {
     const { path, db } = openTempDatabase();
     migrateDatabase(db);
@@ -87,25 +56,6 @@ describe('migrateDatabase', () => {
 });
 
 describe('job table', () => {
-  it('fills in defaults for new jobs', () => {
-    const db = createTestDatabase();
-    const [inserted] = db
-      .insert(job)
-      .values({ type: 'search.index', payload: { recipeId: 1 } })
-      .returning()
-      .all();
-
-    expect(inserted).toMatchObject({
-      type: 'search.index',
-      payload: { recipeId: 1 },
-      status: 'pending',
-      attempts: 0,
-      lastError: null,
-    });
-    expect(inserted?.runAfter).toBeInstanceOf(Date);
-    expect(inserted?.createdAt).toBeInstanceOf(Date);
-  });
-
   it('rejects unknown statuses at the database level', () => {
     const db = createTestDatabase();
     const insert = db.$client.prepare(

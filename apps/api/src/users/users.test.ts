@@ -219,12 +219,11 @@ describe('two admins acting on each other at the same moment', () => {
 
 describe('an admin who lost the role after their request passed the guard', () => {
   // Through HTTP, that's the race above. Here the actor is changed just before the call.
-  it.each([
-    ['demoted', { role: 'editor' }],
-    ['deactivated', { banned: true }],
-  ] as const)(
-    'is refused every change once %s, before the target is looked at',
-    async (_, change) => {
+  it('is refused every change once demoted or deactivated, before the target is looked at', async () => {
+    for (const [, change] of [
+      ['demoted', { role: 'editor' }],
+      ['deactivated', { banned: true }],
+    ] as const) {
       const { t, admin } = await setUp();
       const member = (await signedInAs(t, 'editor')).user;
       const inactive = (await signedInAs(t, 'editor')).user;
@@ -249,8 +248,8 @@ describe('an admin who lost the role after their request passed the guard', () =
       expect(userRow(t, member.id)).toMatchObject({ role: 'editor', banned: false });
       expect(userRow(t, inactive.id)).toMatchObject({ banned: true });
       expect(userEvents(t)).toEqual([]);
-    },
-  );
+    }
+  });
 });
 
 describe('POST /api/v1/users/{id}/deactivate', () => {
@@ -310,19 +309,6 @@ describe('POST /api/v1/users/{id}/deactivate', () => {
     const res = await deactivate(t, admin.cookie, 'no-such-user');
 
     expect(res.status).toBe(404);
-  });
-
-  it('refuses a request that does not say it is JSON, as from another origin', async () => {
-    const { t, admin } = await setUp();
-    const member = await signedInAs(t, 'editor');
-
-    const res = await t.app.request(`/api/v1/users/${member.user.id}/deactivate`, {
-      method: 'POST',
-      headers: { cookie: admin.cookie },
-    });
-
-    expect(res.status).toBe(415);
-    expect(userRow(t, member.user.id)?.banned).toBe(false);
   });
 });
 

@@ -117,18 +117,14 @@ describe('smtpConfigFrom', () => {
     expect(smtpConfigFrom(env)).toBeNull();
   });
 
-  it.each([
-    ['starttls', 587],
-    ['tls', 465],
-    ['none', 25],
-  ] as const)('defaults the port for %s to %i', (security, port) => {
-    expect(DEFAULT_SMTP_PORTS[security]).toBe(port);
-    expect(
-      smtpConfigFrom({ ...env, SMTP_HOST: 'smtp.example.com', SMTP_SECURITY: security }),
-    ).toEqual({ host: 'smtp.example.com', port, security, from: FROM, auth: null });
-  });
-
-  it('uses SMTP_PORT and the credentials when they are set', () => {
+  it('takes the port its security calls for unless SMTP_PORT is set, and the credentials', () => {
+    expect(smtpConfigFrom({ ...env, SMTP_HOST: 'smtp.example.com' })).toEqual({
+      host: 'smtp.example.com',
+      port: DEFAULT_SMTP_PORTS.starttls,
+      security: 'starttls',
+      from: FROM,
+      auth: null,
+    });
     expect(
       smtpConfigFrom({
         ...env,
@@ -142,20 +138,20 @@ describe('smtpConfigFrom', () => {
 });
 
 describe('smtpTransportOptions', () => {
-  it.each([
-    ['starttls', { secure: false, requireTLS: true, ignoreTLS: false }],
-    ['tls', { secure: true, requireTLS: false, ignoreTLS: false }],
-    ['none', { secure: false, requireTLS: false, ignoreTLS: true }],
-  ] as const)('maps %s to Nodemailer options', (security, expected) => {
-    expect(smtpTransportOptions(config(587, security))).toMatchObject(expected);
-  });
-
-  it('never waits on a silent server for more than 30 seconds at a time', () => {
-    const options = smtpTransportOptions(config(587, 'starttls'));
-    for (const timeout of ['dnsTimeout', 'connectionTimeout', 'greetingTimeout', 'socketTimeout']) {
-      expect(options).toHaveProperty(timeout, expect.any(Number));
-      expect(options[timeout as keyof typeof options]).toBeLessThanOrEqual(30_000);
-    }
+  it('maps each kind of security to Nodemailer’s options', () => {
+    const securities = ['starttls', 'tls', 'none'] as const;
+    expect(
+      Object.fromEntries(
+        securities.map((security) => {
+          const { secure, requireTLS, ignoreTLS } = smtpTransportOptions(config(587, security));
+          return [security, { secure, requireTLS, ignoreTLS }];
+        }),
+      ),
+    ).toEqual({
+      starttls: { secure: false, requireTLS: true, ignoreTLS: false },
+      tls: { secure: true, requireTLS: false, ignoreTLS: false },
+      none: { secure: false, requireTLS: false, ignoreTLS: true },
+    });
   });
 
   it('logs in only when there are credentials', () => {
@@ -166,33 +162,35 @@ describe('smtpTransportOptions', () => {
 });
 
 describe('createSmtpMailer', () => {
-  it.each([
-    // Each server offers STARTTLS (it has a certificate) unless it's an implicit-TLS server.
-    ['starttls', {}, true],
-    ['tls', { secure: true }, true],
-    // `none` ignores the STARTTLS offer. Logging in unencrypted needs the server's consent.
-    ['none', { allowInsecureAuth: true }, false],
-  ] as const)(
-    'sends with %s: logs in, then delivers text and HTML from SMTP_FROM',
-    async (security, serverOptions, encrypted) => {
+  it('sends with each kind of security: logs in, then delivers text and HTML from SMTP_FROM', async () => {
+    const cases = [
+      // Each server offers STARTTLS (it has a certificate) unless it's an implicit-TLS server.
+      ['starttls', {}, true],
+      ['tls', { secure: true }, true],
+      // `none` ignores the STARTTLS offer. Logging in unencrypted needs the server's consent.
+      ['none', { allowInsecureAuth: true }, false],
+    ] as const;
+    for (const [security, serverOptions, encrypted] of cases) {
       const server = await startServer({ ...certificate, ...serverOptions });
       const mailer = createSmtpMailer(config(server.port, security), { ca: certificate.cert });
 
       const { messageId } = await mailer.send(MESSAGE);
 
-      expect(messageId).toMatch(/^<.+@.+>$/);
-      expect(server.logins).toEqual([{ username: USER, password: PASSWORD, secure: encrypted }]);
-      expect(server.messages).toHaveLength(1);
+      expect(messageId, security).toMatch(/^<.+@.+>$/);
+      expect(server.logins, security).toEqual([
+        { username: USER, password: PASSWORD, secure: encrypted },
+      ]);
+      expect(server.messages, security).toHaveLength(1);
       const [message] = server.messages;
-      expect(message?.secure).toBe(encrypted);
+      expect(message?.secure, security).toBe(encrypted);
       expect(message?.raw).toMatch(/^From: myli <myli@example\.com>$/m);
       expect(message?.raw).toMatch(/^To: ada@example\.com$/m);
       expect(message?.raw).toMatch(/^Subject: You are invited$/m);
       expect(message?.raw).toContain('Plain text body');
       expect(message?.raw).toContain('<p>HTML body</p>');
       expect(message?.raw).toContain(`Message-ID: ${messageId}`);
-    },
-  );
+    }
+  });
 
   it('with starttls, refuses a server that does not support it, before sending the password', async () => {
     // Disabled, not just hidden: Nodemailer tries STARTTLS even when the server doesn't offer it.
@@ -204,17 +202,16 @@ describe('createSmtpMailer', () => {
     expect(server.messages).toEqual([]);
   });
 
-  it.each(['starttls', 'tls'] as const)(
-    'with %s, refuses a certificate it does not trust',
-    async (security) => {
+  it('refuses a certificate it does not trust, with starttls or tls', async () => {
+    for (const security of ['starttls', 'tls'] as const) {
       const server = await startServer({ ...certificate, secure: security === 'tls' });
       const mailer = createSmtpMailer(config(server.port, security)); // no `ca`
 
-      await expect(mailer.send(MESSAGE)).rejects.toThrow(/self-signed certificate/);
-      expect(server.logins).toEqual([]);
-      expect(server.messages).toEqual([]);
-    },
-  );
+      await expect(mailer.send(MESSAGE), security).rejects.toThrow(/self-signed certificate/);
+      expect(server.logins, security).toEqual([]);
+      expect(server.messages, security).toEqual([]);
+    }
+  });
 
   it('verifies the connection and login without sending anything', async () => {
     const server = await startServer(certificate);

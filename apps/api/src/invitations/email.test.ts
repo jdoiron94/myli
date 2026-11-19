@@ -41,18 +41,17 @@ describe('invitationEmail', () => {
     });
   });
 
-  it.each([
-    ['admin', 'as an admin.'],
-    ['viewer', 'as a viewer.'],
-  ] as const)('names the %s role with the right article', (role, phrase) => {
-    const { text } = invitationEmail({
-      to: 'grace@example.com',
-      inviterName: 'Ada',
-      role,
-      link: 'https://myli.example/accept-invitation#t',
-      expiresAt: new Date(),
-    });
-    expect(text.split('\n')[0]).toContain(phrase);
+  it('names each role with the right article', () => {
+    const firstLine = (role: 'admin' | 'viewer') =>
+      invitationEmail({
+        to: 'grace@example.com',
+        inviterName: 'Ada',
+        role,
+        link: 'https://myli.example/accept-invitation#t',
+        expiresAt: new Date(),
+      }).text.split('\n')[0];
+    expect(firstLine('admin')).toContain('as an admin.');
+    expect(firstLine('viewer')).toContain('as a viewer.');
   });
 });
 
@@ -222,9 +221,8 @@ describe('invitations with email on', () => {
     expect(jobs(t)).toMatchObject([{ status: 'succeeded', attempts: 2 }]);
   });
 
-  it.each(['revoked', 'expired'] as const)(
-    'sends nothing for an invitation %s before its job ran',
-    async (state) => {
+  it('sends nothing for an invitation revoked or expired before its job ran', async () => {
+    for (const state of ['revoked', 'expired'] as const) {
       const { t, admin, worker, sent, logs } = await setUp();
       const created = await invite(t, admin.cookie);
       if (state === 'revoked') {
@@ -254,8 +252,8 @@ describe('invitations with email on', () => {
           invitationId: created.invitation.id,
         }),
       );
-    },
-  );
+    }
+  });
 
   it('sends nothing more when a job runs again after its link was used', async () => {
     const { t, admin, worker, sent } = await setUp();

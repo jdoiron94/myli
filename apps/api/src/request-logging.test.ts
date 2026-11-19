@@ -36,14 +36,13 @@ describe('request IDs', () => {
     expect(res.headers.get('x-request-id')).toBe('caddy-abc_123=');
   });
 
-  it.each([
-    ['unsafe characters', 'abc; drop table'],
-    ['more than 255 characters', 'a'.repeat(256)],
-  ])('replaces an incoming ID with %s', async (_, incoming) => {
+  it('replaces an incoming ID with unsafe characters or over 255 of them', async () => {
     const { app, logs } = appWithCapturedLogs();
-    const res = await app.request('/hello', { headers: { 'X-Request-Id': incoming } });
-    expect(res.headers.get('x-request-id')).toMatch(UUID);
-    expect(JSON.stringify(logs)).not.toContain(incoming);
+    for (const incoming of ['abc; drop table', 'a'.repeat(256)]) {
+      const res = await app.request('/hello', { headers: { 'X-Request-Id': incoming } });
+      expect(res.headers.get('x-request-id')).toMatch(UUID);
+      expect(JSON.stringify(logs)).not.toContain(incoming);
+    }
   });
 });
 
@@ -104,12 +103,10 @@ describe('request logging', () => {
     });
   });
 
-  it.each(['/healthz', '/readyz'])(
-    'skips %s, so polling it does not flood the logs',
-    async (path) => {
-      const { app, logs } = appWithCapturedLogs();
-      await app.request(path);
-      expect(logs).toEqual([]);
-    },
-  );
+  it('skips /healthz and /readyz, so polling them does not flood the logs', async () => {
+    const { app, logs } = appWithCapturedLogs();
+    await app.request('/healthz');
+    await app.request('/readyz');
+    expect(logs).toEqual([]);
+  });
 });

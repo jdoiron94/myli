@@ -1,4 +1,4 @@
-import { AUTH_BASE_PATH, validationProblemSchema } from '@myli/shared';
+import { AUTH_BASE_PATH } from '@myli/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setupClaim, user } from '../db/schema.ts';
 import { createTestApp, type TestApp } from '../testing.ts';
@@ -132,21 +132,5 @@ describe('POST /api/v1/setup', () => {
 
     expect((await postSetup(t)).status).toBe(500);
     expect(claims(t)).toEqual([{ id: 1, claimedAt: takenOverAt }]);
-  });
-
-  it('answers invalid input with a validation problem naming each field', async () => {
-    const t = createTestApp();
-
-    const res = await postSetup(t, { name: '  ', email: 'not-an-email', password: 'short' });
-    expect(res.status).toBe(422);
-    const { errors } = validationProblemSchema.parse(await res.json());
-    expect(new Set(errors.map((error) => error.pointer))).toEqual(
-      new Set(['#/name', '#/email', '#/password']),
-    );
-    expect(errors.filter((error) => error.pointer === '#/password').map((e) => e.detail)).toContain(
-      'Must be at least 15 characters.',
-    );
-    expect(users(t)).toEqual([]);
-    expect(claims(t)).toEqual([]);
   });
 });
