@@ -324,7 +324,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - a write without `If-Match` gets `428 Precondition Required`
   - if the version is out of date, the API returns `412 Precondition Failed` with the recipe as it is now, its version included, so the client can show what changed ([ADR 0007](./adr/0007-revision-snapshots-and-optimistic-concurrency.md))
   - this matters because editors can edit each other's recipes
-  - The editor saves against the version it opened, or its own last draft save's, even if the recipe's page has loaded a newer one since. Refused, it says someone saved the recipe meanwhile, keeping what was typed. On the recipe's page, a refused change of visibility or deletion shows the recipe as it is now, and says so.
+  - The editor saves against the version it opened, or its own last draft save's, even if the recipe's page has loaded a newer one since. Refused, it keeps what was typed and says what changed: which parts of the published recipe, a draft someone saved or discarded, who can see it. It offers to do what was refused anyway, based on the recipe as it is now (published versions stay in the history; a draft is replaced), or to drop what was typed and load theirs. On the recipe's page, a refused change of visibility or deletion shows the recipe as it is now, and says so.
 
 ### 3.4 Search and discovery
 

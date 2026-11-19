@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Visibility } from '@myli/shared';
-import { useQuery } from '@tanstack/vue-query';
+import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { useForm } from 'vee-validate';
-import { computed, ref, useTemplateRef } from 'vue';
+import { computed, ref, shallowRef, useTemplateRef } from 'vue';
 import { RouterLink } from 'vue-router';
 import { failureMessage } from '@/api/failure.ts';
 import { sessionQuery } from '@/auth/session.ts';
@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
 import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.ts';
+import { changedParts } from './changes.ts';
 import { DIFFICULTY_LABELS } from './format.ts';
 import IngredientsEditor from './IngredientsEditor.vue';
 import PhotosEditor from './PhotosEditor.vue';
@@ -30,6 +31,7 @@ import { recipePhotos, usePhotoLibrary } from './photo-library.ts';
 import {
   type Recipe,
   type RecipeDraft,
+  recipeDraftQuery,
   staleRecipe,
   useCreateRecipe,
   useDiscardDraft,
@@ -52,7 +54,7 @@ import TagsEditor from './TagsEditor.vue';
  * An edit is saved as the recipe's draft, or published (spec §3.3).
  */
 const props = defineProps<{ recipe?: Recipe; draft?: RecipeDraft | null }>();
-const emit = defineEmits<{ saved: [recipe: Recipe]; discarded: [] }>();
+const emit = defineEmits<{ saved: [recipe: Recipe]; discarded: []; reload: [] }>();
 
 const { handleSubmit, isSubmitting, setErrors } = useForm({
   validationSchema: formSchema(recipeFormSchema),
@@ -110,13 +112,42 @@ const failure = ref<string>();
 /** That the draft was saved. */
 const status = ref<string>();
 
+/** What was refused because someone changed the recipe since the edit's version. */
+interface Conflict {
+  attempted: 'publish' | 'draft' | 'discard';
+  /** The recipe as published now, with its version. */
+  latest: Recipe;
+  /** Its draft now, or `undefined` if that couldn't be told. */
+  latestDraft: RecipeDraft | null | undefined;
+}
+const conflict = shallowRef<Conflict>();
+/** What's published as the edit knows it: as it opened, or as an overruled conflict showed it. */
+const known = shallowRef(props.recipe);
+const queryClient = useQueryClient();
+
+/** Shows what someone changed meanwhile: the 412 holds the recipe, and the draft is asked again. */
+async function showConflict(attempted: Conflict['attempted'], latest: Recipe) {
+  let latestDraft: RecipeDraft | null | undefined;
+  try {
+    latestDraft = await queryClient.query({ ...recipeDraftQuery(latest.id), staleTime: 0 });
+  } catch {
+    latestDraft = undefined;
+  }
+  conflict.value = { attempted, latest, latestDraft };
+}
+
+function startSaving() {
+  failure.value = undefined;
+  status.value = undefined;
+  conflict.value = undefined;
+}
+
 /** Explains a refused save, at its fields when the problem is theirs. */
-function refused(error: unknown) {
+async function refused(error: unknown, attempted: Conflict['attempted']) {
   const fieldErrors = apiFieldErrors(error, RECIPE_FORM_FIELDS);
-  if (staleRecipe(error)) {
-    failure.value =
-      'Someone saved this recipe after you opened it, and saving now would undo their ' +
-      'changes. Copy anything you want to keep, then open the editor again.';
+  const latest = staleRecipe(error);
+  if (latest) {
+    await showConflict(attempted, latest);
   } else if (fieldErrors) {
     setErrors(fieldErrors);
     focusFirstInvalidField(form.value);
@@ -131,8 +162,7 @@ function invalid() {
 
 /** Creates the recipe, or publishes the edit as its next revision, which discards its draft. */
 const publishOnSubmit = handleSubmit(async ({ content, visibility, message }) => {
-  failure.value = undefined;
-  status.value = undefined;
+  startSaving();
   let saved: Recipe;
   try {
     saved =
@@ -144,7 +174,7 @@ const publishOnSubmit = handleSubmit(async ({ content, visibility, message }) =>
           })
         : await createRecipe.mutateAsync({ ...content, visibility });
   } catch (error) {
-    refused(error);
+    await refused(error, 'publish');
     return;
   }
   emit('saved', saved);
@@ -153,8 +183,7 @@ const publishOnSubmit = handleSubmit(async ({ content, visibility, message }) =>
 /** Saves the edit as the recipe's draft, staying in the editor. */
 const draftOnSubmit = handleSubmit(async ({ content }) => {
   if (!props.recipe || basedOn.value === undefined) return;
-  failure.value = undefined;
-  status.value = undefined;
+  startSaving();
   let saved: RecipeDraft;
   try {
     saved = await saveDraft.mutateAsync({
@@ -163,7 +192,7 @@ const draftOnSubmit = handleSubmit(async ({ content }) => {
       body: content,
     });
   } catch (error) {
-    refused(error);
+    await refused(error, 'draft');
     return;
   }
   draft.value = saved;
@@ -187,28 +216,77 @@ function save(event: Event, action: (event: Event) => Promise<unknown>) {
 /** Discards the draft, and with it what's been typed since. The page then goes back to the recipe. */
 async function discard() {
   if (!props.recipe || basedOn.value === undefined || discardDraft.isPending.value) return;
-  failure.value = undefined;
-  status.value = undefined;
+  startSaving();
   try {
     await discardDraft.mutateAsync({ id: props.recipe.id, version: basedOn.value });
   } catch (error) {
-    failure.value = staleRecipe(error)
-      ? 'Someone changed this recipe or its draft after you opened it, so the draft is still ' +
-        'there. Open the editor again to see their changes.'
-      : failureMessage(error);
+    const latest = staleRecipe(error);
+    if (latest) await showConflict('discard', latest);
+    else failure.value = failureMessage(error);
     return;
   }
   emit('discarded');
 }
 
+/** Does what was refused after all, based on the recipe as it is now, replacing their changes. */
+function overrule(event: Event) {
+  const refusal = conflict.value;
+  if (!refusal) return;
+  basedOn.value = refusal.latest.version;
+  known.value = refusal.latest;
+  draft.value = refusal.latestDraft ?? null;
+  if (refusal.attempted === 'publish') save(event, publishOnSubmit);
+  else if (refusal.attempted === 'draft') save(event, draftOnSubmit);
+  else void discard();
+}
+
+const ACTIONS = {
+  publish: {
+    label: 'Publish anyway',
+    does: 'Publish anyway to replace what’s published with what you have here.',
+  },
+  draft: {
+    label: 'Save draft anyway',
+    does: 'Save the draft anyway to replace it with what you have here.',
+  },
+  discard: { label: 'Discard anyway', does: 'Discard anyway to discard the draft as it is now.' },
+} as const;
+
+/** What someone changed meanwhile, and what each way on does. */
+const conflictNote = computed(() => {
+  const refusal = conflict.value;
+  if (!refusal || !known.value) return undefined;
+  const { latest, latestDraft } = refusal;
+  const changes: string[] = [];
+  const parts = changedParts(known.value, latest);
+  if (parts.length > 0) changes.push(`They published changes to: ${parts.join(', ')}.`);
+  if (latestDraft && latestDraft.updatedAt !== draft.value?.updatedAt) {
+    changes.push(
+      `${savedBy(latestDraft)} saved a draft on ${savedFormat.format(new Date(latestDraft.updatedAt))}.`,
+    );
+  } else if (latestDraft === null && draft.value) {
+    changes.push('The draft you opened was discarded.');
+  }
+  if (latest.visibility !== known.value.visibility) {
+    changes.push(latest.visibility === 'shared' ? 'It’s shared now.' : 'It’s private now.');
+  }
+  if (changes.length === 0) changes.push('Nothing you can see here changed.');
+  const action = ACTIONS[refusal.attempted];
+  const kept =
+    refusal.attempted === 'publish' ? ' Earlier versions stay in the recipe’s history.' : '';
+  return { changes, action: action.label, does: action.does + kept };
+});
+
 const { data: signedInUser } = useQuery(sessionQuery);
 const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const savedBy = ({ author }: RecipeDraft) =>
+  author.id === signedInUser.value?.id ? 'You' : author.name;
 
 /** Whose draft this is and when it was saved, and whether the recipe was published since. */
 const draftNote = computed(() => {
   if (!draft.value || !props.recipe) return undefined;
-  const { author, updatedAt, revision } = draft.value;
-  const who = author.id === signedInUser.value?.id ? 'you' : author.name;
+  const { updatedAt, revision } = draft.value;
+  const who = savedBy(draft.value) === 'You' ? 'you' : savedBy(draft.value);
   return {
     saved: `You're continuing the draft ${who} saved on ${savedFormat.format(new Date(updatedAt))}.`,
     publishedSince:
@@ -366,6 +444,42 @@ const cancelTo = computed(() =>
       >
         {{ failure }}
       </p>
+      <div
+        v-if="conflictNote"
+        role="alert"
+        class="space-y-3 rounded-md border border-destructive px-4 py-3 text-sm"
+      >
+        <p class="font-medium">
+          Someone changed this recipe after you opened it.
+        </p>
+        <ul class="list-disc space-y-1 pl-5">
+          <li
+            v-for="change in conflictNote.changes"
+            :key="change"
+          >
+            {{ change }}
+          </li>
+        </ul>
+        <p>
+          {{ conflictNote.does }} Or drop your changes and load theirs.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            variant="destructive"
+            @click="overrule"
+          >
+            {{ conflictNote.action }}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            @click="emit('reload')"
+          >
+            Drop my changes and load theirs
+          </Button>
+        </div>
+      </div>
       <!-- Always there, so screen readers announce what it says as it changes. -->
       <p
         role="status"
