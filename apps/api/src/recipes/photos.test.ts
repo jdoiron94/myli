@@ -1,6 +1,4 @@
 import {
-  type Image,
-  imageResultSchema,
   type Recipe,
   type RecipeList,
   type Role,
@@ -12,7 +10,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createMemoryBlobStore } from '../blobs/memory.ts';
 import { image, job, recipe as recipeTable } from '../db/schema.ts';
-import { testImage } from '../images/testing.ts';
+import { uploadImage } from '../images/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { ifMatch, sampleRecipeContent, sampleRecipeRequest } from './testing.ts';
 
@@ -47,16 +45,6 @@ async function fieldErrors(res: Response): Promise<Record<string, string>> {
 }
 
 /** A photo the caller uploads, which no recipe has been saved with yet. */
-async function upload(t: TestApp, cookie: string): Promise<Image> {
-  const res = await t.app.request('/api/v1/images', {
-    method: 'POST',
-    headers: { cookie, 'content-type': 'image/png' },
-    body: await testImage(320, 240, 'png'),
-  });
-  expect(res.status).toBe(201);
-  return imageResultSchema.parse(await res.json()).image;
-}
-
 async function setUp(role: Role = 'editor') {
   const blobs = createMemoryBlobStore();
   const t = createTestApp({ blobs });
@@ -101,7 +89,11 @@ const withSteps = (...ids: (string | null)[]) =>
 describe('a recipe’s photos', () => {
   it('saves a recipe with its uploads: its photos in order, its cover and a step’s', async () => {
     const { t, cookie } = await setUp();
-    const [a, b, c] = [await upload(t, cookie), await upload(t, cookie), await upload(t, cookie)];
+    const [a, b, c] = [
+      await uploadImage(t, cookie),
+      await uploadImage(t, cookie),
+      await uploadImage(t, cookie),
+    ];
     const viewer = await signedInAs(t, 'viewer');
     const photoAddress = `/images/${b.id}/320`;
     expect((await send(t, 'GET', photoAddress, viewer.cookie)).status).toBe(404);
@@ -144,7 +136,7 @@ describe('a recipe’s photos', () => {
 
   it('keeps what each photo shows, its alt text, for everyone who sees it', async () => {
     const { t, cookie } = await setUp();
-    const [a, b] = [await upload(t, cookie), await upload(t, cookie)];
+    const [a, b] = [await uploadImage(t, cookie), await uploadImage(t, cookie)];
     const viewer = await signedInAs(t, 'viewer');
     const { id } = await recipeFrom(
       await send(
@@ -193,10 +185,10 @@ describe('a recipe’s photos', () => {
 
   it('refuses photos it can’t use, saying so at each, and saves nothing', async () => {
     const { t, cookie } = await setUp();
-    const mine = await upload(t, cookie);
+    const mine = await uploadImage(t, cookie);
     const someoneElse = await signedInAs(t, 'editor');
-    const theirs = await upload(t, someoneElse.cookie);
-    const otherPhoto = await upload(t, cookie);
+    const theirs = await uploadImage(t, someoneElse.cookie);
+    const otherPhoto = await uploadImage(t, cookie);
     const other = await recipeFrom(
       await send(
         t,
@@ -237,7 +229,11 @@ describe('a recipe’s photos', () => {
 
   it('saves changes to its photos, and deletes those it left out, their blobs in a job', async () => {
     const { t, blobs, cookie } = await setUp();
-    const [a, b, c] = [await upload(t, cookie), await upload(t, cookie), await upload(t, cookie)];
+    const [a, b, c] = [
+      await uploadImage(t, cookie),
+      await uploadImage(t, cookie),
+      await uploadImage(t, cookie),
+    ];
     const { id } = await recipeFrom(
       await send(
         t,
@@ -251,7 +247,7 @@ describe('a recipe’s photos', () => {
         }),
       ),
     );
-    const added = await upload(t, cookie);
+    const added = await uploadImage(t, cookie);
     const droppedKeys = keysOf(t, c.id);
 
     // b and the new upload in place of a; a moves to a new step, and the first step loses c.
@@ -287,7 +283,7 @@ describe('a recipe’s photos', () => {
 
   it('deletes every photo when it keeps none', async () => {
     const { t, cookie } = await setUp();
-    const [a, b] = [await upload(t, cookie), await upload(t, cookie)];
+    const [a, b] = [await uploadImage(t, cookie), await uploadImage(t, cookie)];
     const { id } = await recipeFrom(
       await send(
         t,
@@ -313,9 +309,9 @@ describe('a recipe’s photos', () => {
     const { id } = await recipeFrom(
       await send(t, 'POST', '/recipes', cookie, sampleRecipeRequest()),
     );
-    const ownersUpload = await upload(t, cookie);
+    const ownersUpload = await uploadImage(t, cookie);
     const editor = await signedInAs(t, 'editor');
-    const editorsUpload = await upload(t, editor.cookie);
+    const editorsUpload = await uploadImage(t, editor.cookie);
     const save = (ids: string[]) =>
       saveRecipe(
         t,
@@ -332,7 +328,7 @@ describe('a recipe’s photos', () => {
 
   it('can’t take another recipe’s photo, even its editor’s own', async () => {
     const { t, cookie } = await setUp();
-    const photo = await upload(t, cookie);
+    const photo = await uploadImage(t, cookie);
     await recipeFrom(
       await send(
         t,

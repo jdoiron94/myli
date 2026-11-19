@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { type Image, imageResultSchema } from '@myli/shared';
 import { eq } from 'drizzle-orm';
+import type { Hono } from 'hono';
 import sharp from 'sharp';
 import type { BlobStore } from '../blobs/store.ts';
+import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
 import { image, recipe } from '../db/schema.ts';
 
@@ -14,6 +17,17 @@ export function testImage(
   return sharp({ create: { width, height, channels: 3, background: '#c0784a' } })
     .toFormat(format)
     .toBuffer();
+}
+
+/** Uploads a 320 × 240 photo as the user signed in with `cookie`, which must succeed. */
+export async function uploadImage(t: { app: Hono<AppEnv> }, cookie: string): Promise<Image> {
+  const res = await t.app.request('/api/v1/images', {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'image/png' },
+    body: await testImage(320, 240, 'png'),
+  });
+  if (res.status !== 201) throw new Error(`the upload failed with ${String(res.status)}`);
+  return imageResultSchema.parse(await res.json()).image;
 }
 
 /**

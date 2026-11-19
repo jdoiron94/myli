@@ -300,6 +300,8 @@ There are three roles: **admin**, **editor** and **viewer**.
   - copies the draft into the live tables
   - saves an immutable **revision**: a full JSON snapshot of the recipe, plus the author, timestamp and an optional message
   - queues a search-index update (§4)
+  - Until drafts arrive, every save publishes: creating a recipe records revision 1, and each save the next. Changing who sees a recipe or deleting it records none, since neither changes its content.
+  - A recipe saved before revisions were kept gets revision 1 when the API starts: the recipe as it was then, by its owner, dated when it last changed, with the message "As it was when myli started keeping revisions."
 - **History.** Shows every revision, newest first, with author, timestamp and message.
 - **Compare** any two revisions:
   - a field-level diff (metadata, ingredients and steps added, removed or changed)
@@ -457,10 +459,10 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 |---|---|
 | `user`, `session`, `account`, `verification` | Managed by Better Auth. `user` gains `role` and ban/deactivation fields from the admin plugin. |
 | `invitation` | `email`, `role`, `token_hash`, `expires_at`, `invited_by`, `accepted_at`, `revoked_at` |
-| `recipe` | `owner_id`, `visibility`, `public_token`, `version`, `published_revision_id`, `draft_json`, `title`, `description_md`, `yield_qty`, `yield_unit`, `servings`, `prep_min`, `cook_min`, `total_min`, `difficulty`, nutrition columns, `source_url`, `source_title`, `source_author`, `equipment` (JSON), `cover_image_id`, `deleted_at` |
+| `recipe` | `owner_id`, `visibility`, `public_token`, `version`, `draft_json`, `title`, `description_md`, `yield_qty`, `yield_unit`, `servings`, `prep_min`, `cook_min`, `total_min`, `difficulty`, nutrition columns, `source_url`, `source_title`, `source_author`, `equipment` (JSON), `cover_image_id`, `deleted_at` |
 | `recipe_ingredient` | `recipe_id`, `group_label`, `group_position`, `position`, `raw_text`, `qty`, `qty_max` (the top of a range), `unit`, `name`, `normalized_name`, `note`, `scalable` |
 | `recipe_step` | `recipe_id`, `position`, `body_md`, `image_id` |
-| `recipe_revision` | `recipe_id`, `snapshot_json`, `author_id`, `message`, `created_at` |
+| `recipe_revision` | `recipe_id`, `number` (from 1, per recipe; the latest is the one published), `snapshot` (JSON, with its format's `schemaVersion`), `author_id`, `message`, `created_at` |
 | `tag`, `recipe_tag` | `tag.type`, `tag.name`, `tag.name_key` (the name without case or extra spaces; unique per type). The allergen tags are seeded by a migration. |
 | `image` | `recipe_id` (null until a recipe is saved with it), `position` (among the recipe's images; null for a step's), `alt_text` (empty for none), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |

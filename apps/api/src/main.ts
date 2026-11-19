@@ -9,6 +9,7 @@ import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
 import type { Mailer } from './mail/mailer.ts';
 import { checkSmtpServer, createSmtpMailer, smtpConfigFrom } from './mail/smtp.ts';
+import { backfillRevisions } from './revisions/revisions.ts';
 import { queueReindexIfEmpty } from './search/reindex.ts';
 import { createSearchService } from './search/service.ts';
 import { setUpSearch } from './search/setup.ts';
@@ -25,6 +26,10 @@ function openMigratedDatabase() {
   try {
     const db = openDatabase(env.DATABASE_PATH);
     migrateDatabase(db);
+    const backfilled = backfillRevisions(db);
+    if (backfilled > 0) {
+      logger.info({ recipes: backfilled }, 'gave older recipes their first revision');
+    }
     logger.info({ path: env.DATABASE_PATH }, 'database ready');
     return db;
   } catch (error) {

@@ -485,6 +485,30 @@ export const image = sqliteTable(
  * reader's access: while its recipe is deleted, or made private by someone else, it's kept but not
  * shown, and it shows again if the recipe comes back.
  */
+/**
+ * The recipe as each save published it (ADR 0007). Never changed once written: restoring an older
+ * one publishes it again, as a new revision.
+ */
+export const recipeRevision = sqliteTable(
+  'recipe_revision',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id),
+    /** Its place in the recipe's history, from 1. */
+    number: integer('number').notNull(),
+    /** A `RecipeSnapshot` (`revisions/snapshot.ts`), which says which version of the format it is. */
+    snapshot: text('snapshot', { mode: 'json' }).$type<unknown>().notNull(),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id),
+    message: text('message'),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex('recipe_revision_number_idx').on(table.recipeId, table.number)],
+);
+
 export const favorite = sqliteTable(
   'favorite',
   {

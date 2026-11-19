@@ -94,6 +94,9 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - The Drizzle schema in `apps/api/src/db/schema.ts` is authoritative. After changing it, run `pnpm db:generate` and commit the new migration in `apps/api/drizzle/` (`pnpm test` fails if a schema change has no migration).
 - Never edit a migration that has been committed; add a new one. The API applies pending migrations on startup, before it listens.
 - Enumerated text columns get a CHECK constraint, not just a TypeScript type.
+- **Revisions** (`recipe_revision`, ADR 0007): every write that changes a recipe's content records its next revision with `recordRevision()` (`revisions/snapshot.ts`), in the same transaction, from the recipe as `loadRecipe` reads it then. Revisions are never changed or deleted, except with their recipe when it's purged.
+  - The snapshot's format is `recipeSnapshotSchema`, and stored snapshots are never rewritten. A change to it bumps `schemaVersion` and makes `readSnapshot()` upgrade older ones. The stored snapshot in `snapshot.test.ts` must keep reading, unchanged.
+  - Recipes saved before revisions were kept get their first on startup (`backfillRevisions()`, run by `main.ts` after the migrations).
 
 ### Background jobs
 - Side effects that can fail or are slow (sending email, updating Meilisearch) run as jobs, never inline in a request.
