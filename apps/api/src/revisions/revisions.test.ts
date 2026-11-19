@@ -191,6 +191,7 @@ describe('the history of a recipe', () => {
       title: 'Weeknight Bread',
       images: [{ ...photo, alt: 'A loaf.' }],
       tags: [],
+      revision: 3,
     });
     expect(
       revisionsOf(t, id).map(({ number, authorId, message }) => [number, authorId, message]),

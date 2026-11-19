@@ -350,6 +350,12 @@ export const recipeSchema = z
     tags: z.array(tagSchema).describe('By type, then name.'),
     images: z.array(imageSchema).describe('Its photos, in order.'),
     coverImageId: z.string().nullable().describe('One of `images`, or `null` when there are none.'),
+    revision: z
+      .int()
+      .positive()
+      .describe(
+        'The number of its latest revision, which is what this shows. The history lists them all.',
+      ),
     version: z
       .int()
       .positive()

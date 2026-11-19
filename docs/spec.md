@@ -305,6 +305,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - Creating a recipe records revision 1, and each publish the next. Changing who sees a recipe or deleting it records none, since neither changes its content.
   - A recipe saved before revisions were kept gets revision 1 when the API starts: the recipe as it was then, by its owner, dated when it last changed, with the message "As it was when myli started keeping revisions."
 - **History.** Shows every revision, newest first, with author, timestamp and message, to anyone who may see the recipe.
+  - A recipe says which revision it shows: its latest, the published one.
   - Each revision shows the recipe as it was then: its tags with the names they had, its photos with the alt text they had.
 - **Compare** any two revisions:
   - a field-level diff (metadata, ingredients and steps added, removed or changed)

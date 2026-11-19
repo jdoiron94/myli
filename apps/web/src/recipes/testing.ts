@@ -77,6 +77,7 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
     tags: [],
     images: [],
     coverImageId: null,
+    revision: 1,
     version: 1,
     createdAt: '2026-11-10T09:00:00.000Z',
     updatedAt: '2026-11-12T09:00:00.000Z',

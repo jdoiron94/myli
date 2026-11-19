@@ -98,6 +98,7 @@ describe('POST /recipes', () => {
         })),
       })),
       tags: [{ id: tagId(t, 'wheat'), type: 'allergen', name: 'wheat' }],
+      revision: 1,
       version: 1,
       createdAt: expect.any(String),
       updatedAt: created.createdAt,
