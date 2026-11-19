@@ -403,7 +403,9 @@ Different filters all apply. Excluding values leaves out recipes with any of the
   - limits on response size and timeout
 
 **Downloads**
-- **Print view:** a print stylesheet; the browser handles PDF.
+- **Print view:** a print stylesheet; the browser handles PDF. A recipe's page has a Print button, for anyone who can see it, which opens the browser's print dialog.
+  - What's printed is the recipe as shown, at the servings and in the units chosen, without the header, the page's buttons and controls, or the slideshow's.
+  - Always in the light theme, whichever is on screen: browsers leave out backgrounds when printing.
 - **Per-recipe export:** JSON (the native format) or schema.org/Recipe JSON-LD.
 - **Full-instance export (admins):** all recipes, revisions, tags and images as one archive.
 

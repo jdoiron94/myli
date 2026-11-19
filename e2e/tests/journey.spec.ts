@@ -543,6 +543,45 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('link', { name: 'Cook mode' })).toBeVisible();
   });
 
+  await test.step('it prints without the page’s controls, in the light theme whatever the screen’s', async () => {
+    await page.evaluate(() => {
+      window.print = () => {
+        document.documentElement.dataset.printed = 'yes';
+      };
+    });
+    await page.getByRole('button', { name: 'Print' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-printed', 'yes');
+
+    const colors = () =>
+      page.evaluate(() => {
+        const { color, backgroundColor } = getComputedStyle(document.body);
+        return { color, backgroundColor };
+      });
+    const theme = (from: string, to: string) =>
+      page.evaluate(
+        (classes) => document.documentElement.classList.replace(classes.from, classes.to),
+        { from, to },
+      );
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(page.locator('html')).toHaveClass(/\blight\b/);
+    const light = await colors();
+    // Dark on screen. (Firefox says the device is light while printing, so the class is set here.)
+    await theme('light', 'dark');
+    await expect.poll(colors).not.toEqual(light);
+
+    await page.emulateMedia({ media: 'print' });
+    await expect.poll(colors).toEqual(light);
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Ingredients' }).getByRole('listitem'),
+    ).toHaveCount(1);
+    for (const role of ['navigation', 'button', 'textbox', 'radio'] as const) {
+      await expect(page.getByRole(role), `no ${role} on paper`).toHaveCount(0);
+    }
+    await page.emulateMedia({ media: 'screen' });
+    await theme('dark', 'light');
+  });
+
   await test.step('the recipe is deleted once asked, which the audit log records', async () => {
     const address = new URL(page.url()).pathname;
     const id = address.split('/').at(-1);

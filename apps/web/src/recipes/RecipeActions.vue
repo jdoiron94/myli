@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { ChefHatIcon, HeartIcon, LockIcon, PencilIcon, TrashIcon, UsersIcon } from '@lucide/vue';
+import {
+  ChefHatIcon,
+  HeartIcon,
+  LockIcon,
+  PencilIcon,
+  PrinterIcon,
+  TrashIcon,
+  UsersIcon,
+} from '@lucide/vue';
 import { can, type RecipeAction } from '@myli/shared';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { computed, ref } from 'vue';
@@ -24,8 +32,8 @@ import { type Recipe, recipeQuery, useChangeVisibility, useDeleteRecipe } from '
 import { servingsQuery } from './servings.ts';
 
 /**
- * What the reader may do with a recipe: cook it, which anyone who sees it may, and by the policy,
- * keep it as a favorite, edit it, change who sees it, delete it.
+ * What the reader may do with a recipe: cook it or print it, which anyone who sees it may, and by
+ * the policy, keep it as a favorite, edit it, change who sees it, delete it. None of it is printed.
  */
 const props = defineProps<{ recipe: Recipe }>();
 
@@ -48,6 +56,11 @@ const cookLink = computed(() => ({
   params: { id: props.recipe.id },
   query: servingsQuery(route.query),
 }));
+
+/** The browser's own dialog, which prints the page with the print stylesheet, or saves a PDF. */
+function print() {
+  window.print();
+}
 
 const notice = ref<string>();
 const failure = ref<string>();
@@ -110,7 +123,7 @@ async function remove() {
 </script>
 
 <template>
-  <div>
+  <div class="print:hidden">
     <div class="flex flex-wrap gap-2">
       <Button
         size="sm"
@@ -134,6 +147,14 @@ async function remove() {
           :class="{ 'fill-current': favorite.data.value }"
         />
         Favorite
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        @click="print"
+      >
+        <PrinterIcon aria-hidden="true" />
+        Print
       </Button>
       <Button
         v-if="canEdit"

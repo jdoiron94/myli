@@ -80,7 +80,7 @@ onBeforeUnmount(stopForgetting);
     class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:ring-3 focus:ring-ring/50"
     @click.prevent="focusMain"
   >Skip to content</a>
-  <header class="border-b">
+  <header class="border-b print:hidden">
     <div class="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
       <div class="flex items-center gap-4 sm:gap-6">
         <RouterLink

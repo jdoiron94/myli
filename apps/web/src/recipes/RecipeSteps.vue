@@ -16,7 +16,7 @@ defineProps<{ steps: Recipe['steps'] }>();
     <li
       v-for="(step, index) in steps"
       :key="index"
-      class="ps-1"
+      class="ps-1 print:break-inside-avoid"
     >
       <MarkdownContent :source="step.body" />
       <!-- Shown whole, never cropped, as it may show how something's done. On phones it takes back
@@ -25,7 +25,7 @@ defineProps<{ steps: Recipe['steps'] }>();
         v-if="step.image"
         :image="step.image"
         :sizes="STEP_PHOTO_SIZES"
-        class="-ms-7 mt-3 block h-auto max-h-[32rem] w-auto max-w-[calc(100%_+_1.75rem)] rounded-md md:ms-0 md:max-w-full"
+        class="-ms-7 mt-3 block h-auto max-h-[32rem] w-auto max-w-[calc(100%_+_1.75rem)] rounded-md md:ms-0 md:max-w-full print:max-h-60"
       />
     </li>
   </ol>
