@@ -995,7 +995,7 @@
               ]
             },
             "maxItems": 20,
-            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’."
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again."
           },
           "coverImageId": {
             "type": [
@@ -1828,7 +1828,7 @@
               ]
             },
             "maxItems": 20,
-            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’."
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again."
           },
           "coverImageId": {
             "type": [
