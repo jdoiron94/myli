@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
-import { computed } from 'vue';
+import { computed, nextTick, ref, useTemplateRef } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
@@ -57,6 +57,18 @@ function open(saved: Recipe) {
   void router.push({ name: 'recipe', params: { id: saved.id } });
 }
 
+// Remounting the form drops what was typed, and it opens on the recipe and draft as they are now,
+// which the conflict that offered this put in the cache. Focus starts on the heading again.
+const formKey = ref(0);
+const headingElement = useTemplateRef('heading');
+async function reload() {
+  formKey.value += 1;
+  await nextTick();
+  if (!headingElement.value) return;
+  headingElement.value.tabIndex = -1;
+  headingElement.value.focus();
+}
+
 function discarded() {
   void goWithNotice(
     router,
@@ -67,7 +79,10 @@ function discarded() {
 </script>
 
 <template>
-  <h1 class="text-2xl font-semibold">
+  <h1
+    ref="heading"
+    class="text-2xl font-semibold"
+  >
     {{ heading }}
   </h1>
 
@@ -75,12 +90,13 @@ function discarded() {
     <template v-if="allowed">
       <RecipeForm
         v-if="draft !== undefined"
-        :key="recipe.id"
+        :key="`${recipe.id}-${formKey}`"
         class="mt-6"
         :recipe="recipe"
         :draft="draft"
         @saved="open"
         @discarded="discarded"
+        @reload="reload"
       />
       <RetryableFailure
         v-else-if="draftRetry.failure.value"

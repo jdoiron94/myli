@@ -4,6 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import type { Recipe, RecipeContent, RecipeDraft, UpdateRecipeRequest } from '@/recipes/recipe.ts';
+import { recipeContent } from '@/recipes/recipe-form.ts';
 import {
   answerRecipe,
   answerTags,
@@ -16,6 +17,7 @@ import {
   accessibilityViolations,
   apiServer,
   focusedMarkdownEditor,
+  listItems,
   problemResponse,
   renderApp,
   sessionResponse,
@@ -32,8 +34,8 @@ const checked = (name: string) =>
  * Stands in for the API's copy of one recipe and its draft: GET answers what's stored, and PUT
  * publishes the content it's sent, or answers `refuse()` instead when given. Saving the draft or
  * discarding it moves the version on, and publishing discards it. As the API does, a change based
- * on another version than the stored one gets 412. Keeps each PUT's body. `saveElsewhere()` saves
- * changes as someone else would.
+ * on another version than the stored one gets 412. Keeps each PUT's body. `saveElsewhere()`
+ * publishes changes as someone else would, and `saveDraftElsewhere()` saves them as their draft.
  */
 function storeRecipe(
   recipe: Recipe,
@@ -102,7 +104,15 @@ function storeRecipe(
   const saveElsewhere = (changes: Partial<Recipe>) => {
     stored = { ...stored, ...changes, version: stored.version + 1 };
   };
-  return { saved, reads, saveElsewhere };
+  const saveDraftElsewhere = (changes: Partial<RecipeContent>) => {
+    stored = { ...stored, version: stored.version + 1 };
+    storedDraft = sampleDraft({
+      content: { ...recipeContent(stored), ...changes },
+      revision: stored.revision,
+      version: stored.version,
+    });
+  };
+  return { saved, reads, saveElsewhere, saveDraftElsewhere };
 }
 
 async function openEditor(path = '/recipes/recipe-bread/edit', role?: User['role']) {
@@ -264,21 +274,50 @@ describe('the edit recipe page', () => {
     await screen.findByRole('radio', { name: 'US customary' });
   });
 
-  it('won’t save over what someone saved since it opened, even once the page has it', async () => {
+  it('says what someone published since it opened, even once the page has it, and publishes anyway', async () => {
     const { saved, saveElsewhere } = storeRecipe(sampleRecipe());
     const { user, queryClient } = await openEditor();
-    saveElsewhere({ title: 'Their Bread' });
+    saveElsewhere({ title: 'Their Bread', servings: 6 });
     await queryClient.refetchQueries({ queryKey: ['recipes', 'recipe-bread'] });
 
     await user.type(field('Title'), ' (mine)');
     await user.click(saveButton());
 
-    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
-      'Someone saved this recipe after you opened it, and saving now would undo their changes. ' +
-        'Copy anything you want to keep, then open the editor again.',
-    );
-    expect(saved).toHaveLength(1);
+    const alert = await screen.findByRole('alert');
+    expect(listItems(alert)).toEqual(['They published changes to: Title, Servings.']);
     expect(field('Title')).toHaveProperty('value', 'Weeknight Bread (mine)');
+    expect(saved).toHaveLength(1);
+    expect(await accessibilityViolations()).toEqual([]);
+
+    await user.click(within(alert).getByRole('button', { name: 'Publish anyway' }));
+
+    await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread (mine)' });
+    expect(saved).toHaveLength(2);
+    await screen.findByRole('radio', { name: 'US customary' });
+  });
+
+  it('says when someone saved a draft since it opened, and loads theirs instead when asked', async () => {
+    const { saveDraftElsewhere } = storeRecipe(sampleRecipe());
+    const { user } = await openEditor();
+    saveDraftElsewhere({ title: 'Their Draft' });
+
+    await user.type(field('Title'), ' (mine)');
+    await user.click(button('Save draft'));
+
+    const alert = await screen.findByRole('alert');
+    expect(listItems(alert)).toEqual([
+      expect.stringMatching(/^Grace Hopper saved a draft on .+\.$/),
+    ]);
+    await user.click(
+      within(alert).getByRole('button', { name: 'Drop my changes and load theirs' }),
+    );
+
+    await waitFor(() => {
+      expect(field('Title')).toHaveProperty('value', 'Their Draft');
+    });
+    expect(screen.getByText(/^You're continuing the draft Grace Hopper saved on /)).toBeDefined();
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
+    await screen.findByRole('checkbox', { name: 'Italian' });
   });
 
   it('saves a draft, then publishes it with what changed, each based on the version before', async () => {
