@@ -138,6 +138,35 @@ test('lets browsers keep built files, and has them check pages on every load', a
   }
 });
 
+test('serves the icons each page links to as images', async ({ request }) => {
+  const pages = ['/', '/api/docs/'];
+  const served: Record<string, string> = {};
+  for (const page of pages) {
+    const html = await (await request.get(page)).text();
+    for (const [, rel = '', href = ''] of html.matchAll(
+      /<link rel="([\w-]*icon)" href="([^"]+)"/g,
+    )) {
+      const icon = await request.get(href);
+      served[`${page} ${rel} ${href}`] =
+        `${String(icon.status())} ${icon.headers()['content-type'] ?? ''}`;
+    }
+  }
+
+  // A link to a file that isn't there would get the app's page instead, also with a 200.
+  const icons = {
+    'icon /favicon.ico': '200 image/vnd.microsoft.icon',
+    'icon /favicon.svg': '200 image/svg+xml',
+    'apple-touch-icon /apple-touch-icon.png': '200 image/png',
+  };
+  expect(served).toEqual(
+    Object.fromEntries(
+      pages.flatMap((page) =>
+        Object.entries(icons).map(([link, type]) => [`${page} ${link}`, type]),
+      ),
+    ),
+  );
+});
+
 test('serves HTTPS and HTTP/2, with a certificate from its own local CA', async ({ baseURL }) => {
   const { certificate, protocol } = await handshake(origin(baseURL));
 
