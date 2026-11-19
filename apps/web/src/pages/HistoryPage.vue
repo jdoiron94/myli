@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ArrowLeftIcon } from '@lucide/vue';
 import { useQuery } from '@tanstack/vue-query';
-import { computed, watchEffect } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { computed, ref, useId, watchEffect } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiProblem } from '@/api/problem.ts';
 import { allOf, useRetry } from '@/api/retry.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { recipeQuery, recipeRevisionsQuery } from '@/recipes/recipe.ts';
 import { documentTitle } from '@/router.ts';
 
@@ -38,6 +40,29 @@ watchEffect(() => {
 });
 
 const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+// Any two revisions can be compared: at first, the one published and the one before it.
+const chosenFrom = ref<number>();
+const chosenTo = ref<number>();
+const compareFrom = computed({
+  get: () => chosenFrom.value ?? revisions.value?.[1]?.number,
+  set: (number) => (chosenFrom.value = number),
+});
+const compareTo = computed({
+  get: () => chosenTo.value ?? revisions.value?.[0]?.number,
+  set: (number) => (chosenTo.value = number),
+});
+const fromId = useId();
+const toId = useId();
+const router = useRouter();
+/** Compares them the earlier first, whichever way round they were chosen. */
+function compare() {
+  if (compareFrom.value === undefined || compareTo.value === undefined) return;
+  const [from, to] = [compareFrom.value, compareTo.value].sort((a, b) => a - b);
+  void router.push({ name: 'compare-revisions', params: { id: props.id, from, to } });
+}
+const SELECT_CLASS =
+  'h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30';
 </script>
 
 <template>
@@ -58,6 +83,52 @@ const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', ti
     <h1 class="text-3xl font-semibold break-words">
       {{ heading }}
     </h1>
+
+    <form
+      v-if="recipe && revisions && revisions.length > 1"
+      aria-label="Compare two revisions"
+      class="mt-6 flex flex-wrap items-end gap-3"
+      @submit.prevent="compare"
+    >
+      <div class="grid gap-1.5">
+        <Label :for="fromId">Compare revision</Label>
+        <select
+          :id="fromId"
+          v-model.number="compareFrom"
+          :class="SELECT_CLASS"
+        >
+          <option
+            v-for="revision in revisions"
+            :key="revision.number"
+            :value="revision.number"
+          >
+            Revision {{ revision.number }}
+          </option>
+        </select>
+      </div>
+      <div class="grid gap-1.5">
+        <Label :for="toId">With revision</Label>
+        <select
+          :id="toId"
+          v-model.number="compareTo"
+          :class="SELECT_CLASS"
+        >
+          <option
+            v-for="revision in revisions"
+            :key="revision.number"
+            :value="revision.number"
+          >
+            Revision {{ revision.number }}
+          </option>
+        </select>
+      </div>
+      <Button
+        type="submit"
+        variant="outline"
+      >
+        Compare
+      </Button>
+    </form>
 
     <ol
       v-if="recipe && revisions"
@@ -88,6 +159,20 @@ const savedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', ti
           class="break-words"
         >
           {{ revision.message }}
+        </p>
+        <p
+          v-if="revision.number > 1"
+          class="text-sm"
+        >
+          <RouterLink
+            :to="{
+              name: 'compare-revisions',
+              params: { id, from: revision.number - 1, to: revision.number },
+            }"
+            class="underline underline-offset-2"
+          >
+            Compare with revision {{ revision.number - 1 }}
+          </RouterLink>
         </p>
         <p class="text-sm text-muted-foreground">
           {{ revision.author.name }},

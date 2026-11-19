@@ -612,6 +612,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await page.getByRole('link', { name: 'Edit recipe' }).click();
     await expect(heading(page, 'Edit recipe')).toBeVisible();
     await page.getByRole('textbox', { name: 'Servings' }).fill('10');
+    await page.getByRole('textbox', { name: 'Ingredient 1' }).fill('600 g bread flour');
     await page.getByRole('button', { name: 'Save draft' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Draft saved' })).toBeVisible();
     await page.getByRole('link', { name: 'Cancel' }).click();
@@ -633,14 +634,24 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('link', { name: 'Edit recipe' })).toBeVisible();
   });
 
-  await test.step('its history lists both revisions, and shows the first as it was', async () => {
+  await test.step('its history lists both revisions, compares them, and shows the first as it was', async () => {
     await page.getByRole('link', { name: 'History' }).click();
     const revisions = page.getByRole('list', { name: 'Revisions' }).getByRole('listitem');
     await expect(revisions).toHaveCount(2);
     await expect(revisions.first()).toContainText('Serves more');
     await checkPage(page);
 
-    await page.getByRole('link', { name: 'Revision 1' }).click();
+    await page.getByRole('link', { name: 'Compare with revision 1' }).click();
+    await expect(
+      page.getByRole('table', { name: 'Details' }).getByRole('row', { name: /Servings/ }),
+    ).toHaveText(/Servings\s*8\s*10/);
+    const changed = page.getByRole('list', { name: 'Ingredients' }).getByRole('listitem').first();
+    await expect(changed.locator('del')).toHaveText('Removed: 500');
+    await expect(changed.locator('ins')).toHaveText('Added: 600');
+    await checkPage(page);
+    await page.getByRole('link', { name: 'Back to history' }).click();
+
+    await page.getByRole('link', { name: 'Revision 1', exact: true }).click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
     await expect(
       page.getByText('The recipe was published again since, and is at revision 2 now.', {

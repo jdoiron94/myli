@@ -40,9 +40,15 @@ describe('a recipe’s history', () => {
       [
         'Revision 3 Published',
         'Restored from revision #1',
+        'Compare with revision 2',
         expect.stringMatching(/^Grace Hopper, /),
       ],
-      ['Revision 2', 'Less salt', expect.stringMatching(/^Ada Lovelace, /)],
+      [
+        'Revision 2',
+        'Less salt',
+        'Compare with revision 1',
+        expect.stringMatching(/^Ada Lovelace, /),
+      ],
       ['Revision 1', expect.stringMatching(/^Ada Lovelace, /)],
     ]);
     expect(document.title).toBe('History: Weeknight Bread · myli');
