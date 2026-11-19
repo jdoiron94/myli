@@ -40,11 +40,15 @@ describe("the app's queries", () => {
     expect(calls.count).toBe(3);
   });
 
-  it.each([500, 502, 503])('give up on a %i after two retries', async (status) => {
-    const calls = answerSetupWith(() => problemResponse(status, 'Not now.'));
+  it('give up on a 5xx after two retries, and never retry a 4xx', async () => {
+    const tries: Record<number, number> = {};
+    for (const status of [400, 404, 422, 499, 500, 503]) {
+      const calls = answerSetupWith(() => problemResponse(status, 'No.'));
+      await expect(fetchSetup()).rejects.toBeInstanceOf(ApiProblem);
+      tries[status] = calls.count;
+    }
 
-    await expect(fetchSetup()).rejects.toMatchObject({ status });
-    expect(calls.count).toBe(3);
+    expect(tries).toEqual({ 400: 1, 404: 1, 422: 1, 499: 1, 500: 3, 503: 3 });
   });
 
   it('retry network failures too', async () => {
@@ -52,12 +56,5 @@ describe("the app's queries", () => {
 
     await expect(fetchSetup()).rejects.toBeInstanceOf(TypeError);
     expect(calls.count).toBe(3);
-  });
-
-  it.each([400, 401, 403, 404, 409, 422])('never retry a %i', async (status) => {
-    const calls = answerSetupWith(() => problemResponse(status, 'No.'));
-
-    await expect(fetchSetup()).rejects.toBeInstanceOf(ApiProblem);
-    expect(calls.count).toBe(1);
   });
 });

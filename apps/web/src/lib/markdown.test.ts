@@ -41,22 +41,25 @@ describe('renderMarkdown', () => {
 
   // ADR 0006: the subset the editor offers, and nothing else. What's outside it stays as typed,
   // though a fenced block's backticks still make inline code, and an image's brackets a link.
-  it.each([
-    ['a heading', '# Before you start', '# Before you start'],
-    ['an underlined heading', 'Before you start\n====', '===='],
-    ['a quote', '> Grandma’s note', '> Grandma’s note'],
-    ['a rule', 'Rest it.\n\n---', '---'],
-    ['a fenced code block', '```\nlet x = 1;\n```', 'let x = 1;'],
-    ['an indented code block', '    let x = 1;', 'let x = 1;'],
-    ['strikethrough', '~~gone~~', '~~gone~~'],
-    ['a table', '| Flour | Water |\n|---|---:|\n| 500 g | 350 g |', '| Flour | Water |'],
-    ['an image', '![The loaf](https://example.com/loaf.jpg)', '!The loaf'],
-  ])('shows %s as text', (_, source, shown) => {
-    const root = rendered(source);
-    expect(
-      root.querySelector('h1, h2, h3, h4, h5, h6, blockquote, hr, pre, s, table, img'),
-    ).toBeNull();
-    expect(root.textContent).toContain(shown);
+  it('shows what’s outside the subset as text: headings, quotes, rules, code, strikethrough, tables and images', () => {
+    for (const [, source, shown] of [
+      ['a heading', '# Before you start', '# Before you start'],
+      ['an underlined heading', 'Before you start\n====', '===='],
+      ['a quote', '> Grandma’s note', '> Grandma’s note'],
+      ['a rule', 'Rest it.\n\n---', '---'],
+      ['a fenced code block', '```\nlet x = 1;\n```', 'let x = 1;'],
+      ['an indented code block', '    let x = 1;', 'let x = 1;'],
+      ['strikethrough', '~~gone~~', '~~gone~~'],
+      ['a table', '| Flour | Water |\n|---|---:|\n| 500 g | 350 g |', '| Flour | Water |'],
+      ['an image', '![The loaf](https://example.com/loaf.jpg)', '!The loaf'],
+    ] as const) {
+      const root = rendered(source);
+      expect(
+        root.querySelector('h1, h2, h3, h4, h5, h6, blockquote, hr, pre, s, table, img'),
+        source,
+      ).toBeNull();
+      expect(root.textContent, source).toContain(shown);
+    }
   });
 
   it('shows raw HTML as the text that was typed', () => {
@@ -89,25 +92,27 @@ describe('renderMarkdown', () => {
     expect(hrefs('See [the rolls][1].\n\n[1]: /recipes/abc')).toEqual(['/recipes/abc']);
   });
 
-  it.each([
-    '[a](javascript:alert(1))',
-    '[a](JaVaScRiPt:alert(1))',
-    '[a](java\tscript:alert(1))',
-    '<javascript:alert(1)>',
-    '[a](vbscript:msgbox(1))',
-    '[a](data:text/html,<script>alert(1)</script>)',
-    '[a](file:///etc/passwd)',
-    '[a](//evil.example/)',
-    '[a](/\\evil.example/)',
-    '[a](\\\\evil.example)',
-    '[a]( //evil.example)',
-    '[a][1]\n\n[1]: //evil.example/',
-  ])('never links where it shouldn’t: %s', (source) => {
-    const root = rendered(source);
-    for (const link of root.querySelectorAll('a')) {
-      expect(safeHref(link.getAttribute('href')), link.outerHTML).toBe(true);
+  it('never links where it shouldn’t: other schemes, other hosts, however they’re written', () => {
+    for (const source of [
+      '[a](javascript:alert(1))',
+      '[a](JaVaScRiPt:alert(1))',
+      '[a](java\tscript:alert(1))',
+      '<javascript:alert(1)>',
+      '[a](vbscript:msgbox(1))',
+      '[a](data:text/html,<script>alert(1)</script>)',
+      '[a](file:///etc/passwd)',
+      '[a](//evil.example/)',
+      '[a](/\\evil.example/)',
+      '[a](\\\\evil.example)',
+      '[a]( //evil.example)',
+      '[a][1]\n\n[1]: //evil.example/',
+    ]) {
+      const root = rendered(source);
+      for (const link of root.querySelectorAll('a')) {
+        expect(safeHref(link.getAttribute('href')), link.outerHTML).toBe(true);
+      }
+      expect(root.textContent).not.toBe('');
     }
-    expect(root.textContent).not.toBe('');
   });
 
   it('renders nothing for nothing', () => {

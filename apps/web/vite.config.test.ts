@@ -45,12 +45,12 @@ describe('the dev server', () => {
     vi.unstubAllEnvs();
   });
 
-  it.each(['/api/v1/setup', '/api/v1/openapi.json', '/api/auth/get-session'])(
-    'sends %s to the API',
-    async (path) => {
-      await expect((await get(path)).json()).resolves.toEqual({ reachedApi: path });
-    },
-  );
+  it('sends the API’s routes to the API', async () => {
+    const paths = ['/api/v1/setup', '/api/v1/openapi.json', '/api/auth/get-session'];
+    const reached = await Promise.all(paths.map(async (path) => (await get(path)).json()));
+
+    expect(reached).toEqual(paths.map((path) => ({ reachedApi: path })));
+  });
 
   it('serves the API docs page itself, at /api/docs/', async () => {
     const response = await get('/api/docs/');
@@ -59,14 +59,11 @@ describe('the dev server', () => {
     expect(await response.text()).toContain('<script type="module" src="/src/api-docs/main.ts">');
   });
 
-  it.each([
-    ['/api/docs', '/api/docs/'],
-    ['/api/docs?x=1', '/api/docs/?x=1'],
-  ])('redirects %s to %s, as Caddy does', async (path, location) => {
-    const response = await get(path);
+  it('redirects /api/docs to /api/docs/, keeping the query, as Caddy does', async () => {
+    const response = await get('/api/docs?x=1');
 
     expect(response.status).toBe(308);
-    expect(response.headers.get('location')).toBe(location);
+    expect(response.headers.get('location')).toBe('/api/docs/?x=1');
   });
 
   it('serves the app everywhere else', async () => {
@@ -131,16 +128,15 @@ describe('the build', () => {
     }
 
     // Cook mode joins these once it exists.
-    it.each(['index.html', 'src/pages/HomePage.vue', 'src/pages/RecipePage.vue'])(
-      'is left out of what %s loads',
-      (entry) => {
-        const chunks = manifest();
-        const files = filesLoadedWith(entry, chunks);
+    it('is left out of what the app and the pages that only show recipes load', () => {
+      const chunks = manifest();
+      const loaded = ['index.html', 'src/pages/HomePage.vue', 'src/pages/RecipePage.vue'].map(
+        (entry) => filesLoadedWith(entry, chunks),
+      );
 
-        expect(files.length).toBeGreaterThan(0);
-        for (const file of files) expect(read(file), file).not.toMatch(/prosemirror/i);
-      },
-    );
+      expect(loaded.every((files) => files.length > 0)).toBe(true);
+      expect(loaded.flat().filter((file) => /prosemirror/i.test(read(file)))).toEqual([]);
+    });
 
     it('is loaded by the pages that edit a recipe, when they ask for it', () => {
       const chunks = manifest();

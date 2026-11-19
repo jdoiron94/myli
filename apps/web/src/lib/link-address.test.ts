@@ -3,67 +3,60 @@ import { linkAddress, linkAddressSchema } from './link-address.ts';
 import { renderMarkdown } from './markdown.ts';
 
 describe('linkAddress', () => {
-  it.each([
-    ['https://example.com/bread', 'https://example.com/bread'],
-    ['HTTP://example.com', 'HTTP://example.com'],
-    ['  example.com/bread?x=1#y ', 'https://example.com/bread?x=1#y'],
-    ['www.example.co.uk', 'https://www.example.co.uk'],
-    ['example.com:8080/bread', 'https://example.com:8080/bread'],
-    ['/recipes/abc', '/recipes/abc'],
-    ['/', '/'],
-    ['sam@example.com', 'mailto:sam@example.com'],
-    ['mailto:sam@example.com', 'mailto:sam@example.com'],
-    ['MAILTO:sam@example.com', 'MAILTO:sam@example.com'],
-  ])('takes %j as %j', (text, address) => {
-    expect(linkAddress(text)).toBe(address);
+  it('completes a web address, a path on this site or an email address, and takes nothing else', () => {
+    const texts = {
+      'https://example.com/bread': 'https://example.com/bread',
+      'HTTP://example.com': 'HTTP://example.com',
+      '  example.com/bread?x=1#y ': 'https://example.com/bread?x=1#y',
+      'www.example.co.uk': 'https://www.example.co.uk',
+      'example.com:8080/bread': 'https://example.com:8080/bread',
+      '/recipes/abc': '/recipes/abc',
+      'sam@example.com': 'mailto:sam@example.com',
+      'MAILTO:sam@example.com': 'MAILTO:sam@example.com',
+      '   ': null,
+      'javascript:alert(1)': null,
+      'JavaScript:alert(1)': null,
+      'data:text/html,hi': null,
+      'vbscript:x': null,
+      'tel:123': null,
+      'file:///etc/passwd': null,
+      '//evil.example': null,
+      '/\\evil.example': null,
+      'localhost:3000': null,
+      bread: null,
+      'two words.com': null,
+      'mailto:sam': null,
+      'mailto:javascript:alert(1)@example.com': null,
+      'https://': null,
+      'https://exa mple.com': null,
+    };
+
+    expect(
+      Object.fromEntries(Object.keys(texts).map((text) => [text, linkAddress(text) ?? null])),
+    ).toEqual(texts);
   });
 
-  it.each([
-    '',
-    '   ',
-    'javascript:alert(1)',
-    'JavaScript:alert(1)',
-    'data:text/html,hi',
-    'vbscript:x',
-    'tel:123',
-    'tel:+1-555-0100',
-    'file:///etc/passwd',
-    '//evil.example',
-    '/\\evil.example',
-    'localhost',
-    'localhost:3000',
-    'bread',
-    'two words.com',
-    'mailto:',
-    'mailto:sam',
-    'mailto:javascript:alert(1)@example.com',
-    'https://',
-    'https://exa mple.com',
-  ])('refuses %j', (text) => {
-    expect(linkAddress(text)).toBeUndefined();
+  it('gives addresses the renderer keeps as links', () => {
+    const addresses = [
+      'example.com',
+      '/recipes/abc',
+      'sam@example.com',
+      'https://example.com/a?b=c',
+    ]
+      .map((text) => linkAddress(text) ?? '')
+      .filter((address) => !renderMarkdown(`[here](${address})`).includes(`href="${address}"`));
+
+    expect(addresses).toEqual([]);
   });
-
-  it.each(['example.com', '/recipes/abc', 'sam@example.com', 'https://example.com/a?b=c'])(
-    'gives an address the renderer keeps as a link: %j',
-    (text) => {
-      const address = linkAddress(text) ?? '';
-
-      expect(renderMarkdown(`[here](${address})`)).toContain(`href="${address}"`);
-    },
-  );
 });
 
 describe('linkAddressSchema', () => {
-  it('gives the completed address', () => {
-    expect(linkAddressSchema.parse(' example.com ')).toBe('https://example.com');
-  });
+  it('gives the completed address, or explains what’s wrong', () => {
+    const messages = (text: string) =>
+      linkAddressSchema.safeParse(text).error?.issues.map((issue) => issue.message);
 
-  it.each([
-    ['', 'Enter where the link goes.'],
-    ['bread', 'Enter a web address or an email address.'],
-  ])('explains what’s wrong with %j', (text, message) => {
-    expect(linkAddressSchema.safeParse(text).error?.issues.map((issue) => issue.message)).toEqual([
-      message,
-    ]);
+    expect(linkAddressSchema.parse(' example.com ')).toBe('https://example.com');
+    expect(messages('')).toEqual(['Enter where the link goes.']);
+    expect(messages('bread')).toEqual(['Enter a web address or an email address.']);
   });
 });

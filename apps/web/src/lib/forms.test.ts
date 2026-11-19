@@ -78,31 +78,44 @@ describe("the API's field errors", () => {
     });
   });
 
-  it.each([
-    ["a field the form doesn't have", [{ in: 'body', pointer: '#/role', detail: 'No.' }]],
-    ['a field outside the body', [{ in: 'query', pointer: '#/email', detail: 'No.' }]],
-    ['the body as a whole', [{ in: 'body', pointer: '#', detail: 'Expected an object.' }]],
-  ] as const)('are left to the page when one is about %s', (_, errors) => {
-    const error = validationProblem([
-      { in: 'body', pointer: '#/email', detail: 'Enter a valid email address.' },
-      ...errors,
+  it('are left to the page when one has no field of the form’s, or for any other failure', () => {
+    const withEmailError = (other: { in: 'body' | 'query'; pointer: string; detail: string }) =>
+      validationProblem([
+        { in: 'body', pointer: '#/email', detail: 'Enter a valid email address.' },
+        other,
+      ]);
+    const errors = {
+      "a field the form doesn't have": withEmailError({
+        in: 'body',
+        pointer: '#/role',
+        detail: 'No.',
+      }),
+      'a field outside the body': withEmailError({
+        in: 'query',
+        pointer: '#/email',
+        detail: 'No.',
+      }),
+      'the body as a whole': withEmailError({
+        in: 'body',
+        pointer: '#',
+        detail: 'Expected an object.',
+      }),
+      'a conflict': new ApiProblem({ type: 'about:blank', title: 'Conflict', status: 409 }),
+      'a network failure': new TypeError('Failed to fetch'),
+    };
+
+    expect(
+      Object.entries(errors)
+        .filter(([, error]) => apiFieldErrors(error, ['email']) !== undefined)
+        .map(([name]) => name),
+    ).toEqual([]);
+  });
+
+  it('map JSON pointers to field paths', () => {
+    expect(['#/email', '#/tags/0/name', '#/a~1b/c~0d'].map(pointerPath)).toEqual([
+      'email',
+      'tags[0].name',
+      'a/b.c~d',
     ]);
-
-    expect(apiFieldErrors(error, ['email'])).toBeUndefined();
-  });
-
-  it.each([
-    ['a conflict', new ApiProblem({ type: 'about:blank', title: 'Conflict', status: 409 })],
-    ['a network failure', new TypeError('Failed to fetch')],
-  ])("aren't there for %s", (_, error) => {
-    expect(apiFieldErrors(error, ['email'])).toBeUndefined();
-  });
-
-  it.each([
-    ['#/email', 'email'],
-    ['#/tags/0/name', 'tags[0].name'],
-    ['#/a~1b/c~0d', 'a/b.c~d'],
-  ])('map the pointer %s to the field %s', (pointer, path) => {
-    expect(pointerPath(pointer)).toBe(path);
   });
 });

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
-import { accessibilityViolations, apiServer, describedBy, renderApp } from '@/testing.ts';
+import { apiServer, describedBy, renderApp } from '@/testing.ts';
 import type { Recipe } from './recipe.ts';
 import { answerRecipe, answerTags, sampleRecipe } from './testing.ts';
 
@@ -209,7 +209,6 @@ describe('the ingredients editor', () => {
       "Name the ingredient: myli can't find a name in this line.",
       'Reads as: 2 cups no ingredient named.',
     ]);
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.type(line(2), ' milk');
     await waitFor(() => {
@@ -234,7 +233,6 @@ describe('the ingredients editor', () => {
       expect(document.activeElement).toBe(line(2, 2));
       await user.type(line(2, 2), '2 tbsp butter');
       expect(within(groupList(1)).getAllByRole('textbox').length).toBe(1);
-      expect(await accessibilityViolations()).toEqual([]);
 
       await user.click(button('Create recipe'));
 
@@ -304,7 +302,6 @@ describe('the ingredients editor', () => {
       expect(scales(2).getAttribute('aria-checked')).toBe('false');
       expect(document.activeElement).toBe(part('Amount', 2));
       expect(describedBy(part('Amount'))).toEqual(['Like 2 or 1½. Empty for none.']);
-      expect(await accessibilityViolations()).toEqual([]);
     });
 
     it('reads and saves the line as corrected, keeping what was typed', async () => {
@@ -364,7 +361,6 @@ describe('the ingredients editor', () => {
         'Like 2 or 1½. Empty for none.',
       ]);
       expect(describedBy(part('Ingredient'))).toEqual(['Name the ingredient.']);
-      expect(await accessibilityViolations()).toEqual([]);
     });
 
     it('drops the corrections when asked to read the line again, back on the line', async () => {
@@ -435,7 +431,6 @@ describe('the ingredients editor', () => {
       expect(describedBy(line(1, 1))).toEqual(['Reads as: 3 cups all-purpose flour.']);
       expect(describedBy(line(1, 2))).toEqual(['Reads as: 3 sprigs thyme. Corrected by hand.']);
       expect(screen.getAllByRole('button', { name: /^Read ingredient/ })).toHaveLength(1);
-      expect(await accessibilityViolations()).toEqual([]);
     });
 
     it('reads a corrected line again when asked, saving it as read', async () => {

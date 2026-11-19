@@ -121,94 +121,100 @@ describe('the markdown editor', () => {
     return shape(page);
   };
 
-  it.each([
-    ['the subset', 'Mix **well**, _gently_ and `slowly`.\nThen rest.'],
-    ['line breaks of each kind', 'One\\\nTwo  \nThree\nFour'],
-    ['lists, numbered from where they start', '- Flour\n- Water\n\n3. Knead\n4. Bake\n\n1) Rest'],
-    ['a loose list, and lists in lists', '- Flour\n\n  - sifted\n\n- Water'],
-    [
-      'links of each kind',
-      '[One](https://example.com/one), <https://example.com/two> and example.com/three',
-    ],
-    ['a link written as a reference', 'See [the rolls][1].\n\n[1]: /recipes/abc'],
-    ['links the renderer drops', '[run](javascript:alert(1)) and [call](tel:123)'],
-    ['escapes and entities', 'Tom &amp; Jerry, \\*not italic\\*'],
-    ['a heading, with formatting in it', '# A *simple* loaf\n\nBefore you start\n===='],
-    ['a quote', '> A **bold** note\n> on two lines'],
-    ['a rule', 'Rest it.\n\n---\n\n***'],
-    ['a fenced code block', '```\nstir\n```\n\n```js\nlet x = 1;\n```'],
-    ['a list in a code block', '```\n- a\n```'],
-    ['an indented code block', 'Intro.\n\n    indented code'],
-    ['an image', '![The loaf](https://example.com/loaf.jpg)'],
-    ['raw HTML', '<b onclick="steal()">hi</b>\n\n<div>\nblock\n</div>'],
-    ['a heading and a quote in a list', '- # Flour\n  > quoted'],
-    ['nothing', ''],
-  ])('opens %s as the renderer shows it, and saves it so', async (_, markdown) => {
-    const { root, view, reported } = await open(markdown);
-
-    expect(shape(root)).toBe(rendered(markdown));
-
-    // Saved after a change made and undone, it still shows the same.
-    const at = Selection.atStart(view.state.doc).from;
-    view.dispatch(view.state.tr.insertText('x', at));
-    view.dispatch(view.state.tr.delete(at, at + 1));
-    expect(rendered(reported.markdown)).toBe(rendered(markdown));
-  });
-
-  it.each([
-    'Mix **well**, *gently* and `slowly`.',
-    'Mix __well__ and _gently_.',
-    'One\\\nTwo',
-    '- Flour\n- Water',
-    '- Flour\n\n- Water',
-    '3. Knead\n4. Bake',
-    '1. Mix\n   - flour\n   - water\n2. Bake',
-    'See [the rolls](/recipes/rolls "Soft rolls").',
-  ])('saves %j as it was written', async (markdown) => {
-    const { view, reported } = await open(markdown);
-
-    const at = Selection.atStart(view.state.doc).from;
-    view.dispatch(view.state.tr.insertText('x', at));
-    view.dispatch(view.state.tr.delete(at, at + 1));
-
-    expect(reported.markdown).toBe(markdown);
-  });
-
-  it.each(['* Flour\n* Water', '+ Flour\n+ Water'])(
-    'saves %j with -, the way a list is usually written',
-    async (markdown) => {
-      const { view, reported } = await open(markdown);
-
+  it('opens each construct as the renderer shows it, and saves it so', async () => {
+    const constructs: [string, string][] = [
+      ['the subset', 'Mix **well**, _gently_ and `slowly`.\nThen rest.'],
+      ['line breaks of each kind', 'One\\\nTwo  \nThree\nFour'],
+      ['lists, numbered from where they start', '- Flour\n- Water\n\n3. Knead\n4. Bake\n\n1) Rest'],
+      ['a loose list, and lists in lists', '- Flour\n\n  - sifted\n\n- Water'],
+      [
+        'links of each kind',
+        '[One](https://example.com/one), <https://example.com/two> and example.com/three',
+      ],
+      ['a link written as a reference', 'See [the rolls][1].\n\n[1]: /recipes/abc'],
+      ['links the renderer drops', '[run](javascript:alert(1)) and [call](tel:123)'],
+      ['escapes and entities', 'Tom &amp; Jerry, \\*not italic\\*'],
+      ['a heading, with formatting in it', '# A *simple* loaf\n\nBefore you start\n===='],
+      ['a quote', '> A **bold** note\n> on two lines'],
+      ['a rule', 'Rest it.\n\n---\n\n***'],
+      ['a fenced code block', '```\nstir\n```\n\n```js\nlet x = 1;\n```'],
+      ['a list in a code block', '```\n- a\n```'],
+      ['an indented code block', 'Intro.\n\n    indented code'],
+      ['an image', '![The loaf](https://example.com/loaf.jpg)'],
+      ['raw HTML', '<b onclick="steal()">hi</b>\n\n<div>\nblock\n</div>'],
+      ['a heading and a quote in a list', '- # Flour\n  > quoted'],
+      ['nothing', ''],
+    ];
+    const opened: Record<string, string> = {};
+    const saved: Record<string, string> = {};
+    for (const [name, markdown] of constructs) {
+      const { root, view, reported } = await open(markdown);
+      opened[name] = shape(root);
+      // Saved after a change made and undone.
       const at = Selection.atStart(view.state.doc).from;
       view.dispatch(view.state.tr.insertText('x', at));
       view.dispatch(view.state.tr.delete(at, at + 1));
+      saved[name] = rendered(reported.markdown);
+    }
 
-      expect(reported.markdown).toBe('- Flour\n- Water');
-    },
-  );
+    const asRendered = Object.fromEntries(
+      constructs.map(([name, markdown]) => [name, rendered(markdown)]),
+    );
+    expect(opened).toEqual(asRendered);
+    expect(saved).toEqual(asRendered);
+  });
 
-  it.each([
-    ['# ', 'a heading'],
-    ['## ', 'a heading'],
-    ['> ', 'a quote'],
-    ['```', 'a code block'],
-    ['---', 'a rule'],
-    ['~~gone~~ ', 'strikethrough'],
-    ['![a](b.png) ', 'an image'],
-  ])('keeps %j as text when typed, rather than making %s', async (typed) => {
-    const { view, root, reported } = await open();
+  it('saves markdown as it was written, but lists with -, the way they’re usually written', async () => {
+    const written = [
+      'Mix **well**, *gently* and `slowly`.',
+      'Mix __well__ and _gently_.',
+      'One\\\nTwo',
+      '- Flour\n- Water',
+      '- Flour\n\n- Water',
+      '3. Knead\n4. Bake',
+      '1. Mix\n   - flour\n   - water\n2. Bake',
+      'See [the rolls](/recipes/rolls "Soft rolls").',
+    ];
+    const saved: Record<string, string> = {};
+    for (const markdown of [...written, '* Flour\n* Water', '+ Flour\n+ Water']) {
+      const { view, reported } = await open(markdown);
+      const at = Selection.atStart(view.state.doc).from;
+      view.dispatch(view.state.tr.insertText('x', at));
+      view.dispatch(view.state.tr.delete(at, at + 1));
+      saved[markdown] = reported.markdown;
+    }
 
-    type(view, `${typed}Flour`);
-    press(view, 'Enter');
+    expect(saved).toEqual({
+      ...Object.fromEntries(written.map((markdown) => [markdown, markdown])),
+      '* Flour\n* Water': '- Flour\n- Water',
+      '+ Flour\n+ Water': '- Flour\n- Water',
+    });
+  });
 
-    expect(root.querySelector(OUTSIDE)).toBeNull();
-    expect(root.textContent).toBe(`${typed}Flour`);
-    // Saved escaped where it would be markdown, so the recipe shows it as typed too.
-    expect(renderMarkdown(reported.markdown)).not.toMatch(/<(h\d|blockquote|pre|hr|img|s|del)\b/);
-    expect(
-      new DOMParser().parseFromString(renderMarkdown(reported.markdown), 'text/html').body
-        .textContent,
-    ).toContain(typed.trim());
+  it('keeps what would be other markdown as text when typed: headings, quotes, code blocks, rules, strikethrough and images', async () => {
+    for (const [typed] of [
+      ['# ', 'a heading'],
+      ['## ', 'a heading'],
+      ['> ', 'a quote'],
+      ['```', 'a code block'],
+      ['---', 'a rule'],
+      ['~~gone~~ ', 'strikethrough'],
+      ['![a](b.png) ', 'an image'],
+    ] as const) {
+      const { view, root, reported } = await open();
+
+      type(view, `${typed}Flour`);
+      press(view, 'Enter');
+
+      expect(root.querySelector(OUTSIDE)).toBeNull();
+      expect(root.textContent).toBe(`${typed}Flour`);
+      // Saved escaped where it would be markdown, so the recipe shows it as typed too.
+      expect(renderMarkdown(reported.markdown)).not.toMatch(/<(h\d|blockquote|pre|hr|img|s|del)\b/);
+      expect(
+        new DOMParser().parseFromString(renderMarkdown(reported.markdown), 'text/html').body
+          .textContent,
+      ).toContain(typed.trim());
+    }
   });
 
   it('makes lists, bold, italic and code from what’s typed, as the toolbar does', async () => {

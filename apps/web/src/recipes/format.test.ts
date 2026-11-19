@@ -16,14 +16,14 @@ const line = (overrides: Partial<IngredientLine>): IngredientLine => ({
 const asWritten = { system: 'imperial', factor: 1 } as const;
 
 describe('formatMinutes', () => {
-  it.each([
-    [0, '0 min'],
-    [45, '45 min'],
-    [60, '1 hr'],
-    [90, '1 hr 30 min'],
-    [1500, '25 hr'],
-  ])('%i minutes is %s', (minutes, text) => {
-    expect(formatMinutes(minutes)).toBe(text);
+  it('shows minutes, hours, or both', () => {
+    expect([0, 45, 60, 90, 1500].map(formatMinutes)).toEqual([
+      '0 min',
+      '45 min',
+      '1 hr',
+      '1 hr 30 min',
+      '25 hr',
+    ]);
   });
 });
 

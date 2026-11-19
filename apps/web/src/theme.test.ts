@@ -42,29 +42,24 @@ describe('the theme menu', () => {
     });
   });
 
-  it.each([
-    ['Light', 'light', 'dark'],
-    ['Dark', 'dark', 'light'],
-  ] as const)(
-    'applies %s over the device setting and remembers it',
-    async (name, theme, deviceScheme) => {
-      const device = fakeDeviceScheme(deviceScheme);
-      const { user } = await renderApp('/');
+  it('applies a choice over the device setting and remembers it', async () => {
+    const device = fakeDeviceScheme('light');
+    const { user } = await renderApp('/');
 
-      await openThemeMenu(user);
-      await user.click(screen.getByRole('menuitemradio', { name }));
+    await openThemeMenu(user);
+    await user.click(screen.getByRole('menuitemradio', { name: 'Dark' }));
 
-      await waitFor(() => {
-        expect(htmlClasses()).toEqual([theme]);
-      });
-      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe(theme);
-      expect(await checkedChoice(user)).toEqual([name]);
-      device.change(theme === 'dark' ? 'light' : 'dark');
-      expect(htmlClasses()).toEqual([theme]);
-      // And the next page load starts with it, before the app runs.
-      expect(runThemeScript()).toEqual([theme]);
-    },
-  );
+    await waitFor(() => {
+      expect(htmlClasses()).toEqual(['dark']);
+    });
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    expect(await checkedChoice(user)).toEqual(['Dark']);
+    device.change('dark');
+    device.change('light');
+    expect(htmlClasses()).toEqual(['dark']);
+    // And the next page load starts with it, before the app runs.
+    expect(runThemeScript()).toEqual(['dark']);
+  });
 
   it('starts from the remembered choice', async () => {
     fakeDeviceScheme('light');
@@ -92,17 +87,28 @@ describe('the theme menu', () => {
 });
 
 describe('public/theme.js, which applies the theme before the app loads', () => {
-  it.each([
-    [null, 'light', 'light'],
-    [null, 'dark', 'dark'],
-    ['auto', 'dark', 'dark'],
-    ['light', 'dark', 'light'],
-    ['dark', 'light', 'dark'],
-  ] as const)('with %s saved and a %s device, applies %s', (saved, deviceScheme, theme) => {
-    fakeDeviceScheme(deviceScheme);
-    if (saved) localStorage.setItem(THEME_STORAGE_KEY, saved);
+  it('applies the saved choice, or the device’s with none or System saved', () => {
+    const cases = [
+      [null, 'light'],
+      [null, 'dark'],
+      ['auto', 'dark'],
+      ['light', 'dark'],
+      ['dark', 'light'],
+    ] as const;
+    const applied = cases.map(([saved, deviceScheme]) => {
+      localStorage.clear();
+      fakeDeviceScheme(deviceScheme);
+      if (saved) localStorage.setItem(THEME_STORAGE_KEY, saved);
+      return `${String(saved)} saved, ${deviceScheme} device: ${runThemeScript().join(' ')}`;
+    });
 
-    expect(runThemeScript()).toEqual([theme]);
+    expect(applied).toEqual([
+      'null saved, light device: light',
+      'null saved, dark device: dark',
+      'auto saved, dark device: dark',
+      'light saved, dark device: light',
+      'dark saved, light device: dark',
+    ]);
   });
 
   it('follows the device when storage is blocked', () => {

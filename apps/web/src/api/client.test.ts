@@ -108,31 +108,33 @@ describe('the API client', () => {
     await expect(call).rejects.toMatchObject({ status: 422, fieldErrors: errors });
   });
 
-  it.each([
-    [
-      'an HTML error page',
-      () =>
-        new HttpResponse('<h1>Bad Gateway</h1>', {
-          status: 502,
-          headers: { 'content-type': 'text/html' },
-        }),
-    ],
-    [
-      'a problem body of the wrong shape',
-      () =>
-        HttpResponse.json(
-          { message: 'nope' },
-          { status: 502, headers: { 'content-type': 'application/problem+json' } },
-        ),
-    ],
-  ])('turns %s into a generic problem with the status', async (_, response) => {
-    apiServer.use(http.get('/api/v1/setup', response));
+  it('turns an answer that isn’t a problem, an HTML page or the wrong shape, into a generic one with the status', async () => {
+    for (const [, response] of [
+      [
+        'an HTML error page',
+        () =>
+          new HttpResponse('<h1>Bad Gateway</h1>', {
+            status: 502,
+            headers: { 'content-type': 'text/html' },
+          }),
+      ],
+      [
+        'a problem body of the wrong shape',
+        () =>
+          HttpResponse.json(
+            { message: 'nope' },
+            { status: 502, headers: { 'content-type': 'application/problem+json' } },
+          ),
+      ],
+    ] as const) {
+      apiServer.use(http.get('/api/v1/setup', response));
 
-    await expect(api.GET('/setup')).rejects.toMatchObject({
-      status: 502,
-      message: 'The request failed with HTTP status 502.',
-      problem: { type: 'about:blank', title: 'Request failed', status: 502 },
-      fieldErrors: [],
-    });
+      await expect(api.GET('/setup')).rejects.toMatchObject({
+        status: 502,
+        message: 'The request failed with HTTP status 502.',
+        problem: { type: 'about:blank', title: 'Request failed', status: 502 },
+        fieldErrors: [],
+      });
+    }
   });
 });

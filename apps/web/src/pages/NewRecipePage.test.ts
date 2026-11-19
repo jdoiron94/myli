@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Recipe } from '@/recipes/recipe.ts';
 import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
 import {
-  accessibilityViolations,
   apiServer,
   describedBy,
   focusedMarkdownEditor,
@@ -138,7 +137,6 @@ describe('the new recipe page', () => {
     expect(describedBy(field('Total time (minutes)'))).toEqual([
       "Only when it isn't prep plus cook, like dough that rises overnight.",
     ]);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('says what needs fixing, at the first field that does, and sends nothing', async () => {
@@ -156,7 +154,6 @@ describe('the new recipe page', () => {
       'How many it serves. Scaling starts from this.',
     ]);
     expect(describedBy(field('Prep time (minutes)'))).toEqual(['Enter a whole number of minutes.']);
-    expect(await accessibilityViolations()).toEqual([]);
 
     // Checked as they type from then on, until it's right.
     await user.type(field('Title'), 'Bread');

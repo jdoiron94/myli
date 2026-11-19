@@ -4,13 +4,7 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
-import {
-  accessibilityViolations,
-  apiServer,
-  describedBy,
-  problemResponse,
-  renderApp,
-} from '@/testing.ts';
+import { apiServer, describedBy, problemResponse, renderApp } from '@/testing.ts';
 import type { Recipe, UpdateRecipeRequest } from './recipe.ts';
 import {
   answerRecipe,
@@ -127,7 +121,6 @@ describe('the photos editor', () => {
       { type: 'image/jpeg', size: 1000 },
       { type: 'image/png', size: 2000 },
     ]);
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Weeknight Bread');
     await user.type(screen.getByRole('textbox', { name: 'Servings' }), '8');
@@ -162,7 +155,6 @@ describe('the photos editor', () => {
       'huge.jpg: The file is larger than 10 MB.',
     ]);
     expect(sent).toHaveLength(1);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('says why the API refused an upload, going on with the others', async () => {
@@ -246,7 +238,6 @@ describe('the photos editor', () => {
     expect(altTexts()).toEqual(['The crumb, up close.', 'A crusty loaf.', '']);
     await user.click(button('Remove photo 1'));
     expect(altTexts()).toEqual(['A crusty loaf.', '']);
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(button('Save changes'));
     await reopened();

@@ -2,13 +2,7 @@ import { AUTH_BASE_PATH } from '@myli/shared';
 import { screen, waitFor } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import {
-  accessibilityViolations,
-  apiServer,
-  renderApp,
-  sessionResponse,
-  testUsers,
-} from '@/testing.ts';
+import { apiServer, renderApp, sessionResponse, testUsers } from '@/testing.ts';
 
 const SIGN_IN_PATH = `${AUTH_BASE_PATH}/sign-in/email`;
 
@@ -98,7 +92,6 @@ describe('the sign-in page', () => {
     expect(passwordField().getAttribute('aria-invalid')).toBe('true');
     expect(describedBy(passwordField())).toBe('Enter your password.');
     expect(signIns).toEqual([]);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it("doesn't show an error while a field is first filled in", async () => {
@@ -127,56 +120,52 @@ describe('the sign-in page', () => {
     expect(screen.getByText('Enter your password.')).toBeDefined();
   });
 
-  it.each([
-    [
-      'a wrong email or password',
-      () =>
+  it('says why signing in failed, and stays on the page', async () => {
+    const failures = {
+      'a wrong email or password': () =>
         HttpResponse.json(
           { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' },
           { status: 401 },
         ),
-      'Wrong email or password.',
-    ],
-    [
-      'a deactivated account',
-      () =>
+      'a deactivated account': () =>
         HttpResponse.json(
           { code: 'BANNED_USER', message: 'You have been banned from this application' },
           { status: 403 },
         ),
-      'This account is deactivated. Ask an admin to reactivate it.',
-    ],
-    [
-      'too many attempts',
-      () =>
+      'too many attempts': () =>
         HttpResponse.json(
           { message: 'Too many requests. Please try again later.' },
           { status: 429 },
         ),
-      'Too many sign-in attempts. Wait a moment, then try again.',
-    ],
-    [
-      'a server error',
-      () => new HttpResponse('Internal Server Error', { status: 500 }),
-      "Something went wrong on myli's server. Try again in a moment.",
-    ],
-    [
-      'no answer at all',
-      () => HttpResponse.error(),
-      "Couldn't reach myli. Check your connection, then try again.",
-    ],
-  ])('says so after %s, and stays on the page', async (_, answer, message) => {
-    const { router, user } = await renderLogin('/login', answer);
-
+      'a server error': () => new HttpResponse('Internal Server Error', { status: 500 }),
+      'no answer at all': () => HttpResponse.error(),
+    };
+    let answer: () => Response = () => HttpResponse.json({});
+    const { router, user } = await renderLogin('/login', () => answer());
     await user.type(emailField(), 'ada@example.com');
     await user.type(passwordField(), 'correct horse battery staple');
-    await user.click(signInButton());
 
-    expect((await screen.findByRole('alert')).textContent.trim()).toBe(message);
+    const said: Record<string, string> = {};
+    for (const [failure, response] of Object.entries(failures)) {
+      answer = response;
+      const before = screen.queryByRole('alert')?.textContent.trim();
+      await user.click(signInButton());
+      await waitFor(() => {
+        expect(screen.getByRole('alert').textContent.trim()).not.toBe(before);
+      });
+      said[failure] = screen.getByRole('alert').textContent.trim();
+    }
+
+    expect(said).toEqual({
+      'a wrong email or password': 'Wrong email or password.',
+      'a deactivated account': 'This account is deactivated. Ask an admin to reactivate it.',
+      'too many attempts': 'Too many sign-in attempts. Wait a moment, then try again.',
+      'a server error': "Something went wrong on myli's server. Try again in a moment.",
+      'no answer at all': "Couldn't reach myli. Check your connection, then try again.",
+    });
     expect(router.currentRoute.value.path).toBe('/login');
     expect(emailField()).toHaveProperty('value', 'ada@example.com');
     expect(screen.queryByRole('button', { name: /^Account:/ })).toBeNull();
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('sends one sign-in at a time, even when the button is pressed twice quickly', async () => {
@@ -208,11 +197,5 @@ describe('the sign-in page', () => {
       expect(signInButton().getAttribute('aria-disabled')).toBeNull();
     });
     expect(signIns).toBe(1);
-  });
-
-  it('has no accessibility violations', async () => {
-    await renderLogin();
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });

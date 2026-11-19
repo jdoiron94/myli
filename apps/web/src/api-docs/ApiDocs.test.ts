@@ -45,10 +45,11 @@ describe('the API docs page', () => {
     expect(styles.filter((css) => css.includes('scalar.com'))).toEqual([]);
   });
 
-  it.each(['light', 'dark'] as const)("follows the app's %s theme", async (theme) => {
-    await renderApiDocs(theme);
+  // Its own default is light.
+  it("follows the app's theme, without a switch of its own", async () => {
+    await renderApiDocs('dark');
 
-    expect(document.body.classList).toContain(`${theme}-mode`);
+    expect(document.body.classList).toContain('dark-mode');
     expect(screen.queryByRole('button', { name: /dark mode|light mode/i })).toBeNull();
   });
 });

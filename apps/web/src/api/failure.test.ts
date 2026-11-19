@@ -19,15 +19,21 @@ describe('what a failed request tells the user', () => {
     );
   });
 
-  it.each([
-    ['a 5xx', problem(500, 'Internal Server Error')],
-    ['a 503 with no explanation, as from a proxy', problem(503)],
-    ['a 4xx with no explanation', problem(400)],
-    ["Better Auth's 4xx, which isn't written for users", new AuthProblem(400, 'X', 'Bad body')],
-  ])('is a general one for %s', (_, error) => {
-    expect(failureMessage(error)).toBe(
-      "Something went wrong on myli's server. Try again in a moment.",
-    );
+  it('is a general one for a 5xx, an answer with no explanation, or Better Auth’s 4xx', () => {
+    const errors = {
+      'a 5xx': problem(500, 'Internal Server Error'),
+      'a 503 with no explanation, as from a proxy': problem(503),
+      'a 4xx with no explanation': problem(400),
+      // Not written for users.
+      "Better Auth's 4xx": new AuthProblem(400, 'X', 'Bad body'),
+    };
+    const general = "Something went wrong on myli's server. Try again in a moment.";
+
+    expect(
+      Object.fromEntries(
+        Object.entries(errors).map(([name, error]) => [name, failureMessage(error)]),
+      ),
+    ).toEqual(Object.fromEntries(Object.keys(errors).map((name) => [name, general])));
   });
 
   it('says the server was unreachable when there was no answer at all', () => {
