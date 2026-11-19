@@ -23,7 +23,9 @@ const button = (name: string) => screen.getByRole('button', { name });
 
 /**
  * The edit page for a recipe with these tags. Stands in for the API's tags, which POST /tags adds
- * to unless `create` answers instead, and keeps what each POST /tags and each save sends.
+ * to unless `create` answers instead, and keeps what each POST /tags and each save sends. A save
+ * naming a tag the API no longer has is refused, as the API refuses it; `deleteTag` takes one away
+ * there, as an admin would, while the page still has it.
  */
 async function editTags(
   recipeTags: Tag[],
@@ -40,6 +42,16 @@ async function editTags(
     http.get('/api/v1/recipes/:id', () => HttpResponse.json({ recipe: stored })),
     http.put('/api/v1/recipes/:id', async ({ request }) => {
       const { tagIds } = (await request.json()) as { tagIds: number[] };
+      const missing = tagIds.flatMap((id, index) => (tags.some((t) => t.id === id) ? [] : [index]));
+      if (missing.length > 0)
+        return problemResponse(422, 'The request has invalid fields.', {
+          type: VALIDATION_PROBLEM_TYPE,
+          errors: missing.map((index) => ({
+            in: 'body',
+            pointer: `#/tagIds/${String(index)}`,
+            detail: 'This tag no longer exists. Choose another.',
+          })),
+        });
       saved.push(tagIds);
       stored = { ...stored, tags: tags.filter(({ id }) => tagIds.includes(id)) };
       return HttpResponse.json({ recipe: stored });
@@ -56,7 +68,10 @@ async function editTags(
   );
   const app = await renderApp('/recipes/recipe-bread/edit');
   await screen.findByRole('checkbox', { name: 'Italian' });
-  return { ...app, saved, created };
+  const deleteTag = (id: number) => {
+    tags = tags.filter((t) => t.id !== id);
+  };
+  return { ...app, saved, created, deleteTag };
 }
 
 describe('the tags editor', () => {
@@ -84,6 +99,42 @@ describe('the tags editor', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([[WHEAT.id, 30, 40]]);
+  });
+
+  it('shows a chosen tag the API no longer has at its checkbox, until the tags chosen change', async () => {
+    const { user, saved, deleteTag } = await editTags([ITALIAN, WHEAT]);
+    deleteTag(ITALIAN.id);
+
+    await user.click(button('Save changes'));
+
+    await waitFor(() => {
+      expect(describedBy(checkbox('Italian'))).toEqual([
+        'Italian: This tag no longer exists. Choose another.',
+      ]);
+    });
+    expect(document.activeElement).toBe(checkbox('Italian'));
+
+    await user.click(checkbox('Italian'));
+    // Wheat has Italian's place in the list now, but not its refusal.
+    expect([describedBy(checkbox('Italian')), describedBy(checkbox('wheat'))]).toEqual([[], []]);
+    await user.click(button('Save changes'));
+
+    await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
+    expect(saved).toEqual([[WHEAT.id]]);
+  });
+
+  it('takes off a chosen tag that’s gone once the tags are fetched again, saying so', async () => {
+    const { user, saved, deleteTag, queryClient } = await editTags([ITALIAN, WHEAT]);
+    deleteTag(ITALIAN.id);
+
+    await queryClient.invalidateQueries({ queryKey: ['tags'] });
+
+    await screen.findByText("Italian no longer exists, so it's no longer chosen.");
+    expect(within(group('Cuisine')).queryByRole('checkbox', { name: 'Italian' })).toBeNull();
+    await user.click(button('Save changes'));
+
+    await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
+    expect(saved).toEqual([[WHEAT.id]]);
   });
 
   it('adds a tag of each type but the allergens, checked, with focus on it', async () => {

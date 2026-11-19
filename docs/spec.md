@@ -249,6 +249,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - **Delete:** the tag comes off every recipe that had it. The admin confirms it first, told how many recipes they can see have it, and that private ones others keep may too.
   - Each is recorded in the audit log (§3.1), and every recipe with the tag, private ones included, is indexed again.
 - **In the editor,** every tag of each type shows as a checkbox, so picking one is a click and what exists is in view. Under each type but the allergens, editors can add a new tag, which is checked straight away; a name the type already has checks that tag instead.
+  - If an admin deletes or merges a checked tag while the editor is open, saving is refused at its checkbox. Once the editor fetches the tags again, that tag is unchecked, with a note saying so.
 
 **Images**
 - Up to 20 images per recipe, in order, one marked as the cover. Each step can have one image of its own. An image is used once: in the recipe's images or one step's.
