@@ -75,7 +75,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Authorization
 - All authorization goes through the shared policy module: `can(user, action, resource?)` in `packages/shared/src/policy.ts`. Never write inline role checks in handlers or components.
-- A new action gets a row in the `✓`/`–` tables in `policy.test.ts`, restating the spec's §2 table. A test fails if an action has no row.
+- A new recipe or comment action gets a row in the `✓`/`–` tables in `policy.test.ts`, restating the spec's §2 table; the test fails until it has one. Role-only actions are a table in `policy.ts` itself, so they get none, but the invariants there (anonymous users may do nothing, viewers only read) cover them.
 - Guards, in `apps/api/src/auth/`:
   - `requireSession`: any signed-in user (401 otherwise).
   - `requirePermission(action)`: role-only actions such as `user.invite` (401, then 403). Add it to `createRoute({ middleware: [...] as const })`; it narrows `c.var.user` to non-null.
