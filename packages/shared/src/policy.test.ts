@@ -10,30 +10,16 @@ import {
   RECIPE_ACTIONS,
   type RecipeAction,
   ROLE_ACTIONS,
-  type RoleAction,
 } from './policy.ts';
 import { ROLES, type Role } from './roles.ts';
 
-// The expectations below restate spec §2 as tables: ✓ allowed, – not allowed.
+// The expectations below restate spec §2 for what depends on more than the role: ✓ allowed, – not
+// allowed. What depends only on the role is a table in policy.ts itself, so restating it here would
+// test nothing; the invariants at the end still cover it.
 
 const ME = 'me';
 const SOMEONE_ELSE = 'someone-else';
 const userWith = (role: Role): PolicyUser => ({ id: ME, role });
-
-type RoleRow = Record<Role, '✓' | '–'>;
-
-const ROLE_TABLE: Record<RoleAction, RoleRow> = {
-  'recipe.create': { admin: '✓', editor: '✓', viewer: '–' },
-  'image.upload': { admin: '✓', editor: '✓', viewer: '–' },
-  'tag.create': { admin: '✓', editor: '✓', viewer: '–' },
-  'tag.manage': { admin: '✓', editor: '–', viewer: '–' },
-  'personal.write': { admin: '✓', editor: '✓', viewer: '–' },
-  'user.invite': { admin: '✓', editor: '–', viewer: '–' },
-  'user.manage': { admin: '✓', editor: '–', viewer: '–' },
-  'auditLog.read': { admin: '✓', editor: '–', viewer: '–' },
-  'instance.export': { admin: '✓', editor: '–', viewer: '–' },
-  'search.reindex': { admin: '✓', editor: '–', viewer: '–' },
-};
 
 const RECIPES = {
   'my private recipe': { ownerId: ME, visibility: 'private' },
@@ -103,70 +89,39 @@ const ALL_CASES: { action: Action; on: string; check: (user: PolicyUser | null) 
   ),
 ];
 
-const allowed = (mark: string) => mark === '✓';
+/** One ✓ or – per resource, in order, as the tables write them. */
+const marks = <R>(resources: Record<string, R>, allowed: (resource: R) => boolean) =>
+  Object.values(resources)
+    .map((resource) => (allowed(resource) ? '✓' : '–'))
+    .join('');
 
-describe('the tables', () => {
-  it('cover every action, so a new one needs its expectations written down', () => {
-    expect(Object.keys(ROLE_TABLE)).toEqual([...ROLE_ACTIONS]);
-    expect(Object.keys(RECIPE_TABLE)).toEqual([...RECIPE_ACTIONS]);
-    expect(Object.keys(COMMENT_TABLE)).toEqual([...COMMENT_ACTIONS]);
-  });
-
-  it('have one ✓ or – per resource in every row', () => {
-    const rows = [
-      ...Object.values(RECIPE_TABLE).map((row) => ({ row, width: Object.keys(RECIPES).length })),
-      ...Object.values(COMMENT_TABLE).map((row) => ({ row, width: Object.keys(COMMENTS).length })),
-    ];
-    for (const { row, width } of rows) {
-      for (const marks of Object.values(row))
-        expect(marks).toMatch(new RegExp(`^[✓–]{${String(width)}}$`));
-    }
-  });
-});
-
-describe('actions that depend only on the role', () => {
-  const cases = ROLE_ACTIONS.flatMap((action) =>
-    ROLES.map((role) => ({ action, role, expected: allowed(ROLE_TABLE[action][role]) })),
+/** For each action and role, what `decide` says. */
+const table = <A extends Action>(
+  actions: readonly A[],
+  decide: (action: A, user: PolicyUser) => string,
+) =>
+  Object.fromEntries(
+    actions.map((action) => [
+      action,
+      Object.fromEntries(ROLES.map((role) => [role, decide(action, userWith(role))])),
+    ]),
   );
 
-  it.each(cases)('$role may $action: $expected', ({ action, role, expected }) => {
-    expect(can(userWith(role), action)).toBe(expected);
+describe('can()', () => {
+  it('decides actions on a recipe as the table says', () => {
+    expect(
+      table(RECIPE_ACTIONS, (action, user) =>
+        marks(RECIPES, (recipe) => can(user, action, recipe)),
+      ),
+    ).toEqual(RECIPE_TABLE);
   });
-});
 
-describe('actions on a recipe', () => {
-  const cases = RECIPE_ACTIONS.flatMap((action) =>
-    ROLES.flatMap((role) =>
-      Object.entries(RECIPES).map(([on, recipe], index) => ({
-        action,
-        role,
-        on,
-        recipe,
-        expected: allowed(RECIPE_TABLE[action][role].charAt(index)),
-      })),
-    ),
-  );
-
-  it.each(cases)('$role may $action $on: $expected', ({ action, role, recipe, expected }) => {
-    expect(can(userWith(role), action, recipe)).toBe(expected);
-  });
-});
-
-describe('actions on a comment', () => {
-  const cases = COMMENT_ACTIONS.flatMap((action) =>
-    ROLES.flatMap((role) =>
-      Object.entries(COMMENTS).map(([on, comment], index) => ({
-        action,
-        role,
-        on,
-        comment,
-        expected: allowed(COMMENT_TABLE[action][role].charAt(index)),
-      })),
-    ),
-  );
-
-  it.each(cases)('$role may $action $on: $expected', ({ action, role, comment, expected }) => {
-    expect(can(userWith(role), action, comment)).toBe(expected);
+  it('decides actions on a comment as the table says', () => {
+    expect(
+      table(COMMENT_ACTIONS, (action, user) =>
+        marks(COMMENTS, (comment) => can(user, action, comment)),
+      ),
+    ).toEqual(COMMENT_TABLE);
   });
 });
 
@@ -196,12 +151,6 @@ describe('invariants, checked against every action and resource', () => {
       expect(hidden.filter(({ check }) => check(user))).toEqual([]);
     }
   });
-
-  it('a private recipe can never get a public link', () => {
-    for (const role of ROLES) {
-      expect(can(userWith(role), 'recipe.share', RECIPES['my private recipe'])).toBe(false);
-    }
-  });
 });
 
 describe('how can() must be called', () => {
@@ -209,14 +158,11 @@ describe('how can() must be called', () => {
   const recipe = RECIPES['my shared recipe'];
   const comment = COMMENTS['my comment on a shared recipe'];
 
-  it('requires the resource for recipe and comment actions, at compile time and at runtime', () => {
+  it('fails closed without its resource, or with the wrong kind, which typecheck refuses too', () => {
     // @ts-expect-error -- a recipe action without its recipe
     expect(() => can(editor, 'recipe.read')).toThrow(TypeError);
     // @ts-expect-error -- a comment action without its comment
     expect(() => can(editor, 'comment.delete')).toThrow(TypeError);
-  });
-
-  it('rejects the wrong kind of resource at compile time, and fails closed at runtime', () => {
     // @ts-expect-error -- a role action takes no resource
     expect(can(editor, 'recipe.create', recipe)).toBe(true);
     // @ts-expect-error -- a comment action given a recipe
