@@ -2152,6 +2152,353 @@
           "tagIds"
         ]
       },
+      "RecipeRevisionList": {
+        "type": "object",
+        "properties": {
+          "revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeRevisionSummary"
+            },
+            "description": "Newest first. The first is the one published."
+          }
+        },
+        "required": [
+          "revisions"
+        ]
+      },
+      "RecipeRevisionSummary": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Its place in the history, from 1."
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "number",
+          "author",
+          "message",
+          "createdAt"
+        ]
+      },
+      "RecipeRevisionResult": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "$ref": "#/components/schemas/RecipeRevision"
+          }
+        },
+        "required": [
+          "revision"
+        ]
+      },
+      "RecipeRevision": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Its place in the history, from 1."
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content": {
+            "$ref": "#/components/schemas/RecipeRevisionContent"
+          }
+        },
+        "required": [
+          "number",
+          "author",
+          "message",
+          "createdAt",
+          "content"
+        ]
+      },
+      "RecipeRevisionContent": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "author": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "url",
+              "title",
+              "author"
+            ]
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "yield": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "qty": {
+                "type": "number"
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "qty",
+              "unit"
+            ]
+          },
+          "servings": {
+            "type": "integer"
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Set only when it differs from prep plus cook. See `recipeTotalMinutes`."
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "nutrition": {
+            "type": "object",
+            "properties": {
+              "calories": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "proteinGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "carbsGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "fatGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "fiberGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "sugarGrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "sodiumMilligrams": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "calories",
+              "proteinGrams",
+              "carbsGrams",
+              "fatGrams",
+              "fiberGrams",
+              "sugarGrams",
+              "sodiumMilligrams"
+            ]
+          },
+          "ingredientGroups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IngredientLine"
+                  }
+                }
+              },
+              "required": [
+                "label",
+                "ingredients"
+              ]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Image"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "body",
+                "image"
+              ]
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            },
+            "description": "By type, then name."
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            },
+            "description": "Its photos, in order."
+          },
+          "coverImageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One of `images`, or `null` when there are none."
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "source",
+          "equipment",
+          "yield",
+          "servings",
+          "prepMinutes",
+          "cookMinutes",
+          "totalMinutes",
+          "difficulty",
+          "nutrition",
+          "ingredientGroups",
+          "steps",
+          "tags",
+          "images",
+          "coverImageId"
+        ]
+      },
       "ImageResult": {
         "type": "object",
         "properties": {
@@ -3834,6 +4181,271 @@
           },
           "404": {
             "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "The recipe changed since the version in `If-Match`. The body holds it as it is now.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleRecipeProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "The request has no `If-Match`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/revisions": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "List a recipe's revisions",
+        "description": "Anyone who may see the recipe: any signed-in user, for shared recipes and their own private ones. Someone else's private recipe answers 404. Every revision, newest first, without its content.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Its history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeRevisionList"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/revisions/{number}": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Get a revision of a recipe",
+        "description": "Anyone who may see the recipe: any signed-in user, for shared recipes and their own private ones. Someone else's private recipe answers 404. The recipe as that revision recorded it, its tags with the names they had then.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": true,
+            "name": "number",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeRevisionResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, the caller may not see it, or it has no such revision.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/revisions/{number}/restore": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Restore a revision of a recipe",
+        "description": "Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. Publishes the revision’s content as the next revision, with the message “Restored from revision #n”, and records it in the audit log. History is never rewritten, and the draft stays. Tags deleted since are left out. Send the version it’s based on in `If-Match`, and `Content-Type: application/json` even though there is no body.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": true,
+            "name": "number",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412."
+            },
+            "required": false,
+            "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412.",
+            "name": "if-match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recipe as restored.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The recipe's version, for the `If-Match` of a change to it."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not edit it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, the caller may not see it, or it has no such revision.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The revision can no longer be restored.",
             "content": {
               "application/problem+json": {
                 "schema": {

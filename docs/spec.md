@@ -304,14 +304,17 @@ There are three roles: **admin**, **editor** and **viewer**.
   - queues a search-index update (§4)
   - Creating a recipe records revision 1, and each publish the next. Changing who sees a recipe or deleting it records none, since neither changes its content.
   - A recipe saved before revisions were kept gets revision 1 when the API starts: the recipe as it was then, by its owner, dated when it last changed, with the message "As it was when myli started keeping revisions."
-- **History.** Shows every revision, newest first, with author, timestamp and message.
+- **History.** Shows every revision, newest first, with author, timestamp and message, to anyone who may see the recipe.
+  - Each revision shows the recipe as it was then: its tags with the names they had, its photos with the alt text they had.
 - **Compare** any two revisions:
   - a field-level diff (metadata, ingredients and steps added, removed or changed)
   - a text diff for markdown fields
   - computed when viewed, never stored
 - **Restore** publishes an older revision's snapshot as a **new** revision, with the automatic message "Restored from revision #n". History is never rewritten or deleted.
+  - Tags deleted since are left out.
+  - It's recorded in the audit log, with the recipe's title only when it's shared, as deleting it is.
   - An existing draft is kept.
-  - That draft is now based on an out-of-date version, so publishing it later hits the normal concurrency check below.
+  - That draft now started from an older revision than the published one, which it says, so whoever opens it can tell the recipe was published since. An editor that had it open during the restore is refused by the concurrency check below.
 - **Optimistic concurrency:**
   - each recipe has a `version` that increases with every write to its draft or published state: saving it, changing its visibility, deleting it. Setting the visibility it already has changes nothing, the version included.
   - responses include an `ETag` (`"3"`); writes must send `If-Match` with the version they're based on. Only that strong `ETag` will do: `*`, a weak one or a list counts as out of date.

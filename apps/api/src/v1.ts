@@ -14,6 +14,7 @@ import { jsonOnly } from './json-only.ts';
 import { registerPreferenceRoutes } from './preferences/routes.ts';
 import { validationHook } from './problems.ts';
 import { registerRecipeRoutes } from './recipes/routes.ts';
+import { registerRevisionRoutes } from './revisions/routes.ts';
 import { registerSearchRoutes } from './search/routes.ts';
 import type { SearchAccess } from './search/service.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
@@ -58,6 +59,7 @@ export function createV1Router(deps: V1Deps) {
   registerUserRoutes(v1, { db: deps.db });
   registerRecipeRoutes(v1, { db: deps.db });
   registerDraftRoutes(v1, { db: deps.db });
+  registerRevisionRoutes(v1, { db: deps.db });
   registerImageRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerTagRoutes(v1, { db: deps.db });
   registerPreferenceRoutes(v1, { db: deps.db });

@@ -133,6 +133,19 @@ export {
   recipeListSchema,
   recipeSummarySchema,
 } from './recipe-list.ts';
+export {
+  type RecipeRevision,
+  type RecipeRevisionContent,
+  type RecipeRevisionList,
+  type RecipeRevisionSummary,
+  recipeRevisionContentSchema,
+  recipeRevisionListSchema,
+  recipeRevisionParamsSchema,
+  recipeRevisionResultSchema,
+  recipeRevisionSchema,
+  recipeRevisionSummarySchema,
+  restoredMessage,
+} from './revision.ts';
 export { DEFAULT_ROLE, ROLES, type Role, roleSchema } from './roles.ts';
 export {
   INGREDIENT_SUGGESTIONS_MAX,

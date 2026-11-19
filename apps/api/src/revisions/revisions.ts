@@ -1,8 +1,17 @@
-import { eq, notExists } from 'drizzle-orm';
-import type { Db } from '../db/database.ts';
-import { recipe, recipeRevision } from '../db/schema.ts';
-import { loadRecipe } from '../recipes/recipes.ts';
-import { snapshotOf } from './snapshot.ts';
+import {
+  type RecipeRevision,
+  type RecipeRevisionSummary,
+  recipeContentSchema,
+  recipeRevisionContentSchema,
+  restoredMessage,
+} from '@myli/shared';
+import { and, desc, eq, inArray, notExists } from 'drizzle-orm';
+import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
+import type { Db, Tx } from '../db/database.ts';
+import { image, recipe, recipeRevision, tag, user } from '../db/schema.ts';
+import { toImage } from '../images/images.ts';
+import { atVersion, loadRecipe, publishContent, type WriteResult } from '../recipes/recipes.ts';
+import { latestRevision, readSnapshot, snapshotOf } from './snapshot.ts';
 
 /** The message of the first revision of a recipe saved before revisions were kept. */
 export const BACKFILLED_MESSAGE = 'As it was when myli started keeping revisions.';
@@ -42,5 +51,157 @@ export function backfillRevisions(db: Db): number {
         .run();
     }
     return missing.length;
+  });
+}
+
+/** The recipe's history, newest first: the published revision comes first. */
+export function listRevisions(db: Db, recipeId: string): RecipeRevisionSummary[] {
+  return db
+    .select({ row: recipeRevision, authorName: user.name })
+    .from(recipeRevision)
+    .innerJoin(user, eq(user.id, recipeRevision.authorId))
+    .where(eq(recipeRevision.recipeId, recipeId))
+    .orderBy(desc(recipeRevision.number))
+    .all()
+    .map(({ row, authorName }) => summaryOf(row, authorName));
+}
+
+function summaryOf(
+  row: typeof recipeRevision.$inferSelect,
+  authorName: string,
+): RecipeRevisionSummary {
+  return {
+    number: row.number,
+    author: { id: row.authorId, name: authorName },
+    message: row.message,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** The stored revision `number` of the recipe, with its author's name, if there is one. */
+function findRevision(db: Db | Tx, recipeId: string, number: number) {
+  return db
+    .select({ row: recipeRevision, authorName: user.name })
+    .from(recipeRevision)
+    .innerJoin(user, eq(user.id, recipeRevision.authorId))
+    .where(and(eq(recipeRevision.recipeId, recipeId), eq(recipeRevision.number, number)))
+    .get();
+}
+
+/**
+ * Revision `number` of the recipe, its photos whole, with the alt text they had then. `undefined`
+ * if the recipe has no such revision.
+ */
+export function loadRevision(db: Db, recipeId: string, number: number): RecipeRevision | undefined {
+  const found = findRevision(db, recipeId, number);
+  if (!found) return undefined;
+  const snapshot = readSnapshot(found.row.snapshot);
+
+  const ids = [
+    ...snapshot.images.map(({ id }) => id),
+    ...snapshot.steps.flatMap(({ image: photo }) => (photo ? [photo.id] : [])),
+  ];
+  // Only the recipe's own, which it keeps while a revision shows them.
+  const rows =
+    ids.length === 0
+      ? []
+      : db
+          .select()
+          .from(image)
+          .where(and(inArray(image.id, ids), eq(image.recipeId, recipeId)))
+          .all();
+  const byId = new Map(rows.map((row) => [row.id, toImage(row)]));
+  const whole = ({ id, alt }: { id: string; alt: string }) => {
+    const photo = byId.get(id);
+    return photo && { ...photo, alt };
+  };
+
+  return {
+    ...summaryOf(found.row, found.authorName),
+    // Parsing leaves out the format's version.
+    content: recipeRevisionContentSchema.parse({
+      ...snapshot,
+      images: snapshot.images.flatMap((photo) => whole(photo) ?? []),
+      steps: snapshot.steps.map(({ body, image: photo }) => ({
+        body,
+        image: (photo && whole(photo)) ?? null,
+      })),
+    }),
+  };
+}
+
+export type RestoreResult =
+  | { ok: true; revision: number }
+  | WriteResult
+  | { ok: false; reason: 'no-revision' }
+  | { ok: false; reason: 'unrestorable' };
+
+/**
+ * Publishes revision `number`'s content as the recipe's next revision, by `editorId`, with the
+ * message "Restored from revision #n", if the recipe is still at `version`. Its draft stays. Tags
+ * deleted since are left out. The audit event shows admins a shared recipe's title, but never a
+ * private one's, as deleting it does.
+ */
+export function restoreRevision(
+  db: Db,
+  origin: AuditOrigin,
+  recipeId: string,
+  number: number,
+  editorId: string,
+  version: number,
+): RestoreResult {
+  return db.transaction((tx): RestoreResult => {
+    const current = atVersion(tx, recipeId, version);
+    if (!current.ok) return current;
+    const found = findRevision(tx, recipeId, number);
+    if (!found) return { ok: false, reason: 'no-revision' };
+    const snapshot = readSnapshot(found.row.snapshot);
+
+    const tagIds = snapshot.tags.map(({ id }) => id);
+    const existing = new Set(
+      tagIds.length === 0
+        ? []
+        : tx
+            .select({ id: tag.id })
+            .from(tag)
+            .where(inArray(tag.id, tagIds))
+            .all()
+            .map(({ id }) => id),
+    );
+    // Parsing leaves out what the content doesn't hold, such as what the server worked out.
+    const content = recipeContentSchema.safeParse({
+      ...snapshot,
+      tagIds: tagIds.filter((id) => existing.has(id)),
+    });
+    if (!content.success) return { ok: false, reason: 'unrestorable' };
+
+    const published = publishContent(tx, recipeId, content.data, editorId, version, {
+      message: restoredMessage(number),
+      keepDraft: true,
+    });
+    if (!published.ok) {
+      if (published.reason === 'not-found' || published.reason === 'stale') return published;
+      // Its photos are the recipe's own, kept for its revisions; its tags exist.
+      return { ok: false, reason: 'unrestorable' };
+    }
+
+    const restored = latestRevision(tx, recipeId);
+    const row = tx
+      .select({ title: recipe.title, visibility: recipe.visibility })
+      .from(recipe)
+      .where(eq(recipe.id, recipeId))
+      .get();
+    // Written in this transaction: only a bug could lose it.
+    if (!row) throw new Error('a recipe just restored could not be read back');
+    const { title, visibility } = row;
+    recordAuditEvent(tx, origin, {
+      action: 'revision.restored',
+      target: { type: 'recipe', id: recipeId },
+      metadata:
+        visibility === 'shared'
+          ? { restored: number, revision: restored, title, visibility }
+          : { restored: number, revision: restored, visibility },
+    });
+    return { ok: true, revision: restored };
   });
 }
