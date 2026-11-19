@@ -254,7 +254,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Images**
 - Up to 20 images per recipe, in order, one marked as the cover. Each step can have one image of its own. An image is used once: in the recipe's images or one step's.
 - Each image has alt text, up to 300 characters, saying what it shows for people who can't see it. It's optional: one without any is left out by screen readers, for when the recipe's text already says what it shows. It's saved with the recipe, like the order and the cover.
-- A recipe is saved with the images it has: its own, or uploads of whoever saves it that no recipe was saved with yet. An upload of someone else's, or another recipe's image, is refused at the field that names it. An image the recipe no longer has is deleted when it's saved, until Phase 2's revisions keep older versions.
+- A recipe is saved with the images it has: its own, or uploads of whoever saves it that no recipe was saved with yet. An upload of someone else's, or another recipe's image, is refused at the field that names it. An image the recipe no longer has stays its own, since its older revisions show it, and a later save can use it again: restoring a revision does. It's deleted only with the recipe, when the recipe is purged from the trash.
 - Editors and admins upload them as the file itself, not in a form.
 - **On upload:**
   - check the real file type from the file's first bytes (JPEG, PNG, WebP)

@@ -198,7 +198,7 @@ const recipeContentShape = {
     .max(L.images, `A recipe can have up to ${String(L.images)} photos.`)
     .describe(
       'Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. ' +
-        'Those left out are deleted, as are its steps’.',
+        'Those left out stay its own, for its older revisions, and a later save can use them again.',
     ),
   coverImageId: imageIdSchema
     .nullable()

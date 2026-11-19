@@ -2626,7 +2626,7 @@ export interface components {
                     alt: string;
                 } | null;
             }[];
-            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’. */
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again. */
             images: {
                 id: string;
                 /** @description Its alt text: empty when the recipe’s text already says what it shows. */
@@ -2795,7 +2795,7 @@ export interface components {
                     alt: string;
                 } | null;
             }[];
-            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out are deleted, as are its steps’. */
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again. */
             images: {
                 id: string;
                 /** @description Its alt text: empty when the recipe’s text already says what it shows. */

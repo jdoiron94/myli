@@ -10,7 +10,7 @@ import { and, asc, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { image, recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
-import { deleteBlobsJob, toImage } from '../images/images.ts';
+import { toImage } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
 import { recordRevision } from '../revisions/snapshot.ts';
 import { indexRecipeJob } from '../search/indexing.ts';
@@ -165,23 +165,18 @@ function unusablePhotos(
     .map(({ path }) => path);
 }
 
-/**
- * Gives the recipe the photos it names, each in its place, and deletes those it named before and
- * no longer does, their blobs in a job. Until Phase 2 keeps revisions, nothing else refers to them.
- * Runs after the recipe's cover and steps are written, so none of them still refers to one.
- */
+/** Gives the recipe the photos it names, each in its place, with the alt text it gives them. */
 function writePhotos(tx: Tx, recipeId: string, uses: readonly PhotoUse[]): void {
   for (const { id, alt, position } of uses) {
     tx.update(image).set({ recipeId, position, altText: alt }).where(eq(image.id, id)).run();
   }
-  const kept = uses.map(({ id }) => id);
-  const dropped = tx
-    .delete(image)
-    .where(and(eq(image.recipeId, recipeId), notInArray(image.id, kept)))
-    .returning({ variants: image.variants })
-    .all();
-  const keys = dropped.flatMap(({ variants }) => variants.map(({ key }) => key));
-  if (keys.length > 0) enqueueJob(tx, deleteBlobsJob, { keys });
+  // Older revisions show the photos it no longer uses, so they stay its own, in no place, until
+  // the recipe is purged. A later save can use them again.
+  const named = uses.map(({ id }) => id);
+  tx.update(image)
+    .set({ position: null })
+    .where(and(eq(image.recipeId, recipeId), notInArray(image.id, named)))
+    .run();
 }
 
 /** A new recipe's ID, or why it couldn't be created. */

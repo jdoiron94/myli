@@ -227,8 +227,9 @@ describe('a recipe’s photos', () => {
     );
   });
 
-  it('saves changes to its photos, and deletes those it left out, their blobs in a job', async () => {
+  it('saves changes to its photos, keeping those it left out for its older revisions', async () => {
     const { t, blobs, cookie } = await setUp();
+    const viewer = await signedInAs(t, 'viewer');
     const [a, b, c] = [
       await uploadImage(t, cookie),
       await uploadImage(t, cookie),
@@ -248,7 +249,7 @@ describe('a recipe’s photos', () => {
       ),
     );
     const added = await uploadImage(t, cookie);
-    const droppedKeys = keysOf(t, c.id);
+    const leftOutKeys = keysOf(t, c.id) ?? [];
 
     // b and the new upload in place of a; a moves to a new step, and the first step loses c.
     const saved = await recipeFrom(
@@ -269,39 +270,29 @@ describe('a recipe’s photos', () => {
       coverImageId: added.id,
       steps: [{ image: null }, { image: a }],
     });
+    // c is still the recipe's, in no place, and shown to whoever reads the recipe.
     expect(stored(t)).toEqual(
       expect.arrayContaining([
         { id: b.id, recipeId: id, position: 0 },
         { id: added.id, recipeId: id, position: 1 },
         { id: a.id, recipeId: id, position: null },
+        { id: c.id, recipeId: id, position: null },
       ]),
     );
-    expect(stored(t)).toHaveLength(3);
-    expect(blobsQueuedForDeletion(t)).toEqual([{ keys: droppedKeys }]);
-    expect(blobs.keys()).toEqual(expect.arrayContaining(droppedKeys ?? []));
-  });
+    expect(blobsQueuedForDeletion(t)).toEqual([]);
+    expect(blobs.keys()).toEqual(expect.arrayContaining(leftOutKeys));
+    expect((await send(t, 'GET', `/images/${c.id}/320`, viewer.cookie)).status).toBe(200);
 
-  it('deletes every photo when it keeps none', async () => {
-    const { t, cookie } = await setUp();
-    const [a, b] = [await uploadImage(t, cookie), await uploadImage(t, cookie)];
-    const { id } = await recipeFrom(
-      await send(
+    // A later save can use it again, as restoring a revision with it does.
+    const restored = await recipeFrom(
+      await saveRecipe(
         t,
-        'POST',
-        '/recipes',
+        id,
         cookie,
-        sampleRecipeRequest({ images: photos(a.id), coverImageId: a.id, steps: withSteps(b.id) }),
+        sampleRecipeContent({ images: photos(c.id), coverImageId: c.id }),
       ),
     );
-    const keys = [...(keysOf(t, a.id) ?? []), ...(keysOf(t, b.id) ?? [])];
-
-    const saved = await recipeFrom(
-      await saveRecipe(t, id, cookie, sampleRecipeContent({ steps: withSteps(null) })),
-    );
-
-    expect(saved).toMatchObject({ images: [], coverImageId: null, steps: [{ image: null }] });
-    expect(stored(t)).toEqual([]);
-    expect(blobsQueuedForDeletion(t)).toEqual([{ keys }]);
+    expect(restored.images).toEqual([c]);
   });
 
   it('adds only uploads of whoever edits it, not its owner’s', async () => {
