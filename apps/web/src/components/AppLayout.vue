@@ -5,6 +5,7 @@ import {
   PlusIcon,
   SearchCheckIcon,
   SearchIcon,
+  TagsIcon,
   UserCogIcon,
 } from '@lucide/vue';
 import { can } from '@myli/shared';
@@ -33,6 +34,7 @@ const ADMIN_PAGES = [
   { name: 'invitations', icon: MailIcon },
   { name: 'users', icon: UserCogIcon },
   { name: 'search-index', icon: SearchCheckIcon },
+  { name: 'tags', icon: TagsIcon },
 ] as const;
 
 function allowed(pages: readonly { name: string; icon: Component }[]) {

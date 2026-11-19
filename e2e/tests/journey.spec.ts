@@ -582,6 +582,32 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await theme('dark', 'light');
   });
 
+  await test.step('a tag is renamed on the Tags page, and the recipe shows the new name', async () => {
+    const address = new URL(page.url()).pathname;
+    await openAdminPage(page, 'Tags');
+    await expect(heading(page, 'Tags')).toBeVisible();
+    const american = page
+      .getByRole('table', { name: 'Cuisines' })
+      .getByRole('row', { name: /American/ });
+    await expect(american.getByRole('cell')).toHaveText(['American', '1', /Rename/]);
+    await checkPage(page);
+
+    await page.getByRole('button', { name: 'Rename American' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Rename “American”' });
+    await expect(dialog).toBeVisible();
+    await checkPage(page, { popup: true });
+    await dialog.getByRole('textbox', { name: 'Name' }).fill('Southern');
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Renamed' })).toHaveText(
+      'Renamed “American” to “Southern”.',
+    );
+
+    await page.goto(address);
+    await expect(
+      page.getByRole('main').getByRole('list', { name: 'Tags' }).getByRole('listitem'),
+    ).toHaveText(['Contains wheat', 'Southern']);
+  });
+
   await test.step('the recipe is deleted once asked, which the audit log records', async () => {
     const address = new URL(page.url()).pathname;
     const id = address.split('/').at(-1);
