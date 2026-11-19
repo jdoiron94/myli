@@ -43,6 +43,7 @@ const shown = computed(() =>
         <li
           v-for="(line, lineIndex) in group.lines"
           :key="lineIndex"
+          class="print:break-inside-avoid"
         >
           <span
             v-if="line.amount"

@@ -34,7 +34,8 @@ const units = useUnitSystem();
 <template>
   <template v-if="recipe.ingredientGroups.length > 0">
     <div class="mb-4 text-base">
-      <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+      <!-- On paper, only the amounts and what they're scaled to. -->
+      <div class="flex flex-wrap items-start gap-x-4 gap-y-3 print:hidden">
         <ServingsControl
           ref="servingsControl"
           v-model="servings"
@@ -60,7 +61,7 @@ const units = useUnitSystem();
         v-if="scaled"
         variant="outline"
         size="sm"
-        class="mt-2"
+        class="mt-2 print:hidden"
         @click="unscale"
       >
         Back to {{ servingsText(recipe.servings) }}
@@ -68,7 +69,7 @@ const units = useUnitSystem();
       <p
         v-if="units.failure.value"
         role="alert"
-        class="mt-3 text-sm text-destructive"
+        class="mt-3 text-sm text-destructive print:hidden"
       >
         Your choice of units couldn't be saved. {{ failureMessage(units.failure.value) }}
       </p>

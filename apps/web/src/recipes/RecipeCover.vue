@@ -43,7 +43,7 @@ function go(by: -1 | 1) {
     :image="cover"
     :sizes="COVER_SIZES"
     eager
-    class="aspect-[3/2] w-full rounded-lg object-cover md:aspect-[2/1]"
+    class="aspect-[3/2] w-full rounded-lg object-cover md:aspect-[2/1] print:max-h-60"
   />
   <!-- The Carousel's own buttons (CarouselPrevious, CarouselNext) are disabled at either end,
        which drops focus there. These are only marked aria-disabled, as the editor's are. -->
@@ -63,7 +63,7 @@ function go(by: -1 | 1) {
           :image="photo"
           :sizes="COVER_SIZES"
           :eager="index === 0"
-          class="aspect-[3/2] w-full rounded-lg object-cover md:aspect-[2/1]"
+          class="aspect-[3/2] w-full rounded-lg object-cover md:aspect-[2/1] print:max-h-60"
         />
       </CarouselItem>
     </CarouselContent>
@@ -71,7 +71,7 @@ function go(by: -1 | 1) {
       type="button"
       variant="secondary"
       size="icon"
-      class="absolute inset-y-0 start-3 my-auto rounded-full shadow-sm aria-disabled:opacity-50"
+      class="absolute inset-y-0 start-3 my-auto rounded-full shadow-sm aria-disabled:opacity-50 print:hidden"
       aria-label="Previous photo"
       :aria-disabled="shown === 0 ? true : undefined"
       @click="go(-1)"
@@ -82,7 +82,7 @@ function go(by: -1 | 1) {
       type="button"
       variant="secondary"
       size="icon"
-      class="absolute inset-y-0 end-3 my-auto rounded-full shadow-sm aria-disabled:opacity-50"
+      class="absolute inset-y-0 end-3 my-auto rounded-full shadow-sm aria-disabled:opacity-50 print:hidden"
       aria-label="Next photo"
       :aria-disabled="shown === photos.length - 1 ? true : undefined"
       @click="go(1)"
@@ -93,7 +93,7 @@ function go(by: -1 | 1) {
     <p
       aria-live="polite"
       aria-atomic="true"
-      class="pointer-events-none absolute end-3 bottom-3 rounded-full bg-background px-2.5 py-0.5 text-sm font-medium"
+      class="pointer-events-none absolute end-3 bottom-3 rounded-full bg-background px-2.5 py-0.5 text-sm font-medium print:hidden"
     >
       <span class="sr-only">Photo</span>
       {{ shown + 1 }} of {{ photos.length }}
