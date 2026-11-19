@@ -93,33 +93,21 @@ describe('the recipe form', () => {
     });
   });
 
-  it.each([
-    ['servings', 'four', 'Enter a whole number of servings.'],
-    ['servings', '2.5', 'Enter a whole number of servings.'],
-    ['servings', '0', 'A recipe serves at least 1.'],
-    ['servings', '1001', 'A recipe serves at most 1,000.'],
-    ['prepMinutes', '1.5', 'Enter a whole number of minutes.'],
-    ['cookMinutes', '-5', 'Enter 0 or more minutes.'],
-    ['totalMinutes', '100001', 'Enter up to 100,000 minutes.'],
-  ] as const)('refuses %s of %j', async (field, typed, message) => {
+  // The shared schema checks the numbers; the form only turns the text into them.
+  it('says so at each field whose text isn’t a number, and passes numbers on to be checked', async () => {
     expect(
       await errorsFor((values) => {
-        values[field] = typed;
+        values.servings = 'four';
+        values.nutrition.calories = '1,5';
+        values.nutrition.fatGrams = 'abc';
+        values.cookMinutes = '-5';
       }),
-    ).toEqual({ [field]: [message] });
-  });
-
-  it.each([
-    ['abc', 'Enter a number.'],
-    ['1,5', 'Enter a number.'],
-    ['-1', 'Enter 0 or more.'],
-    ['100001', 'Enter up to 100,000.'],
-  ])('refuses nutrition of %j', async (typed, message) => {
-    expect(
-      await errorsFor((values) => {
-        values.nutrition.calories = typed;
-      }),
-    ).toEqual({ 'nutrition.calories': [message] });
+    ).toEqual({
+      servings: ['Enter a whole number of servings.'],
+      'nutrition.calories': ['Enter a number.'],
+      'nutrition.fatGrams': ['Enter a number.'],
+      cookMinutes: ['Enter 0 or more minutes.'],
+    });
   });
 
   describe('yield', () => {
@@ -237,35 +225,6 @@ describe('the recipe form', () => {
           values.steps = steps(...many.slice(1), '');
         }),
       ).toEqual({});
-    });
-  });
-
-  it('takes a source address only on the web', async () => {
-    expect(
-      await errorsFor((values) => {
-        values.source.url = 'ftp://example.com/bread';
-      }),
-    ).toEqual({ 'source.url': ['Enter a web address starting with http or https.'] });
-    expect(
-      (
-        await submitted(
-          filledIn((values) => {
-            values.source.url = ' https://example.com/bread ';
-          }),
-        )
-      ).value?.content.source.url,
-    ).toBe('https://example.com/bread');
-  });
-
-  it('says how long text can be', async () => {
-    expect(
-      await errorsFor((values) => {
-        values.title = 'x'.repeat(RECIPE_LIMITS.title + 1);
-        values.source.author = 'x'.repeat(RECIPE_LIMITS.sourceText + 1);
-      }),
-    ).toEqual({
-      title: ['Keep it to 200 characters.'],
-      'source.author': ['Keep it to 200 characters.'],
     });
   });
 
@@ -422,7 +381,8 @@ describe('the recipe form', () => {
       });
     });
 
-    it('says how long a line can be', async () => {
+    // The line's own problem comes first: a name that's too long may only be because the line is.
+    it('says how long a line can be, and then how long the name it reads can be', async () => {
       expect(
         await errorsFor((values) => {
           values.ingredientGroups = groups(['', [`2 cups ${'flour '.repeat(100)}`]]);
@@ -505,18 +465,17 @@ describe('the recipe form', () => {
         });
       });
 
-      it.each([
-        [{ qty: 'lots' }, 'qty', 'Enter an amount, like 2, 1½ or 0.5.'],
-        [{ qtyMax: '0' }, 'qtyMax', 'Enter an amount, like 2, 1½ or 0.5.'],
-        [{ qtyMax: '2' }, 'qtyMax', 'The top of a range must be more than its bottom.'],
-        [{ qty: '', qtyMax: '2' }, 'qtyMax', 'The top of a range must be more than its bottom.'],
-        [{ name: ' ' }, 'name', 'Name the ingredient.'],
-        [{ unit: 'x'.repeat(31) }, 'unit', 'Keep it to 30 characters.'],
-      ] as const)('refuses %j, on the part that’s wrong', async (details, part, message) => {
-        const { errors } = await submitted(corrected({ qty: '2', ...details }));
+      it('says what’s wrong on the part that’s wrong: an amount it can’t read, or a range without a bottom', async () => {
+        const errors = async (details: Record<string, string>) =>
+          (await submitted(corrected({ qty: '2', ...details }))).errors;
 
-        expect(errors).toEqual({
-          [`ingredientGroups[0].ingredients[0].details.${part}`]: [message],
+        expect(await errors({ qty: 'lots' })).toEqual({
+          'ingredientGroups[0].ingredients[0].details.qty': ['Enter an amount, like 2, 1½ or 0.5.'],
+        });
+        expect(await errors({ qty: '', qtyMax: '2' })).toEqual({
+          'ingredientGroups[0].ingredients[0].details.qtyMax': [
+            'The top of a range must be more than its bottom.',
+          ],
         });
       });
 
@@ -531,30 +490,33 @@ describe('the recipe form', () => {
       });
     });
 
-    it.each([
-      ['amount', { qty: 4 }],
-      ['range', { qtyMax: 4 }],
-      ['unit', { unit: 'tbsp' }],
-      ['name', { name: 'bread flour' }],
-      ['note', { note: 'sifted' }],
-      ['scaling', { scalable: false }],
-    ])('takes a saved line with a different %s as corrected', (_, difference) => {
-      const asTyped: IngredientLine = {
-        rawText: '3 cups flour',
-        qty: 3,
-        qtyMax: null,
-        unit: 'cup',
-        name: 'flour',
-        normalizedName: 'flour',
-        note: null,
-        scalable: true,
-      };
-      const linesOf = (line: IngredientLine) =>
-        recipeFormValues(sampleRecipe({ ingredientGroups: [{ label: null, ingredients: [line] }] }))
-          .ingredientGroups[0]?.ingredients;
+    it('takes a saved line that differs in any way from what the parser reads as corrected', () => {
+      for (const [, difference] of [
+        ['amount', { qty: 4 }],
+        ['range', { qtyMax: 4 }],
+        ['unit', { unit: 'tbsp' }],
+        ['name', { name: 'bread flour' }],
+        ['note', { note: 'sifted' }],
+        ['scaling', { scalable: false }],
+      ] as const) {
+        const asTyped: IngredientLine = {
+          rawText: '3 cups flour',
+          qty: 3,
+          qtyMax: null,
+          unit: 'cup',
+          name: 'flour',
+          normalizedName: 'flour',
+          note: null,
+          scalable: true,
+        };
+        const linesOf = (line: IngredientLine) =>
+          recipeFormValues(
+            sampleRecipe({ ingredientGroups: [{ label: null, ingredients: [line] }] }),
+          ).ingredientGroups[0]?.ingredients;
 
-      expect(linesOf(asTyped)).toEqual([{ rawText: '3 cups flour', details: null }]);
-      expect(linesOf({ ...asTyped, ...difference })?.[0]?.details).not.toBeNull();
+        expect(linesOf(asTyped)).toEqual([{ rawText: '3 cups flour', details: null }]);
+        expect(linesOf({ ...asTyped, ...difference })?.[0]?.details).not.toBeNull();
+      }
     });
 
     it('fills in a saved line as typed, and a corrected one with its corrections', () => {

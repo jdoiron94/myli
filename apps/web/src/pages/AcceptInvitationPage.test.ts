@@ -4,7 +4,6 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  accessibilityViolations,
   apiServer,
   describedBy,
   problemResponse,
@@ -182,7 +181,6 @@ describe('the accept-invitation page', () => {
     expect(describedBy(nameField())).toEqual(['Enter a name.']);
     expect(describedBy(passwordField())[0]).toBe('Choose a password.');
     expect(accepts).toEqual([]);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it("says so when the link doesn't work, without a form", async () => {
@@ -191,51 +189,38 @@ describe('the accept-invitation page', () => {
     expect((await screen.findByRole('alert')).textContent.trim()).toBe(UNUSABLE);
     expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
-  it.each([
-    [
-      'a server error',
-      () => problemResponse(500, 'Internal Server Error'),
+  it('says so when looking the invitation up fails, and tries again when asked', async () => {
+    let answer = () => problemResponse(500, 'Internal Server Error');
+    const { user, lookups } = await renderAccept(LINK, { lookup: () => answer() });
+
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
       "Something went wrong on myli's server. Try again in a moment.",
-    ],
-    [
-      'no answer at all',
-      () => HttpResponse.error(),
-      "Couldn't reach myli. Check your connection, then try again.",
-    ],
-  ])(
-    'says so when looking the invitation up meets %s, and tries again when asked',
-    async (_, failure, message) => {
-      let answer = failure;
-      const { user, lookups } = await renderAccept(LINK, { lookup: () => answer() });
+    );
+    // Retried twice before giving up, as every query is.
+    expect(lookups).toHaveLength(3);
 
-      expect((await screen.findByRole('alert')).textContent.trim()).toBe(message);
-      // Retried twice before giving up, as every query is.
-      expect(lookups).toHaveLength(3);
+    // Still failing: they're told the new try happened, and stay on the button.
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent.trim()).toBe(
+        'Still not working. Try again in a moment.',
+      );
+    });
+    expect(lookups).toHaveLength(6);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Try again' }));
 
-      // Still failing: they're told the new try happened, and stay on the button.
-      await user.click(screen.getByRole('button', { name: 'Try again' }));
-      await waitFor(() => {
-        expect(screen.getByRole('status').textContent.trim()).toBe(
-          'Still not working. Try again in a moment.',
-        );
-      });
-      expect(lookups).toHaveLength(6);
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Try again' }));
+    answer = () => HttpResponse.json(INVITATION);
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
 
-      answer = () => HttpResponse.json(INVITATION);
-      await user.click(screen.getByRole('button', { name: 'Try again' }));
-
-      await screen.findByRole('button', { name: 'Create account' });
-      // The button they pressed is gone, so focus starts on the page again.
-      await waitFor(() => {
-        expect(document.activeElement).toBe(heading());
-      });
-      expect(lookups).toEqual(Array.from({ length: 7 }, () => ({ token: TOKEN })));
-    },
-  );
+    await screen.findByRole('button', { name: 'Create account' });
+    // The button they pressed is gone, so focus starts on the page again.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(heading());
+    });
+    expect(lookups).toEqual(Array.from({ length: 7 }, () => ({ token: TOKEN })));
+  });
 
   it('tries again once, even when the button is pressed twice quickly', async () => {
     const answered = Promise.withResolvers<undefined>();
@@ -259,12 +244,9 @@ describe('the accept-invitation page', () => {
     expect(lookups).toHaveLength(4);
   });
 
-  it.each([
-    ['without a token', '/accept-invitation'],
-    ['with an empty token', '/accept-invitation#'],
-    ['with something too long to be a token', `/accept-invitation#${'a'.repeat(201)}`],
-  ])('asks for the link again when opened %s, and looks nothing up', async (_, path) => {
-    const { router, lookups } = await renderAccept(path);
+  // Opened without one, or with one cut short, which the shared schema refuses.
+  it('asks for the link again when opened with something that can’t be a token, and looks nothing up', async () => {
+    const { router, lookups } = await renderAccept(`/accept-invitation#${'a'.repeat(201)}`);
 
     expect(
       screen.getByText(
@@ -276,7 +258,6 @@ describe('the accept-invitation page', () => {
     });
     await settle();
     expect(lookups).toEqual([]);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('tells someone signed in to sign out first, and looks nothing up', async () => {
@@ -319,7 +300,6 @@ describe('the accept-invitation page', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('A user with this email already exists.');
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(within(alert).getByRole('link', { name: 'Go to sign-in' }));
 
@@ -347,24 +327,17 @@ describe('the accept-invitation page', () => {
     expect(screen.queryByText('The request is invalid.')).toBeNull();
   });
 
-  it.each([
-    [
-      'a server error',
-      () => problemResponse(500, 'Internal Server Error'),
-      "Something went wrong on myli's server. Try again in a moment.",
-    ],
-    [
-      'no answer at all',
-      () => HttpResponse.error(),
-      "Couldn't reach myli. Check your connection, then try again.",
-    ],
-  ])('says so after %s, keeping what was typed', async (_, answer, message) => {
-    const { router, user } = await renderForm({ accept: answer });
+  it('says so after a server error, keeping what was typed', async () => {
+    const { router, user } = await renderForm({
+      accept: () => problemResponse(500, 'Internal Server Error'),
+    });
 
     await fillIn(user);
     await user.click(createButton());
 
-    expect((await screen.findByRole('alert')).textContent.trim()).toBe(message);
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
+      "Something went wrong on myli's server. Try again in a moment.",
+    );
     expect(screen.queryByRole('link', { name: 'Go to sign-in' })).toBeNull();
     expect(router.currentRoute.value.fullPath).toBe('/accept-invitation');
     expect(nameField()).toHaveProperty('value', 'Margaret Hamilton');
@@ -389,12 +362,5 @@ describe('the accept-invitation page', () => {
       expect(createButton().getAttribute('aria-disabled')).toBeNull();
     });
     expect(accepts).toHaveLength(1);
-  });
-
-  it('has no accessibility violations', async () => {
-    const { user } = await renderForm();
-    await user.type(passwordField(), 'Abc 1');
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });

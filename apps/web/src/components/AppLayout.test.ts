@@ -2,7 +2,6 @@ import { AUTH_BASE_PATH } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { answerTags } from '../recipes/testing.ts';
 import { accessibilityViolations, apiServer, renderApp, testUsers } from '../testing.ts';
 
 describe('the layout', () => {
@@ -44,10 +43,9 @@ describe('the layout', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('has no accessibility violations, with the theme menu closed or open', async () => {
+  // The end-to-end tests check every page, but never open this menu.
+  it('has no accessibility violations with the theme menu open', async () => {
     const { user } = await renderApp('/');
-    expect(await accessibilityViolations()).toEqual([]);
-
     await user.click(screen.getByRole('button', { name: 'Theme' }));
     await screen.findByRole('menu');
 
@@ -69,14 +67,6 @@ describe('the account menu', () => {
     expect(menu.textContent).toContain('Ada Lovelace');
     expect(menu.textContent).toContain('ada@example.com');
     expect(menu.textContent).toContain('Editor');
-    // See the theme menu's test for `region`.
-    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
-  });
-
-  it("isn't there when no one is signed in", async () => {
-    await renderApp('/login', { signedInAs: null });
-
-    expect(screen.queryByRole('button', { name: /^Account:/ })).toBeNull();
   });
 
   it('signs out, goes to the sign-in page and forgets what was fetched', async () => {
@@ -138,11 +128,6 @@ describe('the main navigation', () => {
   };
   const nav = () => screen.getByRole('navigation', { name: 'Main' });
   const adminButton = () => within(nav()).getByRole('button', { name: 'Admin' });
-  const iconOf = (element: Element) => {
-    const icon = element.querySelector('svg');
-    expect(icon?.getAttribute('aria-hidden')).toBe('true');
-    return icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1];
-  };
 
   const linkNames = () =>
     within(nav())
@@ -156,13 +141,11 @@ describe('the main navigation', () => {
     await user.click(adminButton());
 
     const items = within(await screen.findByRole('menu')).getAllByRole('menuitem');
-    expect(items.map((item) => [item.textContent.trim(), iconOf(item)])).toEqual([
-      ['Invitations', 'mail'],
-      ['Users', 'user-cog'],
-      ['Search index', 'search-check'],
+    expect(items.map((item) => item.textContent.trim())).toEqual([
+      'Invitations',
+      'Users',
+      'Search index',
     ]);
-    // See the theme menu's test for `region`.
-    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
   });
 
   it('goes to the page picked, focusing its heading, and marks it as the current one', async () => {
@@ -185,7 +168,6 @@ describe('the main navigation', () => {
     const current = await screen.findByRole('menuitem', { name: 'Invitations' });
     expect(current.getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('menuitem', { name: 'Users' }).getAttribute('aria-current')).toBeNull();
-    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
   });
 
   it('works from the keyboard, and leaves focus on the button when the page picked is this one', async () => {
@@ -217,34 +199,6 @@ describe('the main navigation', () => {
     });
   });
 
-  it('marks each link with an icon, hidden from screen readers, which read the page’s name', async () => {
-    await renderApp('/', { signedInAs: 'admin' });
-
-    expect(
-      [...within(nav()).getAllByRole('link'), adminButton()].map((element) => [
-        element.textContent.trim(),
-        iconOf(element),
-      ]),
-    ).toEqual([
-      ['Search', 'search'],
-      ['New recipe', 'plus'],
-      ['Admin', 'shield'],
-    ]);
-  });
-
-  it('links editors to search and a new recipe, with no admin menu', async () => {
-    answerTags();
-    const { router, user } = await renderApp('/');
-    expect(linkNames()).toEqual(['Search', 'New recipe']);
-    expect(within(nav()).queryByRole('button')).toBeNull();
-
-    await user.click(within(nav()).getByRole('link', { name: 'New recipe' }));
-
-    await screen.findByRole('heading', { level: 1, name: 'New recipe' });
-    expect(router.currentRoute.value.fullPath).toBe('/recipes/new');
-    await screen.findByRole('checkbox', { name: 'Italian' });
-  });
-
   it('links viewers to search only, since they can’t write recipes', async () => {
     const { router, user } = await renderApp('/', { signedInAs: 'viewer' });
     expect(linkNames()).toEqual(['Search']);
@@ -257,10 +211,11 @@ describe('the main navigation', () => {
     await screen.findByText('No recipes yet.');
   });
 
-  it('isn’t there for no one signed in', async () => {
+  it('isn’t there for no one signed in, nor is the account menu', async () => {
     await renderApp('/login', { signedInAs: null });
 
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Account:/ })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Search' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
   });

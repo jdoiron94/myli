@@ -5,7 +5,6 @@ import type { RecipeSummary } from '@/recipes/recipe.ts';
 import { cardParts, sampleSummary as hit } from '@/recipes/testing.ts';
 import type { SearchResult } from '@/search/search.ts';
 import {
-  accessibilityViolations,
   apiServer,
   describedBy,
   listItems,
@@ -82,7 +81,6 @@ describe('search', () => {
     ]);
     const link = within(cards[0] ?? document.body).getByRole('link', { name: 'Green Curry' });
     expect(link.getAttribute('href')).toBe('/recipes/curry');
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('searches for what the address says, and says how many it found', async () => {
@@ -283,7 +281,6 @@ describe('search’s filters', () => {
       within(await group('Total time')).getByRole('radio', { name: 'Any time' }),
     ).toHaveProperty('ariaChecked', 'true');
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('includes and leaves out values, each a new search from the first page', async () => {
@@ -583,7 +580,7 @@ describe('search’s ingredient picker', () => {
     });
   });
 
-  it('has nothing for axe to find, with its suggestions open', async () => {
+  it('adds no <style> element with its suggestions open, which the Content Security Policy refuses', async () => {
     answerSearches(() => found([hit()]));
     answerSuggestions();
     const { user } = await renderApp('/search?ingredient=basil');
@@ -592,8 +589,6 @@ describe('search’s ingredient picker', () => {
     await user.click(combobox());
     await screen.findAllByRole('option');
 
-    expect(await accessibilityViolations()).toEqual([]);
-    // The Content Security Policy refuses <style> elements, as some reka-ui parts add.
     expect(document.querySelectorAll('main style')).toHaveLength(0);
   });
 });

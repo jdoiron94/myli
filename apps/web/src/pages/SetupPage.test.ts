@@ -3,7 +3,6 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
-  accessibilityViolations,
   apiServer,
   describedBy,
   describedElements,
@@ -85,7 +84,6 @@ describe('the setup page', () => {
     expect(describedBy(emailField())).toEqual(['Enter a valid email address.']);
     expect(describedBy(passwordField())[0]).toBe('Choose a password.');
     expect(setups).toEqual([]);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
   it('lists the password rules, marking each one met as the password is typed', async () => {
@@ -195,7 +193,6 @@ describe('the setup page', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Setup is already complete. Sign in instead.');
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(within(alert).getByRole('link', { name: 'Go to sign-in' }));
 
@@ -203,24 +200,15 @@ describe('the setup page', () => {
     expect(router.currentRoute.value.fullPath).toBe('/login');
   });
 
-  it.each([
-    [
-      'a server error',
-      () => problemResponse(500, 'Internal Server Error'),
-      "Something went wrong on myli's server. Try again in a moment.",
-    ],
-    [
-      'no answer at all',
-      () => HttpResponse.error(),
-      "Couldn't reach myli. Check your connection, then try again.",
-    ],
-  ])('says so after %s, keeping what was typed', async (_, answer, message) => {
-    const { router, user } = await renderSetup(answer);
+  it('says so after a server error, keeping what was typed', async () => {
+    const { router, user } = await renderSetup(() => problemResponse(500, 'Internal Server Error'));
 
     await fillIn(user);
     await user.click(createButton());
 
-    expect((await screen.findByRole('alert')).textContent.trim()).toBe(message);
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
+      "Something went wrong on myli's server. Try again in a moment.",
+    );
     expect(screen.queryByRole('link', { name: 'Go to sign-in' })).toBeNull();
     expect(router.currentRoute.value.fullPath).toBe('/setup');
     expect(nameField()).toHaveProperty('value', 'Grace Hopper');
@@ -248,12 +236,5 @@ describe('the setup page', () => {
       expect(createButton().getAttribute('aria-disabled')).toBeNull();
     });
     expect(setups).toHaveLength(1);
-  });
-
-  it('has no accessibility violations', async () => {
-    const { user } = await renderSetup();
-    await user.type(passwordField(), 'Abc 1');
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });

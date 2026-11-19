@@ -3,13 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
-import {
-  accessibilityViolations,
-  apiServer,
-  describedBy,
-  problemResponse,
-  renderApp,
-} from '@/testing.ts';
+import { apiServer, describedBy, problemResponse, renderApp } from '@/testing.ts';
 import type { Tag } from './recipe.ts';
 import { answerRecipe, sampleRecipe, sampleTags } from './testing.ts';
 
@@ -246,11 +240,5 @@ describe('the tags editor', () => {
 
     expect(await screen.findByText('A recipe can have up to 50 tags.')).toBeDefined();
     expect(saved).toEqual([]);
-  });
-
-  it('has nothing for axe to find', async () => {
-    await editTags([ITALIAN]);
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });

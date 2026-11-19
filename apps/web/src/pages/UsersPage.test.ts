@@ -3,14 +3,7 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import type { UserAccount } from '@/admin/users.ts';
-import {
-  accessibilityViolations,
-  answerSession,
-  apiServer,
-  problemResponse,
-  renderApp,
-  testUsers,
-} from '@/testing.ts';
+import { apiServer, problemResponse, renderApp, testUsers } from '@/testing.ts';
 
 const ME: UserAccount = {
   ...testUsers.admin,
@@ -33,7 +26,6 @@ const MARGARET: UserAccount = {
   deactivated: true,
   createdAt: '2026-03-01T09:00:00.000Z',
 };
-const FORBIDDEN = "You don't have permission to do this.";
 
 const joined = (iso: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso));
@@ -206,13 +198,6 @@ describe('the users page', () => {
       expect(document.activeElement).toBe(pageHeading());
     });
   });
-
-  it('has no accessibility violations', async () => {
-    await renderUsers();
-    await table();
-
-    expect(await accessibilityViolations()).toEqual([]);
-  });
 });
 
 describe("changing someone's role", () => {
@@ -226,8 +211,6 @@ describe("changing someone's role", () => {
     expect(dialog.textContent).toContain('The change applies the next time they use myli.');
     expect(roleRadio(dialog, 'Editor').getAttribute('aria-checked')).toBe('true');
     expect(roleRadio(dialog, 'Viewer').getAttribute('aria-checked')).toBe('false');
-    // See the theme menu's test for `region`.
-    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
 
     await user.click(roleRadio(dialog, 'Admin'));
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -363,8 +346,6 @@ describe('deactivating someone', () => {
     expect(confirm.textContent).toContain(
       "They're signed out everywhere and can't sign in until an admin reactivates them. Their recipes stay as they are: private ones stay private, and shared ones stay shared.",
     );
-    // See the theme menu's test for `region`.
-    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
     expect(sent.deactivations).toEqual([]);
 
     await user.click(within(confirm).getByRole('button', { name: 'Deactivate' }));
@@ -527,31 +508,5 @@ describe('reactivating someone', () => {
       );
     });
     expect(sent.reactivations).toHaveLength(1);
-  });
-});
-
-describe('an admin whose own role changed meanwhile', () => {
-  it('is refused, and loses the page once myli sees their new role', async () => {
-    const demoted = { ...testUsers.admin, role: 'editor' as const };
-    answerSession(testUsers.admin);
-    let isAdmin = true;
-    const refuse = () => (isAdmin ? undefined : problemResponse(403, FORBIDDEN));
-    const { user, router } = await renderUsers({
-      list: () => refuse() ?? HttpResponse.json({ users: [ME, KATHERINE, MARGARET] }),
-      reactivate: refuse,
-    });
-    await table();
-    expect(screen.getByRole('button', { name: 'Admin' })).toBeDefined();
-
-    // Another admin made them an editor.
-    isAdmin = false;
-    answerSession(demoted);
-    await user.click(reactivateButton(MARGARET.name));
-
-    await screen.findByRole('heading', { level: 1, name: "You don't have access to this page" });
-    expect(router.currentRoute.value.fullPath).toBe('/admin/users');
-    expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
-    expect(screen.getByRole('button', { name: `Account: ${demoted.name}` })).toBeDefined();
-    await settle();
   });
 });

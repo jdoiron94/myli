@@ -19,6 +19,22 @@ export default defineConfigWithVueTs(
     },
   },
   {
+    // A table of cases is one test, compared in one `toEqual`, so one diff shows every mismatch.
+    files: ['**/*.ts'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        ...['it', 'test', 'describe'].flatMap((object) =>
+          ['each', 'for'].map((property) => ({
+            object,
+            property,
+            message: 'Make the table one test, compared in one toEqual (CLAUDE.md, Testing).',
+          })),
+        ),
+      ],
+    },
+  },
+  {
     // The API logs through pino (`c.var.logger` inside requests), so logs stay structured.
     files: ['apps/api/**'],
     rules: { 'no-console': 'error' },

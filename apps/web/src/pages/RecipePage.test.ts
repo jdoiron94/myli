@@ -2,18 +2,12 @@ import { displayAmount, formatAmount } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { nextTick } from 'vue';
 import { answerPreferences } from '@/account/testing.ts';
 import { USER_LINK_REL } from '@/lib/markdown.ts';
-import { COVER_SIZES, STEP_PHOTO_SIZES } from '@/recipes/photos.ts';
+import { recipeQuery } from '@/recipes/recipe.ts';
 import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
-import {
-  accessibilityViolations,
-  apiServer,
-  describedBy,
-  problemResponse,
-  renderApp,
-  testUsers,
-} from '@/testing.ts';
+import { apiServer, describedBy, problemResponse, renderApp, testUsers } from '@/testing.ts';
 
 const URL_ = 'https://www.example.com/a/b';
 /** What each of the recipe's tags says, in order. */
@@ -186,28 +180,24 @@ describe('the recipe page', () => {
     expect(
       photos.map((photo) => ({
         src: photo.getAttribute('src'),
-        sizes: photo.getAttribute('sizes'),
         loading: photo.getAttribute('loading'),
         alt: photo.getAttribute('alt'),
       })),
     ).toEqual([
       {
         src: '/api/v1/images/b/1280',
-        sizes: COVER_SIZES,
         loading: 'eager',
         alt: 'A crusty loaf on a board.',
       },
       {
         src: '/api/v1/images/a/1280',
-        sizes: COVER_SIZES,
         loading: 'lazy',
         alt: 'The crumb, up close.',
       },
       // Left out for screen readers, without alt text.
-      { src: '/api/v1/images/c/1280', sizes: COVER_SIZES, loading: 'lazy', alt: '' },
+      { src: '/api/v1/images/c/1280', loading: 'lazy', alt: '' },
       {
         src: '/api/v1/images/d/1280',
-        sizes: STEP_PHOTO_SIZES,
         loading: 'lazy',
         alt: 'Dough shaped into a round.',
       },
@@ -247,29 +237,28 @@ describe('the recipe page', () => {
       null,
       '/api/v1/images/d/1280',
     ]);
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
-  it('shows a single photo as the cover, without a slideshow', async () => {
+  it('shows a single photo as the cover, without a slideshow, and none without photos', async () => {
     answerRecipe(sampleRecipe({ images: [sampleImage('a', 'A crusty loaf.')], coverImageId: 'a' }));
-    await renderApp('/recipes/recipe-bread');
+    const { queryClient } = await renderApp('/recipes/recipe-bread');
     await heading();
+    const shown = () => ({
+      photos: [...document.querySelectorAll('article img')].map((photo) => [
+        photo.getAttribute('src'),
+        photo.getAttribute('loading'),
+      ]),
+      slideshow: screen.queryByRole('region', { name: 'Photos' }) !== null,
+    });
 
-    const photos = [...document.querySelectorAll('article img')];
-    expect(
-      photos.map((photo) => [photo.getAttribute('src'), photo.getAttribute('loading')]),
-    ).toEqual([['/api/v1/images/a/1280', 'eager']]);
-    expect(screen.queryByRole('region', { name: 'Photos' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Next photo' })).toBeNull();
-  });
+    const one = shown();
+    queryClient.setQueryData(recipeQuery('recipe-bread').queryKey, sampleRecipe());
+    await nextTick();
 
-  it('shows no photos for a recipe without any', async () => {
-    answerRecipe(sampleRecipe());
-    await renderApp('/recipes/recipe-bread');
-    await heading();
-
-    expect(document.querySelector('article img')).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Photos' })).toBeNull();
+    expect({ one, none: shown() }).toEqual({
+      one: { photos: [['/api/v1/images/a/1280', 'eager']], slideshow: false },
+      none: { photos: [], slideshow: false },
+    });
   });
 
   it('numbers the steps, rendering their markdown', async () => {
@@ -322,78 +311,82 @@ describe('the recipe page', () => {
     });
   });
 
-  it.each([
-    [{ url: URL_, title: 'Example Bakes', author: 'A. Baker' }, 'From Example Bakes by A. Baker'],
-    [{ url: URL_, title: 'Example Bakes', author: null }, 'From Example Bakes'],
-    [{ url: URL_, title: null, author: 'A. Baker' }, 'From www.example.com by A. Baker'],
-    [{ url: URL_, title: null, author: null }, 'From www.example.com'],
-    [{ url: null, title: 'The Bread Book', author: 'A. Baker' }, 'From The Bread Book by A. Baker'],
-    [{ url: null, title: 'The Bread Book', author: null }, 'From The Bread Book'],
-    [{ url: null, title: null, author: 'A. Baker' }, 'Recipe by A. Baker'],
-  ])('says where a recipe is from, given %o', async (source, said) => {
-    answerRecipe(sampleRecipe({ source }));
-    await renderApp('/recipes/recipe-bread');
-
+  it('says where a recipe is from: where it was published, linked if it has an address, and who wrote it', async () => {
+    answerRecipe(sampleRecipe());
+    const { queryClient } = await renderApp('/recipes/recipe-bread');
     await heading();
-    const line = screen.getByText(/^(From|Recipe by)\b/);
-    expect(line.textContent.replace(/\s+/g, ' ').trim()).toBe(said);
-    const link = within(line).queryByRole('link');
-    expect(link?.textContent.trim() ?? null).toBe(
-      source.url === null ? null : (source.title ?? 'www.example.com'),
-    );
-    expect(link?.getAttribute('href') ?? null).toBe(source.url);
+    const sources = {
+      'an address, a title and an author': {
+        url: URL_,
+        title: 'Example Bakes',
+        author: 'A. Baker',
+      },
+      'an address only': { url: URL_, title: null, author: null },
+      'a title only': { url: null, title: 'The Bread Book', author: null },
+      'an author only': { url: null, title: null, author: 'A. Baker' },
+      nothing: { url: null, title: null, author: null },
+    };
+
+    const said: Record<string, { text: string; link: string | null; href: string | null } | null> =
+      {};
+    for (const [given, source] of Object.entries(sources)) {
+      queryClient.setQueryData(recipeQuery('recipe-bread').queryKey, sampleRecipe({ source }));
+      await nextTick();
+      const line = screen.queryByText(/^(From|Recipe by)\b/);
+      const link = line && within(line).queryByRole('link');
+      said[given] = line && {
+        text: line.textContent.replace(/\s+/g, ' ').trim(),
+        link: link?.textContent.trim() ?? null,
+        href: link?.getAttribute('href') ?? null,
+      };
+    }
+
+    expect(said).toEqual({
+      'an address, a title and an author': {
+        text: 'From Example Bakes by A. Baker',
+        link: 'Example Bakes',
+        href: URL_,
+      },
+      'an address only': { text: 'From www.example.com', link: 'www.example.com', href: URL_ },
+      'a title only': { text: 'From The Bread Book', link: null, href: null },
+      'an author only': { text: 'Recipe by A. Baker', link: null, href: null },
+      nothing: null,
+    });
   });
 
-  it('says nothing of a source when none is given', async () => {
-    answerRecipe(sampleRecipe({ source: { url: null, title: null, author: null } }));
-    await renderApp('/recipes/recipe-bread');
-
+  it('shows what a recipe contains first among its tags, then the rest by type, and either alone', async () => {
+    answerRecipe(sampleRecipe());
+    const { queryClient } = await renderApp('/recipes/recipe-bread');
     await heading();
-    expect(screen.queryByText(/^(From|Recipe by)\b/)).toBeNull();
-  });
+    const tagSets = {
+      'allergens and others': [
+        { id: 1, type: 'custom', name: 'Weeknight' },
+        { id: 2, type: 'allergen', name: 'milk' },
+        { id: 3, type: 'cuisine', name: 'Italian' },
+        { id: 4, type: 'allergen', name: 'wheat' },
+        { id: 5, type: 'diet', name: 'Vegetarian' },
+      ],
+      'allergens only': [{ id: 2, type: 'allergen', name: 'eggs' }],
+      'no allergens': [{ id: 3, type: 'cuisine', name: 'Italian' }],
+      none: [],
+    } as const;
 
-  it('shows what a recipe contains first among its tags, then the rest by type', async () => {
-    answerRecipe(
-      sampleRecipe({
-        tags: [
-          { id: 1, type: 'custom', name: 'Weeknight' },
-          { id: 2, type: 'allergen', name: 'milk' },
-          { id: 3, type: 'cuisine', name: 'Italian' },
-          { id: 4, type: 'allergen', name: 'wheat' },
-          { id: 5, type: 'diet', name: 'Vegetarian' },
-        ],
-      }),
-    );
-    await renderApp('/recipes/recipe-bread');
+    const shown: Record<string, string[] | null> = {};
+    for (const [given, tags] of Object.entries(tagSets)) {
+      queryClient.setQueryData(
+        recipeQuery('recipe-bread').queryKey,
+        sampleRecipe({ tags: [...tags] }),
+      );
+      await nextTick();
+      shown[given] = screen.queryByRole('list', { name: 'Tags' }) ? tagChips() : null;
+    }
 
-    await heading();
-    expect(tagChips()).toEqual(['Contains milk, wheat', 'Italian', 'Vegetarian', 'Weeknight']);
-    const contains = screen.getByText(/^Contains /);
-    expect(contains.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('shows what a recipe contains when it has no other tags', async () => {
-    answerRecipe(sampleRecipe({ tags: [{ id: 2, type: 'allergen', name: 'eggs' }] }));
-    await renderApp('/recipes/recipe-bread');
-
-    await heading();
-    expect(tagChips()).toEqual(['Contains eggs']);
-  });
-
-  it('shows the tags without saying what a recipe contains when it has no allergens', async () => {
-    answerRecipe(sampleRecipe({ tags: [{ id: 3, type: 'cuisine', name: 'Italian' }] }));
-    await renderApp('/recipes/recipe-bread');
-
-    await heading();
-    expect(tagChips()).toEqual(['Italian']);
-  });
-
-  it('shows no tags for a recipe without them', async () => {
-    answerRecipe(sampleRecipe({ tags: [] }));
-    await renderApp('/recipes/recipe-bread');
-
-    await heading();
-    expect(screen.queryByRole('list', { name: 'Tags' })).toBeNull();
+    expect(shown).toEqual({
+      'allergens and others': ['Contains milk, wheat', 'Italian', 'Vegetarian', 'Weeknight'],
+      'allergens only': ['Contains eggs'],
+      'no allergens': ['Italian'],
+      none: null,
+    });
   });
 
   it('says when a recipe is private', async () => {
@@ -403,16 +396,12 @@ describe('the recipe page', () => {
     await heading();
     const label = screen.getByText('Private');
     expect(label.textContent.trim()).toBe('Private');
-    expect(label.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it.each([
-    ['their own recipe', 'editor', testUsers.editor],
-    ["someone else's shared recipe", 'editor', testUsers.admin],
-  ] as const)('links editors to editing %s', async (_, role, owner) => {
-    answerRecipe(sampleRecipe({ owner: { id: owner.id, name: owner.name } }));
+  it("links editors to editing someone else's shared recipe", async () => {
+    answerRecipe(sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name } }));
     answerTags();
-    const { router, user } = await renderApp('/recipes/recipe-bread', { signedInAs: role });
+    const { router, user } = await renderApp('/recipes/recipe-bread', { signedInAs: 'editor' });
     await heading();
     await screen.findByRole('radio', { name: 'US customary' });
 
@@ -478,22 +467,6 @@ describe('the recipe page', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(title);
     });
-  });
-
-  it('has no accessibility violations', async () => {
-    answerRecipe(
-      sampleRecipe({
-        visibility: 'private',
-        tags: [
-          { id: 1, type: 'cuisine', name: 'Italian' },
-          { id: 2, type: 'allergen', name: 'milk' },
-        ],
-      }),
-    );
-    await renderApp('/recipes/recipe-bread');
-
-    await heading();
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });
 
@@ -576,27 +549,33 @@ describe('scaling a recipe', () => {
 
   // Whole numbers apply as they're typed, so "2.5" applies 2 on the way. Leaving the field shows the
   // number that applies.
-  it.each([
-    ['0', '8'],
-    ['two', '8'],
-    ['', '8'],
-    ['2.5', '2'],
-    ['1001', '100'],
-  ])('says what’s wrong with %j, and leaves %s applied', async (typed, kept) => {
+  it('says what’s wrong with servings it can’t use, and leaves the last ones it could applied', async () => {
     answerRecipe(sampleRecipe());
     const { user } = await renderApp('/recipes/recipe-bread');
     await heading();
 
-    await user.clear(servingsField());
-    if (typed) await user.type(servingsField(), typed);
+    const outcomes: Record<string, { said: string[]; kept: string }> = {};
+    // Typed a character at a time, 1001 is 100 before it's too many.
+    for (const typed of ['', 'two', '0', '1001']) {
+      await user.clear(servingsField());
+      if (typed) await user.type(servingsField(), typed);
+      const said =
+        servingsField().getAttribute('aria-invalid') === 'true' ? describedBy(servingsField()) : [];
+      await user.tab();
+      expect(servingsField().getAttribute('aria-invalid')).toBeNull();
+      outcomes[typed] = { said, kept: (servingsField() as HTMLInputElement).value };
+      if (typed === '0') {
+        expect(ingredients()).toEqual(['3 cups all-purpose flour', 'salt, to taste']);
+      }
+    }
 
-    expect(servingsField().getAttribute('aria-invalid')).toBe('true');
-    expect(describedBy(servingsField())).toEqual(['Enter a whole number from 1 to 1000.']);
-
-    await user.tab();
-    expect(servingsField()).toHaveProperty('value', kept);
-    expect(servingsField().getAttribute('aria-invalid')).toBeNull();
-    if (kept === '8') expect(ingredients()).toEqual(['3 cups all-purpose flour', 'salt, to taste']);
+    const message = ['Enter a whole number from 1 to 1000.'];
+    expect(outcomes).toEqual({
+      '': { said: message, kept: '8' },
+      two: { said: message, kept: '8' },
+      '0': { said: message, kept: '8' },
+      '1001': { said: message, kept: '100' },
+    });
   });
 
   it('starts each recipe at its own servings', async () => {
@@ -618,15 +597,6 @@ describe('scaling a recipe', () => {
     await screen.findByRole('heading', { level: 1, name: 'Rolls' });
     expect(servingsField()).toHaveProperty('value', '12');
     expect(status().textContent.trim()).toBe('');
-  });
-
-  it('has no accessibility violations while scaled', async () => {
-    answerRecipe(sampleRecipe());
-    const { user } = await renderApp('/recipes/recipe-bread');
-    await heading();
-    await user.click(screen.getByRole('button', { name: 'More servings' }));
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });
 

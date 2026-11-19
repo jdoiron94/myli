@@ -4,13 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import type { Invitation } from '@/admin/invitations.ts';
 import { ROLE_DESCRIPTIONS } from '@/lib/roles.ts';
-import {
-  accessibilityViolations,
-  apiServer,
-  describedBy,
-  problemResponse,
-  renderApp,
-} from '@/testing.ts';
+import { apiServer, describedBy, problemResponse, renderApp } from '@/testing.ts';
 
 const KATHERINE: Invitation = {
   id: 'invitation-2',
@@ -182,7 +176,6 @@ describe('the invitations page', () => {
     );
     // Retried twice before giving up, as every query is.
     expect(sent.lists).toBe(3);
-    expect(await accessibilityViolations()).toEqual([]);
 
     // Still failing: they're told the new try happened, and stay on the button.
     await user.click(screen.getByRole('button', { name: 'Try again' }));
@@ -227,13 +220,6 @@ describe('the invitations page', () => {
       "You don't have permission to do this.",
     );
     expect(router.currentRoute.value.fullPath).toBe('/admin/invitations');
-  });
-
-  it('has no accessibility violations', async () => {
-    await renderInvitations();
-    await table();
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });
 
@@ -283,7 +269,6 @@ describe('inviting someone', () => {
     });
     expect(emailField()).toHaveProperty('value', '');
     expect(screen.getByRole('radio', { name: 'Viewer' }).getAttribute('aria-checked')).toBe('true');
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(screen.getByRole('button', { name: 'Copy' }));
 
@@ -494,8 +479,6 @@ describe('revoking an invitation', () => {
     expect(confirm.textContent).toContain(
       'Their link stops working. You can invite this email again later.',
     );
-    // See the theme menu's test for `region`.
-    expect(await accessibilityViolations({ skip: ['region'] })).toEqual([]);
     expect(sent.revokes).toEqual([]);
 
     await user.click(within(confirm).getByRole('button', { name: 'Revoke' }));
@@ -636,21 +619,10 @@ describe('what the page says after a change', () => {
     expect(screen.queryByText(/^Revoked/)).toBeNull();
   });
 
-  it.each([
-    [
-      'resending works',
-      async (user: Awaited<ReturnType<typeof renderInvitations>>['user']) => {
-        await user.click(resendButton('margaret@example.com'));
-      },
-    ],
-    [
-      'inviting works',
-      async (user: Awaited<ReturnType<typeof renderInvitations>>['user']) => {
-        await user.type(emailField(), 'dorothy@example.com');
-        await user.click(inviteButton());
-      },
-    ],
-  ])('drops the last failure once %s', async (_, change) => {
+  /** Fails a resend, does `change`, and checks the failure is gone. */
+  async function failThen(
+    change: (user: Awaited<ReturnType<typeof renderInvitations>>['user']) => Promise<void>,
+  ) {
     let resends = 0;
     const { user } = await renderInvitations({
       resend: () => {
@@ -668,5 +640,18 @@ describe('what the page says after a change', () => {
       expect(document.activeElement).toBe(linkField());
     });
     expect(screen.queryByRole('alert')).toBeNull();
+  }
+
+  it('drops the last failure once resending works', async () => {
+    await failThen(async (user) => {
+      await user.click(resendButton('margaret@example.com'));
+    });
+  });
+
+  it('drops the last failure once inviting works', async () => {
+    await failThen(async (user) => {
+      await user.type(emailField(), 'dorothy@example.com');
+      await user.click(inviteButton());
+    });
   });
 });

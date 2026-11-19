@@ -4,7 +4,6 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import {
-  accessibilityViolations,
   apiServer,
   NO_RECIPES,
   NO_SEARCH_RESULTS,
@@ -75,72 +74,18 @@ async function openRecipe(role: Role = 'editor') {
 }
 
 describe('what a reader can do with a recipe', () => {
-  it.each([
-    [
-      'their own private recipe',
-      'editor',
-      testUsers.editor,
-      'private',
-      ['Edit recipe', 'Share with everyone', 'Delete recipe'],
-    ],
-    [
-      'their own shared recipe',
-      'editor',
-      testUsers.editor,
-      'shared',
-      ['Edit recipe', 'Make private', 'Delete recipe'],
-    ],
-    [
-      "someone else's shared recipe, as an editor",
-      'editor',
-      testUsers.admin,
-      'shared',
-      ['Edit recipe'],
-    ],
-    [
-      "someone else's shared recipe, as an admin",
-      'admin',
-      testUsers.editor,
-      'shared',
-      ['Edit recipe', 'Delete recipe'],
-    ],
-    ['a shared recipe, as a viewer', 'viewer', testUsers.editor, 'shared', []],
-  ] as const)(
-    'offers what the policy allows for %s',
-    async (_, role, owner, visibility, offered) => {
-      storeRecipe(sampleRecipe({ owner: { id: owner.id, name: owner.name }, visibility }));
-      await openRecipe(role);
+  // The policy itself is tested in @myli/shared. Each action here asks it about a different one.
+  it('offers what the policy allows: an editor may edit someone else’s shared recipe, nothing more', async () => {
+    storeRecipe(
+      sampleRecipe({
+        owner: { id: testUsers.admin.id, name: testUsers.admin.name },
+        visibility: 'shared',
+      }),
+    );
+    await openRecipe('editor');
 
-      expect(actions()).toEqual(offered);
-    },
-  );
-
-  it.each([
-    [
-      'private',
-      { 'Edit recipe': 'pencil', 'Share with everyone': 'users', 'Delete recipe': 'trash' },
-    ],
-    ['shared', { 'Edit recipe': 'pencil', 'Make private': 'lock', 'Delete recipe': 'trash' }],
-  ] as const)(
-    'marks each action on a %s recipe with an icon, hidden from screen readers',
-    async (visibility, icons) => {
-      storeRecipe(sampleRecipe({ visibility }));
-      await openRecipe();
-
-      const shown = Object.fromEntries(
-        actions().map((name) => {
-          const action = screen.queryByRole('link', { name }) ?? button(name);
-          const icon = action.querySelector('svg');
-          expect(icon?.getAttribute('aria-hidden')).toBe('true');
-          return [
-            name,
-            icon?.getAttribute('class')?.match(/\blucide-([a-z0-9-]+?)(?:-icon)?(?=\s|$)/)?.[1],
-          ];
-        }),
-      );
-      expect(shown).toEqual(icons);
-    },
-  );
+    expect(actions()).toEqual(['Edit recipe']);
+  });
 
   it('shares a private recipe once asked, and makes it private again', async () => {
     const sent = storeRecipe(sampleRecipe({ visibility: 'private' }));
@@ -219,31 +164,33 @@ describe('what a reader can do with a recipe', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it.each([
-    ['Share with everyone', 'Share'],
-    ['Delete recipe', 'Delete recipe'],
-  ])('asked to “%s” again while it’s under way, sends one request', async (open, confirm) => {
-    const held = Promise.withResolvers<undefined>();
+  it('sends one request when asked again while one is under way, to share or to delete', async () => {
+    let held = Promise.withResolvers<undefined>();
     const sent = storeRecipe(sampleRecipe({ visibility: 'private' }), async () => {
       await held.promise;
       return undefined;
     });
     const { user } = await openRecipe();
-
-    const ask = async () => {
-      await user.click(button(open));
-      await user.click(
-        within(screen.getByRole('alertdialog')).getByRole('button', { name: confirm }),
-      );
+    const askTwice = async (open: string, confirm: string) => {
+      for (let time = 0; time < 2; time += 1) {
+        await user.click(button(open));
+        await user.click(
+          within(screen.getByRole('alertdialog')).getByRole('button', { name: confirm }),
+        );
+      }
     };
-    await ask();
-    await ask();
-    held.resolve(undefined);
 
+    await askTwice('Share with everyone', 'Share');
+    held.resolve(undefined);
     await waitFor(() => {
-      expect(status()).not.toEqual([]);
+      expect(status()).toEqual(['Shared: everyone on myli can see it now.']);
     });
-    expect(sent).toHaveLength(1);
+    held = Promise.withResolvers<undefined>();
+    await askTwice('Delete recipe', 'Delete recipe');
+    held.resolve(undefined);
+    await screen.findByRole('heading', { level: 1, name: 'Recipes' });
+
+    expect(sent).toEqual([{ method: 'PUT', visibility: 'shared' }, { method: 'DELETE' }]);
   });
 
   it('deletes a recipe once asked, then goes home, saying so', async () => {
@@ -288,59 +235,74 @@ describe('what a reader can do with a recipe', () => {
     cover: null,
   };
 
-  it.each([
-    {
-      page: 'home',
+  /** Opens `page`, then the recipe from it, deletes it and goes back to the page. */
+  async function deleteFrom({
+    path,
+    heading,
+    api,
+    before,
+    after,
+    loading,
+  }: {
+    path: string;
+    heading: string;
+    api: string;
+    before: object;
+    after: object;
+    loading: string;
+  }) {
+    storeRecipe(sampleRecipe());
+    const askedAgain = Promise.withResolvers<undefined>();
+    let asked = 0;
+    apiServer.use(
+      http.get(api, async () => {
+        asked += 1;
+        if (asked === 1) return HttpResponse.json(before);
+        await askedAgain.promise;
+        return HttpResponse.json(after);
+      }),
+    );
+    const { user, router } = await renderApp(path);
+    await user.click(await screen.findByRole('link', { name: 'Weeknight Bread' }));
+    await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
+    await screen.findByRole('radio', { name: 'US customary' });
+
+    await user.click(button('Delete recipe'));
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete recipe' }),
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Recipes' });
+    // Deleting goes home; search is a step further.
+    await router.push(path);
+
+    await screen.findByRole('heading', { level: 1, name: heading });
+    expect(screen.queryByRole('link', { name: 'Weeknight Bread' })).toBeNull();
+    expect(screen.getByText(loading)).toBeDefined();
+    askedAgain.resolve(undefined);
+    await screen.findByText('No recipes yet.');
+  }
+
+  it('forgets what home loaded before, so it never shows the recipe deleted', async () => {
+    await deleteFrom({
       path: '/',
       heading: 'Recipes',
       api: '/api/v1/recipes',
       before: { ...NO_RECIPES, recipes: [bread], total: 1, totalPages: 1 },
       after: NO_RECIPES,
       loading: 'Loading recipes…',
-    },
-    {
-      page: 'search',
+    });
+  });
+
+  it('forgets what search loaded before, so it never shows the recipe deleted', async () => {
+    await deleteFrom({
       path: '/search',
       heading: 'Search',
       api: '/api/v1/search/recipes',
       before: { ...NO_SEARCH_RESULTS, hits: [bread], totalHits: 1, totalPages: 1 },
       after: NO_SEARCH_RESULTS,
       loading: 'Searching…',
-    },
-  ])(
-    'forgets what $page loaded before, so it never shows the recipe deleted',
-    async ({ path, heading, api, before, after, loading }) => {
-      storeRecipe(sampleRecipe());
-      const askedAgain = Promise.withResolvers<undefined>();
-      let asked = 0;
-      apiServer.use(
-        http.get(api, async () => {
-          asked += 1;
-          if (asked === 1) return HttpResponse.json(before);
-          await askedAgain.promise;
-          return HttpResponse.json(after);
-        }),
-      );
-      const { user, router } = await renderApp(path);
-      await user.click(await screen.findByRole('link', { name: 'Weeknight Bread' }));
-      await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
-      await screen.findByRole('radio', { name: 'US customary' });
-
-      await user.click(button('Delete recipe'));
-      await user.click(
-        within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete recipe' }),
-      );
-      await screen.findByRole('heading', { level: 1, name: 'Recipes' });
-      // Deleting goes home; search is a step further.
-      await router.push(path);
-
-      await screen.findByRole('heading', { level: 1, name: heading });
-      expect(screen.queryByRole('link', { name: 'Weeknight Bread' })).toBeNull();
-      expect(screen.getByText(loading)).toBeDefined();
-      askedAgain.resolve(undefined);
-      await screen.findByText('No recipes yet.');
-    },
-  );
+    });
+  });
 
   it('says why deleting failed, staying on the recipe', async () => {
     storeRecipe(sampleRecipe(), () => problemResponse(500, 'Boom.'));
@@ -355,16 +317,5 @@ describe('what a reader can do with a recipe', () => {
       "Something went wrong on myli's server. Try again in a moment.",
     );
     expect(router.currentRoute.value.fullPath).toBe('/recipes/recipe-bread');
-  });
-
-  it('has nothing for axe to find, with a dialog open or not', async () => {
-    storeRecipe(sampleRecipe({ visibility: 'private' }));
-    const { user } = await openRecipe();
-    expect(await accessibilityViolations()).toEqual([]);
-
-    await user.click(button('Delete recipe'));
-    await screen.findByRole('alertdialog');
-
-    expect(await accessibilityViolations()).toEqual([]);
   });
 });

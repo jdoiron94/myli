@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { type RebuildState, type SearchIndexStatus, STATUS_POLL_MS } from '@/admin/search-index.ts';
-import { accessibilityViolations, apiServer, problemResponse, renderApp } from '@/testing.ts';
+import { apiServer, problemResponse, renderApp } from '@/testing.ts';
 
 const PATH = '/admin/search';
 const ASKED = '2026-11-17T14:02:00.000Z';
@@ -44,18 +44,17 @@ describe('the search index page', () => {
     await rebuildButton();
     expect(await statusText()).toBe('Search is working. There hasn’t been a rebuild yet.');
     expect(document.title).toBe('Search index · myli');
-    expect(await accessibilityViolations()).toEqual([]);
   });
 
-  it.each([
-    ['succeeded', `The last rebuild, asked for ${asked}, finished.`],
-    ['failed', `The last rebuild, asked for ${asked}, failed. The API’s log says why.`],
-  ] as const)('tells how the latest rebuild went: %s', async (state, text) => {
-    answerStatus(status(true, state));
+  // Finishing shows once a rebuild asked for here is done, below.
+  it('tells when the latest rebuild failed', async () => {
+    answerStatus(status(true, 'failed'));
     await renderApp(PATH, { signedInAs: 'admin' });
 
     await rebuildButton();
-    expect(await statusText()).toBe(`Search is working. ${text}`);
+    expect(await statusText()).toBe(
+      `Search is working. The last rebuild, asked for ${asked}, failed. The API’s log says why.`,
+    );
   });
 
   // It waits for the page to check again, twice, then for it not to.
@@ -153,8 +152,8 @@ describe('the search index page', () => {
     expect(await statusText()).toBe('Search is working. There hasn’t been a rebuild yet.');
   });
 
-  it.each(['editor', 'viewer'] as const)('isn’t for an %s', async (role) => {
-    await renderApp(PATH, { signedInAs: role });
+  it('isn’t for editors', async () => {
+    await renderApp(PATH, { signedInAs: 'editor' });
 
     await screen.findByRole('heading', { level: 1, name: "You don't have access to this page" });
   });

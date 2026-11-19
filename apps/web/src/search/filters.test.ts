@@ -100,20 +100,30 @@ describe('timeRanges', () => {
     expect(timeRanges(searchFromQuery({}))[1].label).toBe('Any time');
   });
 
-  it.each([
-    [
+  it('adds the search’s own range when it’s another, chosen and last', () => {
+    const queries: Record<string, string>[] = [
       { minMinutes: '20', maxMinutes: '45' },
-      '20 min to 45 min',
-      { minMinutes: 20, maxMinutes: 45 },
-    ],
-    [{ minMinutes: '90' }, '1 hr 30 min or more', { minMinutes: 90 }],
-    [{ maxMinutes: '10' }, '10 min or less', { maxMinutes: 10 }],
-  ])('adds the search’s own range when it’s another: %o', (query, label, bounds) => {
-    const [ranges, chosen] = timeRanges(searchFromQuery(query));
+      { minMinutes: '90' },
+      { maxMinutes: '10' },
+    ];
+    const added = queries.map((query) => {
+      const [ranges, chosen] = timeRanges(searchFromQuery(query));
+      return { count: ranges.length, last: ranges.at(-1) === chosen, chosen };
+    });
 
-    expect(ranges).toHaveLength(7);
-    expect(ranges.at(-1)).toBe(chosen);
-    expect(chosen).toEqual({ value: 'own', label, ...bounds });
+    expect(added).toEqual([
+      {
+        count: 7,
+        last: true,
+        chosen: { value: 'own', label: '20 min to 45 min', minMinutes: 20, maxMinutes: 45 },
+      },
+      {
+        count: 7,
+        last: true,
+        chosen: { value: 'own', label: '1 hr 30 min or more', minMinutes: 90 },
+      },
+      { count: 7, last: true, chosen: { value: 'own', label: '10 min or less', maxMinutes: 10 } },
+    ]);
   });
 });
 

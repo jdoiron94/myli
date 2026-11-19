@@ -5,7 +5,6 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { answerPreferences } from '@/account/testing.ts';
 import {
-  accessibilityViolations,
   apiServer,
   describedBy,
   focusedMarkdownEditor,
@@ -186,12 +185,6 @@ describe('the steps editor', () => {
     expect(await screen.findByText('A recipe can have up to 100 steps.')).toBeTruthy();
     expect(saved).toEqual([]);
   });
-
-  it('has nothing for axe to find', async () => {
-    await editSteps('Mix.', 'Bake.');
-
-    expect(await accessibilityViolations()).toEqual([]);
-  });
 });
 
 describe('a step’s photo', () => {
@@ -272,7 +265,6 @@ describe('a step’s photo', () => {
     await user.click(button('Move step 2 up'));
     expect(stepPhotos()).toEqual(['upload-1', null]);
     expect(altField(1).value).toBe('Dough shaped into a round.');
-    expect(await accessibilityViolations()).toEqual([]);
 
     await user.click(button('Save changes'));
     await screen.findByRole('radio', { name: 'US customary' });
