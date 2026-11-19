@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/jdoiron94/myli/compare/v0.5.0...v0.6.0) (2026-11-19)
+
+
+### Features
+
+* **api:** rename, merge and delete tags, for admins ([4a1bc15](https://github.com/jdoiron94/myli/commit/4a1bc1537a5098072480be8dcf9b9e155d47de03))
+* **api:** seed 20 demo recipes with the demo accounts ([53d1a66](https://github.com/jdoiron94/myli/commit/53d1a662c4092a09d6abc50638c0c710f08eb6c3))
+* **web:** manage tags on a Tags page in the Admin menu ([ba2468f](https://github.com/jdoiron94/myli/commit/ba2468fc115274f954228cf62eaf26e423064cf3))
+* **web:** show a tag deleted meanwhile at its checkbox in the editor ([245a166](https://github.com/jdoiron94/myli/commit/245a166efa6e5882b513e1b1ffea25e448ab3c8c))
+
+
+### Bug Fixes
+
+* **web:** show the pointer over menu items ([c8c742d](https://github.com/jdoiron94/myli/commit/c8c742d8cf6dadc9379b39a63f3b32efe2634988))
+
 ## [0.5.0](https://github.com/jdoiron94/myli/compare/v0.4.0...v0.5.0) (2026-11-19)
 
 
