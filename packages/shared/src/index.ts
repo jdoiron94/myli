@@ -17,6 +17,7 @@ export {
   auditEventListSchema,
   auditEventSchema,
 } from './audit.ts';
+export { type Favorite, favoriteSchema } from './favorites.ts';
 export {
   IMAGE_MAX_BYTES,
   IMAGE_UPLOAD_TYPES,

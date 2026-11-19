@@ -290,6 +290,25 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/recipes/{id}/favorite',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/favorite`, cookie),
+  },
+  {
+    method: 'put',
+    path: '/recipes/{id}/favorite',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) =>
+      request(t, 'PUT', `/recipes/${recipeId}/favorite`, cookie, { favorite: true }),
+  },
+  {
+    method: 'get',
+    path: '/me/favorites',
+    access: 'personal.write',
+    send: (t, cookie) => request(t, 'GET', '/me/favorites?page=1', cookie),
+  },
+  {
+    method: 'get',
     path: '/tags',
     access: 'signed-in',
     send: (t, cookie) => request(t, 'GET', '/tags', cookie),
