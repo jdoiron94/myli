@@ -299,6 +299,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - Saving it never changes the published recipe, its "Updated" date included, and it's never indexed for search.
   - Discarding the draft leaves the published version unchanged.
   - The editor has **Save draft** and **Publish**, with an optional "What changed" message for the revision, and no autosave. It opens on the recipe's draft when there is one, saying who saved it last and when, and, if the recipe was published since the draft started, that publishing the draft replaces what that revision changed. **Discard draft** asks first, then goes back to the recipe, which says it was discarded.
+  - The recipe's page tells whoever may edit it that it has a draft, who saved it and when, and offers to continue it.
 - **Publishing:**
   - copies the draft into the live tables, and discards the draft
   - saves an immutable **revision**: a full JSON snapshot of the recipe, plus the author, timestamp and an optional message
