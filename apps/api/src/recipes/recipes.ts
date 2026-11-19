@@ -12,6 +12,7 @@ import type { Db, Tx } from '../db/database.ts';
 import { image, recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
 import { deleteBlobsJob, toImage } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
+import { recordRevision } from '../revisions/snapshot.ts';
 import { indexRecipeJob } from '../search/indexing.ts';
 import { byTypeThenName } from '../tags/tags.ts';
 
@@ -200,6 +201,14 @@ export type WriteResult = { ok: true } | WriteFailure;
 /** A live (not deleted) recipe's row. */
 const live = (id: string) => and(eq(recipe.id, id), isNull(recipe.deletedAt));
 
+/** Records the recipe as a save in this transaction has just left it, as its next revision. */
+function recordPublished(tx: Tx, id: string, authorId: string) {
+  const published = loadRecipe(tx, id);
+  // Written in this transaction: only a bug could lose it.
+  if (!published) throw new Error('a recipe just saved could not be read back');
+  recordRevision(tx, published, authorId);
+}
+
 /**
  * Whether the live recipe is still at `version`, the one the write was based on (ADR 0007). Checked
  * first, so a write based on an old version is refused as that, whatever else is wrong with it.
@@ -232,6 +241,7 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
       .get();
     writeParts(tx, id, request);
     writePhotos(tx, id, photos);
+    recordPublished(tx, id, ownerId);
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
@@ -271,6 +281,7 @@ export function updateRecipe(
     tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
     writeParts(tx, id, content);
     writePhotos(tx, id, photos);
+    recordPublished(tx, id, editorId);
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     return { ok: true, id };
   });
@@ -344,13 +355,20 @@ export function findRecipeAccess(db: Db | Tx, id: string): PolicyRecipe | undefi
     .get();
 }
 
-/** The whole recipe as the API shows it. `undefined` if it doesn't exist or was deleted. */
-export function loadRecipe(db: Db | Tx, id: string): Recipe | undefined {
+/**
+ * The whole recipe as the API shows it. `undefined` if it doesn't exist, or was deleted unless
+ * `includeDeleted`.
+ */
+export function loadRecipe(
+  db: Db | Tx,
+  id: string,
+  { includeDeleted = false } = {},
+): Recipe | undefined {
   const found = db
     .select({ row: recipe, ownerName: user.name })
     .from(recipe)
     .innerJoin(user, eq(user.id, recipe.ownerId))
-    .where(live(id))
+    .where(includeDeleted ? eq(recipe.id, id) : live(id))
     .get();
   if (!found) return undefined;
   const { row, ownerName } = found;
