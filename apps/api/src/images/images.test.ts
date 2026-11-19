@@ -16,7 +16,9 @@ function setUp() {
   const db: Db = createTestDatabase();
   db.insert(user).values({ id: 'uploader', name: 'Uploader', email: 'up@example.com' }).run();
   const blobs = createMemoryBlobStore();
-  let now = new Date('2026-11-18T12:00:00Z');
+  // From the real time: jobs the handlers queue are due from then, and a fixed date in the past
+  // left the blobs job due after the worker's clock once a day had passed.
+  let now = new Date();
   const worker = createWorker({
     services: {
       db,
