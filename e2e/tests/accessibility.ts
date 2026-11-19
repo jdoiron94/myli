@@ -78,17 +78,6 @@ function withoutPointer(page: Page, popup: boolean) {
   );
 }
 
-/** Runs `check` at a phone's width, then puts the page back at the width it had. */
-export async function atPhoneWidth(page: Page, check: () => Promise<void>) {
-  const desktop = page.viewportSize();
-  try {
-    await page.setViewportSize(PHONE);
-    await check();
-  } finally {
-    if (desktop) await page.setViewportSize(desktop);
-  }
-}
-
 /**
  * Checks the page as it is now with axe (in Chromium), in the light and dark themes, color contrast
  * included (which jsdom can't measure), and at a phone's width, where it mustn't scroll sideways.
