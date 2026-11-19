@@ -379,7 +379,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - **Layout:**
   - a large-type, distraction-free view, under the app's usual header
   - a servings selector, and the units switch
-  - scaled ingredients
+  - scaled ingredients, and the equipment the recipe needs
   - **all steps on one page**, with their photos
 - **Servings go along:** cook mode opens at the servings chosen on the recipe's page, and the link back keeps those chosen in cook mode. The address holds them (`?servings=6`), so a reload keeps them too.
 - **Screen stays awake** while cook mode is open, using the Screen Wake Lock API, and releases when cook mode closes.

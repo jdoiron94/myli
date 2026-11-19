@@ -65,7 +65,7 @@ function fakeWakeLock(answer: () => Promise<unknown> = () => Promise.resolve()) 
 }
 
 describe('cook mode', () => {
-  it('carries the servings chosen to cook mode and back, keeping each page’s title', async () => {
+  it('shows what to gather and every step, carrying the servings chosen there and back', async () => {
     answerRecipe(sampleRecipe());
     const { router, user } = await renderApp('/recipes/recipe-bread');
     await recipeHeading();
@@ -90,6 +90,7 @@ describe('cook mode', () => {
     await waitFor(() => {
       expect(items('Ingredients')).toEqual(['1½ quarts all-purpose flour', 'salt, to taste']);
     });
+    expect(items('Equipment')).toEqual(['Loaf pan', 'Stand mixer']);
     expect(items('Steps')).toEqual(['Mix everything.', 'Bake at 400°F.']);
 
     await user.click(screen.getByRole('button', { name: 'Fewer servings' }));

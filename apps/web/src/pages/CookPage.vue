@@ -15,8 +15,8 @@ import { servingsQuery, useServings } from '@/recipes/servings.ts';
 import { documentTitle } from '@/router.ts';
 
 /**
- * Cook mode (spec §3.6): a recipe's ingredients, scaled, and all its steps on one page, in large
- * type, with the screen kept on while it's open.
+ * Cook mode (spec §3.6): a recipe's ingredients, scaled, the equipment it needs, and all its steps
+ * on one page, in large type, with the screen kept on while it's open.
  */
 const props = defineProps<{ id: string }>();
 
@@ -95,18 +95,40 @@ const WAKE_LOCK_TEXT: Record<WakeLockState, string> = {
       v-if="recipe"
       class="mt-8 grid gap-x-12 gap-y-10 text-lg sm:text-xl md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
     >
-      <section aria-labelledby="ingredients-heading">
-        <h2
-          id="ingredients-heading"
-          class="mb-3 text-2xl font-semibold"
+      <!-- What to gather first: the ingredients, then the equipment, as on the recipe's page. -->
+      <div class="space-y-10">
+        <section aria-labelledby="ingredients-heading">
+          <h2
+            id="ingredients-heading"
+            class="mb-3 text-2xl font-semibold"
+          >
+            Ingredients
+          </h2>
+          <ScaledIngredients
+            v-model:servings="servings"
+            :recipe="recipe"
+          />
+        </section>
+        <section
+          v-if="recipe.equipment.length > 0"
+          aria-labelledby="equipment-heading"
         >
-          Ingredients
-        </h2>
-        <ScaledIngredients
-          v-model:servings="servings"
-          :recipe="recipe"
-        />
-      </section>
+          <h2
+            id="equipment-heading"
+            class="mb-3 text-2xl font-semibold"
+          >
+            Equipment
+          </h2>
+          <ul class="space-y-2">
+            <li
+              v-for="(item, index) in recipe.equipment"
+              :key="index"
+            >
+              {{ item }}
+            </li>
+          </ul>
+        </section>
+      </div>
       <section aria-labelledby="steps-heading">
         <h2
           id="steps-heading"
