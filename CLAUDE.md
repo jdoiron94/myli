@@ -295,6 +295,24 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - `docker run --rm --network none -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:1.7.12 -ignore 'ref is missing'`
 
 ### Testing
+- **A test earns its place** when it would fail for a bug someone could plausibly write, one that typecheck, lint and the other tests wouldn't catch, and it sits at the level where that behavior lives. Fewer, stronger tests beat many weak ones: the suite should stay small enough to read.
+- **Write these:**
+  - **Journeys** (Playwright): one path through each feature, in both browsers, with axe and the CSP check.
+  - **Pages, from the user's side:** what someone does and what they then see: results, errors at their field, focus, refusals. One test per behavior, not per field or value.
+  - **API endpoints, over HTTP:** the result, each distinct refusal, and the side effects that commit with it (jobs, audit events, deletions).
+  - **Security boundaries:** the permission matrix and the paths a private recipe could leak through, the cross-site gate, the client's address, SSRF, markdown sanitizing, uploads and blob keys. A few cases per rule: one allowed, one refused, and the edge.
+  - **Logic with real branching:** ingredient parsing, quantities, units, scaling, search filters. Properties (fast-check) for invariants, and one table of the inputs that are actually tricky.
+  - **Drift between two sources that must agree:** the generated OpenAPI document and types, migrations and the schema, `.env.example` and the env schema, every check script in CI, every endpoint in the matrix, the editor and the renderer. Also the repository-wide rules a review would miss in one file: actions pinned to commits, no release-age exemption.
+  - **Real services:** Meilisearch, the built images, Compose, SMTP.
+  - **Regressions:** a bug that actually happened, with a comment saying what it was.
+- **Never write these:**
+  - **Tautologies:** a test that restates what it tests, such as a config value, a table the code also holds, a constant, or a component showing the prop it was given.
+  - What typecheck or lint already guarantees.
+  - A library's own behavior, beyond how we configure it.
+  - **Layout and decoration:** sizes, distances between elements, which icon shows. Someone looking at the page checks those. The only layout checks are `checkPage()`'s, which apply to every page: contrast, and no sideways scrolling at a phone's width.
+  - One test per value when the values take the same path.
+  - The same rule at several levels. Test it where it lives; above that, only that it's wired up, with one case.
+- **A table of cases is one test.** Compare every result in a single `toEqual`, keyed by input (`Object.fromEntries(inputs.map((input) => [input, parse(input)]))`), so one diff shows every mismatch. Don't use `it.each`, which makes each row a test of its own.
 - Vitest for unit tests.
 - Web components are tested with `@testing-library/vue` in jsdom: query by role and accessible name, and interact through `@testing-library/user-event`. `apps/web/src/testing.ts` has the helpers:
   - `renderApp(path, { signedInAs, setupNeeded })` renders the whole app, mounting it as `main.ts` does, and returns `{ router, queryClient, user }`. An editor from `testUsers` is signed in by default; pass a role, or `null` for no one. `setupNeeded` (false by default) is what `GET /setup` answers when no one is signed in. Its queries retry without waiting.
