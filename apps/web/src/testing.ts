@@ -107,6 +107,13 @@ export function answerRecipeList(list = NO_RECIPES) {
   apiServer.use(http.get(RECIPE_LIST_PATH, () => HttpResponse.json(list)));
 }
 
+const FAVORITE_PATH = `${API_BASE_PATH}/recipes/:id/favorite`;
+
+/** Answers whether any recipe is one of the signed-in user's favorites: not, unless given. */
+export function answerFavorite(favorite = false) {
+  apiServer.use(http.get(FAVORITE_PATH, () => HttpResponse.json({ favorite })));
+}
+
 /** Whether the current test already answers `method path` itself. */
 function answered(method: string, path: string) {
   return apiServer
@@ -129,9 +136,9 @@ export interface RenderAppOptions {
 /**
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
  * while the router is still making its first navigation, which waits for the session and, when no
- * one is signed in, for whether setup is needed. It answers both from the options, and the recipe
- * list and search with no recipes, unless the test already answers them itself. Queries retry without
- * waiting in between.
+ * one is signed in, for whether setup is needed. It answers both from the options, the recipe
+ * list and search with no recipes, and every recipe as no favorite, unless the test already answers
+ * them itself. Queries retry without waiting in between.
  */
 export async function renderApp(
   path: string,
@@ -142,6 +149,8 @@ export async function renderApp(
   // Home lists recipes, and search searches for them.
   if (!answered('GET', RECIPE_LIST_PATH)) answerRecipeList();
   if (!answered('GET', SEARCH_PATH)) answerSearch();
+  // A recipe's page asks whether it's a favorite.
+  if (!answered('GET', FAVORITE_PATH)) answerFavorite();
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();

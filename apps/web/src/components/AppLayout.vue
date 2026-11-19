@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { MailIcon, PlusIcon, SearchCheckIcon, SearchIcon, UserCogIcon } from '@lucide/vue';
+import {
+  HeartIcon,
+  MailIcon,
+  PlusIcon,
+  SearchCheckIcon,
+  SearchIcon,
+  UserCogIcon,
+} from '@lucide/vue';
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
 import { type Component, computed, nextTick, onBeforeUnmount, useTemplateRef } from 'vue';
@@ -19,6 +26,7 @@ const signOut = useSignOut();
  */
 const NAV_PAGES = [
   { name: 'search', icon: SearchIcon },
+  { name: 'favorites', icon: HeartIcon },
   { name: 'new-recipe', icon: PlusIcon },
 ] as const;
 const ADMIN_PAGES = [

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LockIcon, PencilIcon, TrashIcon, UsersIcon } from '@lucide/vue';
+import { HeartIcon, LockIcon, PencilIcon, TrashIcon, UsersIcon } from '@lucide/vue';
 import { can, type RecipeAction } from '@myli/shared';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { computed, ref } from 'vue';
@@ -19,9 +19,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { goWithNotice } from '@/lib/page-notice.ts';
+import { favoriteQuery, useSetFavorite } from './favorites.ts';
 import { type Recipe, recipeQuery, useChangeVisibility, useDeleteRecipe } from './recipe.ts';
 
-/** What the reader may do with a recipe, by the policy: edit it, change who sees it, delete it. */
+/**
+ * What the reader may do with a recipe, by the policy: keep it as a favorite, edit it, change who
+ * sees it, delete it.
+ */
 const props = defineProps<{ recipe: Recipe }>();
 
 const { data: user } = useQuery(sessionQuery);
@@ -30,6 +34,7 @@ const allowed = (action: RecipeAction) =>
     ownerId: props.recipe.owner.id,
     visibility: props.recipe.visibility,
   });
+const canFavorite = computed(() => allowed('recipe.interact'));
 const canEdit = computed(() => allowed('recipe.edit'));
 const canSetVisibility = computed(() => allowed('recipe.setVisibility'));
 const canDelete = computed(() => allowed('recipe.trash'));
@@ -37,6 +42,23 @@ const shared = computed(() => props.recipe.visibility === 'shared');
 
 const notice = ref<string>();
 const failure = ref<string>();
+
+// Only asked by someone who may keep it, and the button shows once it's known.
+const favorite = useQuery(
+  computed(() => ({ ...favoriteQuery(props.recipe.id), enabled: canFavorite.value })),
+);
+const setFavorite = useSetFavorite();
+
+async function toggleFavorite() {
+  if (setFavorite.isPending.value || favorite.data.value === undefined) return;
+  notice.value = undefined;
+  failure.value = undefined;
+  try {
+    await setFavorite.mutateAsync({ id: props.recipe.id, favorite: !favorite.data.value });
+  } catch (error) {
+    failure.value = failureMessage(error);
+  }
+}
 
 const changeVisibility = useChangeVisibility();
 
@@ -79,8 +101,22 @@ async function remove() {
 </script>
 
 <template>
-  <div v-if="canEdit || canSetVisibility || canDelete">
+  <div v-if="canFavorite || canEdit || canSetVisibility || canDelete">
     <div class="flex flex-wrap gap-2">
+      <!-- A toggle: its name stays, and it says whether it's on. -->
+      <Button
+        v-if="canFavorite && favorite.data.value !== undefined"
+        variant="outline"
+        size="sm"
+        :aria-pressed="favorite.data.value"
+        @click="toggleFavorite"
+      >
+        <HeartIcon
+          aria-hidden="true"
+          :class="{ 'fill-current': favorite.data.value }"
+        />
+        Favorite
+      </Button>
       <Button
         v-if="canEdit"
         variant="outline"

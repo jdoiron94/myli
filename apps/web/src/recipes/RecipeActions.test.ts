@@ -15,7 +15,7 @@ import type { Recipe, RecipeSummary } from './recipe.ts';
 import { recipeQuery } from './recipe.ts';
 import { sampleRecipe } from './testing.ts';
 
-const ACTIONS = ['Edit recipe', 'Share with everyone', 'Make private', 'Delete recipe'];
+const ACTIONS = ['Favorite', 'Edit recipe', 'Share with everyone', 'Make private', 'Delete recipe'];
 /** The actions the page offers, in order. */
 const actions = () =>
   ACTIONS.filter(
@@ -83,8 +83,45 @@ describe('what a reader can do with a recipe', () => {
       }),
     );
     await openRecipe('editor');
+    await screen.findByRole('button', { name: 'Favorite' });
 
-    expect(actions()).toEqual(['Edit recipe']);
+    expect(actions()).toEqual(['Favorite', 'Edit recipe']);
+  });
+
+  it('keeps a recipe as a favorite once pressed, says why when it can’t, and lets it go', async () => {
+    storeRecipe(sampleRecipe());
+    let refusing = true;
+    const sent: boolean[] = [];
+    apiServer.use(
+      http.put('/api/v1/recipes/:id/favorite', async ({ request }) => {
+        const { favorite } = (await request.json()) as { favorite: boolean };
+        sent.push(favorite);
+        return refusing ? problemResponse(500, 'Boom.') : HttpResponse.json({ favorite });
+      }),
+    );
+    const { user } = await openRecipe();
+    const favorite = await screen.findByRole('button', { name: 'Favorite' });
+    expect(favorite.getAttribute('aria-pressed')).toBe('false');
+
+    await user.click(favorite);
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
+      "Something went wrong on myli's server. Try again in a moment.",
+    );
+    expect(favorite.getAttribute('aria-pressed')).toBe('false');
+
+    refusing = false;
+    await user.click(favorite);
+    await waitFor(() => {
+      expect(favorite.getAttribute('aria-pressed')).toBe('true');
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.activeElement).toBe(favorite);
+
+    await user.click(favorite);
+    await waitFor(() => {
+      expect(favorite.getAttribute('aria-pressed')).toBe('false');
+    });
+    expect(sent).toEqual([true, true, false]);
   });
 
   it('shares a private recipe once asked, and makes it private again', async () => {

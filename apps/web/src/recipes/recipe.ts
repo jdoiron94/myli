@@ -20,14 +20,20 @@ export const recipeQuery = (id: string) =>
       responseData(await api.GET('/recipes/{id}', { params: { path: { id } } })).recipe,
   });
 
+/** The lists of recipes: every one the reader may see, newest first, or their favorites. */
+export type RecipeListName = 'all' | 'favorites';
+
 /**
- * One page of the recipes the signed-in user may see, newest first. While another page loads, the
- * last one stays, so the page doesn't jump back to its loading state.
+ * One page of a list of recipes. While another page loads, the last one stays, so the page doesn't
+ * jump back to its loading state.
  */
-export const recipeListQuery = (page: number) =>
+export const recipeListQuery = (list: RecipeListName, page: number) =>
   queryOptions({
-    queryKey: ['recipe-list', page],
-    queryFn: async () => responseData(await api.GET('/recipes', { params: { query: { page } } })),
+    queryKey: ['recipe-list', list, page],
+    queryFn: async () =>
+      list === 'favorites'
+        ? responseData(await api.GET('/me/favorites', { params: { query: { page } } }))
+        : responseData(await api.GET('/recipes', { params: { query: { page } } })),
     placeholderData: keepPreviousData,
   });
 
@@ -79,7 +85,7 @@ export const useDeleteRecipe = () => {
     mutationFn: async (id: string) => {
       await api.DELETE('/recipes/{id}', { params: { path: { id } } });
     },
-    // Lists and searches from before would show it, until each was fetched again.
+    // Lists (favorites too) and searches from before would show it, until each was fetched again.
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: ['recipe-list'] });
       queryClient.removeQueries({ queryKey: ['search'] });

@@ -209,9 +209,10 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
     await expect(heading(member, "You don't have access to this page")).toBeVisible();
     await expect(member).toHaveURL('/admin/users');
-    // An editor's header links to search and a new recipe, with no Admin menu.
+    // An editor's header links to search, their favorites and a new recipe, with no Admin menu.
     await expect(member.getByRole('navigation', { name: 'Main' }).getByRole('link')).toHaveText([
       'Search',
+      'Favorites',
       'New recipe',
     ]);
     await expect(adminMenuButton(member)).toHaveCount(0);
@@ -504,6 +505,25 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page).toHaveURL(/\/search\?q=crusty$/);
 
     await result.click();
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+  });
+
+  await test.step('it’s kept as a favorite, which the Favorites page lists', async () => {
+    const favorite = page.getByRole('button', { name: 'Favorite' });
+    await favorite.click();
+    await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Favorites' })
+      .click();
+
+    await expect(heading(page, 'Favorites')).toBeVisible();
+    const kept = page
+      .getByRole('list', { name: 'Favorites' })
+      .getByRole('link', { name: 'Weeknight Bread' });
+    await expect(kept).toBeVisible();
+    await checkPage(page);
+    await kept.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
   });
 
