@@ -651,6 +651,11 @@
             ],
             "description": "One of `images`, or `null` when there are none."
           },
+          "revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The number of its latest revision, which is what this shows. The history lists them all."
+          },
           "version": {
             "type": "integer",
             "exclusiveMinimum": 0,
@@ -685,6 +690,7 @@
           "tags",
           "images",
           "coverImageId",
+          "revision",
           "version",
           "createdAt",
           "updatedAt"
@@ -1621,6 +1627,11 @@
                 ],
                 "description": "One of `images`, or `null` when there are none."
               },
+              "revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "The number of its latest revision, which is what this shows. The history lists them all."
+              },
               "version": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
@@ -1655,6 +1666,7 @@
               "tags",
               "images",
               "coverImageId",
+              "revision",
               "version",
               "createdAt",
               "updatedAt"

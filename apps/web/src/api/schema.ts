@@ -3045,6 +3045,8 @@ export interface components {
             images: components["schemas"]["Image"][];
             /** @description One of `images`, or `null` when there are none. */
             coverImageId: string | null;
+            /** @description The number of its latest revision, which is what this shows. The history lists them all. */
+            revision: number;
             /** @description Goes up with every change to the recipe. The `ETag` header carries it too, and every write sends it back in `If-Match`. */
             version: number;
             /** Format: date-time */
@@ -3249,6 +3251,8 @@ export interface components {
                 images: components["schemas"]["Image"][];
                 /** @description One of `images`, or `null` when there are none. */
                 coverImageId: string | null;
+                /** @description The number of its latest revision, which is what this shows. The history lists them all. */
+                revision: number;
                 /** @description Goes up with every change to the recipe. The `ETag` header carries it too, and every write sends it back in `If-Match`. */
                 version: number;
                 /** Format: date-time */

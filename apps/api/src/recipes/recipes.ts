@@ -21,7 +21,7 @@ import {
 } from '../db/schema.ts';
 import { toImage } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
-import { recordRevision } from '../revisions/snapshot.ts';
+import { latestRevision, recordRevision } from '../revisions/snapshot.ts';
 import { indexRecipeJob } from '../search/indexing.ts';
 import { byTypeThenName } from '../tags/tags.ts';
 
@@ -483,6 +483,7 @@ export function loadRecipe(
     tags,
     images,
     coverImageId: row.coverImageId,
+    revision: latestRevision(db, id),
     version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
