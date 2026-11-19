@@ -64,7 +64,7 @@ describe('seed-demo.ts', () => {
     );
 
     // The passwords work against the database it seeded.
-    const t = createTestApp({ db: openDatabase(path) });
+    const t = createTestApp({ db: openDatabase(path), betterAuthPasswords: true });
     for (const { email, password } of printed) {
       const res = await t.app.request(`${AUTH_BASE_PATH}/sign-in/email`, {
         method: 'POST',

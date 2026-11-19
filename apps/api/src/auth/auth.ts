@@ -58,14 +58,26 @@ function checkNewPassword(path: string, body: unknown): APIError | undefined {
     : undefined;
 }
 
+/** Hashes passwords and checks them against their hash. */
+export interface PasswordHashing {
+  hash: (password: string) => Promise<string>;
+  verify: (data: { hash: string; password: string }) => Promise<boolean>;
+}
+
 export interface AuthDeps {
   db: Db;
   env: Pick<Env, 'NODE_ENV' | 'PUBLIC_URL' | 'BETTER_AUTH_SECRET'>;
   logger: Logger;
+  /**
+   * In place of Better Auth's scrypt, which is slow on purpose. Only the test app passes one
+   * (`fastPasswordHashing` in testing.ts), because tests sign in hundreds of times. Never pass
+   * one anywhere else.
+   */
+  passwordHashing?: PasswordHashing;
 }
 
 /** Better Auth, configured as ADR 0005 describes. Mounted at `AUTH_BASE_PATH` by `createApp`. */
-export function createAuth({ db, env, logger }: AuthDeps) {
+export function createAuth({ db, env, logger, passwordHashing }: AuthDeps) {
   const authLogger = logger.child({ component: 'auth' });
 
   return betterAuth({
@@ -86,6 +98,7 @@ export function createAuth({ db, env, logger }: AuthDeps) {
       // Also enforced, with the character rules, by the hook below.
       minPasswordLength: PASSWORD_MIN_LENGTH,
       maxPasswordLength: PASSWORD_MAX_LENGTH,
+      ...(passwordHashing && { password: passwordHashing }),
     },
     plugins: [
       admin({

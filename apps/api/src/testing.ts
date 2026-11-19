@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { once } from 'node:events';
 import { type AddressInfo, createServer } from 'node:net';
 import { AUTH_BASE_PATH, type Role } from '@myli/shared';
 import { createApp } from './app.ts';
-import { createAuth } from './auth/auth.ts';
+import { createAuth, type PasswordHashing } from './auth/auth.ts';
 import { createUserWithPassword } from './auth/users.ts';
 import { createMemoryBlobStore } from './blobs/memory.ts';
 import type { BlobStore } from './blobs/store.ts';
@@ -36,6 +36,23 @@ export const TEST_ENV = {
   TRUSTED_PROXIES: [],
 } as const satisfies TestEnv;
 
+/**
+ * scrypt at almost no cost. Better Auth's own settings cost tens of milliseconds of CPU for each
+ * hash, on purpose. Tests create users and sign them in hundreds of times, several files at once,
+ * which pushed the permission matrix's longest tests past their timeout on CI's runners.
+ */
+const scrypt = (password: string, salt: string) => scryptSync(password, salt, 32, { N: 2 });
+const fastPasswordHashing: PasswordHashing = {
+  hash: (password) => {
+    const salt = randomBytes(16).toString('hex');
+    return Promise.resolve(`${salt}:${scrypt(password, salt).toString('hex')}`);
+  },
+  verify: ({ hash, password }) => {
+    const [salt = '', key = ''] = hash.split(':');
+    return Promise.resolve(timingSafeEqual(scrypt(password, salt), Buffer.from(key, 'hex')));
+  },
+};
+
 export interface TestAppOptions {
   db?: Db;
   logger?: Logger;
@@ -44,6 +61,11 @@ export interface TestAppOptions {
   search?: SearchAccess;
   /** Where uploads go: in memory, unless given. */
   blobs?: BlobStore;
+  /**
+   * Better Auth's own password hashing in place of the test app's, for a database whose passwords
+   * something else hashed, as the seed script does.
+   */
+  betterAuthPasswords?: boolean;
 }
 
 /**
@@ -54,7 +76,12 @@ export function createTestApp(options: TestAppOptions = {}) {
   const db = options.db ?? createTestDatabase();
   const logger = options.logger ?? createLogger('silent');
   const env = { ...TEST_ENV, ...options.env };
-  const auth = createAuth({ db, logger, env });
+  const auth = createAuth({
+    db,
+    logger,
+    env,
+    ...(!options.betterAuthPasswords && { passwordHashing: fastPasswordHashing }),
+  });
   const search = options.search ?? {
     isReady: () => Promise.resolve(true),
     client: fakeSearchClient().client,
