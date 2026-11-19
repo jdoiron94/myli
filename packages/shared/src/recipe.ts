@@ -423,6 +423,11 @@ export const recipeDraftResultSchema = z
   })
   .meta({ id: 'RecipeDraftResult' });
 
+/** The draft as just saved. */
+export const savedDraftResultSchema = z
+  .object({ draft: recipeDraftSchema })
+  .meta({ id: 'SavedDraftResult' });
+
 /** `type` of a write refused because the recipe changed since the caller loaded it. */
 export const STALE_RECIPE_PROBLEM_TYPE = '/problems/stale-recipe';
 

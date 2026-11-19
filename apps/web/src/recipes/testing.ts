@@ -3,7 +3,8 @@ import { within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { answerPreferences } from '@/account/testing.ts';
 import { apiServer, problemResponse, testUsers } from '@/testing.ts';
-import type { Image, Recipe, RecipeSummary, Tag } from './recipe.ts';
+import type { Image, Recipe, RecipeDraft, RecipeSummary, Tag } from './recipe.ts';
+import { recipeContent } from './recipe-form.ts';
 
 /** A 1600×1200 photo, with the sizes the API makes of one that wide. */
 export const sampleImage = (id: string, alt = ''): Image => ({
@@ -89,6 +90,22 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
  * Answers GET /recipes/{id} with this recipe, and 404 for any other, and counts the requests. Also
  * answers the reader's preferences with imperial, unless the test answers them itself afterwards.
  */
+/**
+ * A draft of the sample recipe as the API would send it, unchanged so far, saved by the admin from
+ * its first revision.
+ */
+export function sampleDraft(overrides: Partial<RecipeDraft> = {}): RecipeDraft {
+  return {
+    content: recipeContent(sampleRecipe()),
+    photos: [],
+    author: { id: testUsers.admin.id, name: testUsers.admin.name },
+    updatedAt: '2026-11-18T09:00:00.000Z',
+    revision: 1,
+    version: 2,
+    ...overrides,
+  };
+}
+
 /** The API's 412 for a change based on an older version, holding the recipe as it is now. */
 export const staleRecipeResponse = (recipe: Recipe) =>
   problemResponse(412, 'This recipe changed after you loaded it.', {

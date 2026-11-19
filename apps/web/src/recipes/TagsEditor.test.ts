@@ -95,7 +95,7 @@ describe('the tags editor', () => {
     await user.click(checkbox('Italian'));
     await user.click(checkbox('Dinner'));
     await user.click(screen.getByText('Vegetarian'));
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
 
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([[WHEAT.id, 30, 40]]);
@@ -105,7 +105,7 @@ describe('the tags editor', () => {
     const { user, saved, deleteTag } = await editTags([ITALIAN, WHEAT]);
     deleteTag(ITALIAN.id);
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await waitFor(() => {
       expect(describedBy(checkbox('Italian'))).toEqual([
@@ -117,7 +117,7 @@ describe('the tags editor', () => {
     await user.click(checkbox('Italian'));
     // Wheat has Italian's place in the list now, but not its refusal.
     expect([describedBy(checkbox('Italian')), describedBy(checkbox('wheat'))]).toEqual([[], []]);
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([[WHEAT.id]]);
@@ -131,7 +131,7 @@ describe('the tags editor', () => {
 
     await screen.findByText("Italian no longer exists, so it's no longer chosen.");
     expect(within(group('Cuisine')).queryByRole('checkbox', { name: 'Italian' })).toBeNull();
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([[WHEAT.id]]);
@@ -265,7 +265,7 @@ describe('the tags editor', () => {
     await screen.findByRole('button', { name: 'Try again' });
     // Trying again loads the tags, and doesn't save the recipe, whose form it's in.
     let submitted = 0;
-    button('Save changes')
+    button('Publish')
       .closest('form')
       ?.addEventListener('submit', () => {
         submitted += 1;
@@ -287,7 +287,7 @@ describe('the tags editor', () => {
     }));
     const { user, saved } = await editTags(many);
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     expect(await screen.findByText('A recipe can have up to 50 tags.')).toBeDefined();
     expect(saved).toEqual([]);

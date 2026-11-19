@@ -3,14 +3,20 @@ import { computed, ref, shallowReactive } from 'vue';
 import { uploadPhoto } from './photos.ts';
 import type { Image, Recipe } from './recipe.ts';
 
+/** Every photo a recipe shows: its own, and its steps'. */
+export const recipePhotos = (recipe: Recipe) => [
+  ...recipe.images,
+  ...recipe.steps.flatMap(({ image }) => (image ? [image] : [])),
+];
+
 /**
- * The photos a recipe's editor knows, by ID: the recipe's own, and those uploaded since it opened.
- * The form holds only their IDs, which is what the API takes; this holds what showing them needs.
+ * The photos a recipe's editor knows, by ID: those it opened with (the recipe's, and its draft's),
+ * and those uploaded since. The form holds only their IDs, which is what the API takes; this holds
+ * what showing them needs.
  */
-export function usePhotoLibrary(recipe?: Recipe) {
+export function usePhotoLibrary(photos: Iterable<Image> = []) {
   const known = shallowReactive(new Map<string, Image>());
-  for (const image of recipe?.images ?? []) known.set(image.id, image);
-  for (const { image } of recipe?.steps ?? []) if (image) known.set(image.id, image);
+  for (const image of photos) known.set(image.id, image);
 
   // A mutation, so the session watcher sees what the API answers, as for any other call.
   const { mutateAsync } = useMutation({ mutationFn: uploadPhoto });

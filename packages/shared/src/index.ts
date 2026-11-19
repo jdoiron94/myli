@@ -120,6 +120,7 @@ export {
   recipeTotalMinutes,
   STALE_RECIPE_PROBLEM_TYPE,
   type StaleRecipeProblem,
+  savedDraftResultSchema,
   staleRecipeProblemSchema,
   type UpdateRecipeRequest,
   updateRecipeRequestSchema,
