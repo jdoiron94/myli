@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>myli</title>
+    <!-- The SVG for browsers that take one; the ICO for the rest, and for clients that ask for
+         /favicon.ico without reading the page. Phones' home screens use the PNG. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- Applies the saved theme before the first paint. Not a module, so it runs right away. -->
     <script src="/theme.js"></script>
   </head>

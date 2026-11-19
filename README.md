@@ -263,3 +263,5 @@ Commercial use, including use for commercial advantage or monetary compensation,
 This software is provided "AS IS", without warranties or guarantees of any kind. The author assumes no liability for damages arising from the use or distribution of this software, to the extent permitted by applicable law.
 
 See [LICENSE](./LICENSE) for the complete license terms.
+
+The favicon is “Steaming bowl” from [Fluent Emoji](https://github.com/microsoft/fluentui-emoji), copyright Microsoft Corporation, under the MIT License rather than this project’s. Its license text is in [`apps/web/public/favicon.svg`](./apps/web/public/favicon.svg).
