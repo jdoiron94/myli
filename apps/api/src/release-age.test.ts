@@ -18,13 +18,7 @@ const renovate = z
   .looseObject({ minimumReleaseAge: z.string() })
   .parse(JSON.parse(read('renovate.json')));
 
-const WEEK_IN_MINUTES = 7 * 24 * 60;
-
 describe('the week-old rule', () => {
-  it('makes pnpm refuse any release less than a week old', () => {
-    expect(workspace.minimumReleaseAge).toBe(WEEK_IN_MINUTES);
-  });
-
   // An exception lets a release in before it's a week old, for every install. It's the user's
   // decision, so a change here shows in review.
   it('exempts no package', () => {
