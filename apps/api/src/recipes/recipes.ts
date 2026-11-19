@@ -6,7 +6,7 @@ import {
   type UpdateRecipeRequest,
   type Visibility,
 } from '@myli/shared';
-import { and, asc, eq, inArray, isNull, notInArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { image, recipe, recipeIngredient, recipeStep, recipeTag, tag, user } from '../db/schema.ts';
@@ -183,21 +183,42 @@ function writePhotos(tx: Tx, recipeId: string, uses: readonly PhotoUse[]): void 
   if (keys.length > 0) enqueueJob(tx, deleteBlobsJob, { keys });
 }
 
-export type SaveResult =
+/** A new recipe's ID, or why it couldn't be created. */
+export type CreateResult =
   | { ok: true; id: string }
   | { ok: false; reason: 'missing-tags'; missingTags: number[] }
-  | { ok: false; reason: 'unusable-images'; paths: PropertyKey[][] }
-  | { ok: false; reason: 'not-found' };
+  | { ok: false; reason: 'unusable-images'; paths: PropertyKey[][] };
+
+/** The saved recipe's ID, or why it couldn't be saved. */
+export type SaveResult = CreateResult | WriteFailure;
+
+/** Why a write to a recipe didn't happen: it's gone, or it changed since the version it names. */
+type WriteFailure = { ok: false; reason: 'not-found' } | { ok: false; reason: 'stale' };
+
+export type WriteResult = { ok: true } | WriteFailure;
 
 /** A live (not deleted) recipe's row. */
 const live = (id: string) => and(eq(recipe.id, id), isNull(recipe.deletedAt));
 
 /**
+ * Whether the live recipe is still at `version`, the one the write was based on (ADR 0007). Checked
+ * first, so a write based on an old version is refused as that, whatever else is wrong with it.
+ */
+function atVersion(tx: Tx, id: string, version: number): WriteResult {
+  const row = tx.select({ version: recipe.version }).from(recipe).where(live(id)).get();
+  if (!row) return { ok: false, reason: 'not-found' };
+  return row.version === version ? { ok: true } : { ok: false, reason: 'stale' };
+}
+
+/** The live recipe's row at `version`, which a write moves on to the next one. */
+const liveAt = (id: string, version: number) => and(live(id), eq(recipe.version, version));
+
+/**
  * Creates a recipe owned by `ownerId`, unless one of its tags doesn't exist or it names a photo
  * that isn't one of their uploads no recipe was saved with.
  */
-export function createRecipe(db: Db, ownerId: string, request: CreateRecipeRequest): SaveResult {
-  return db.transaction((tx): SaveResult => {
+export function createRecipe(db: Db, ownerId: string, request: CreateRecipeRequest): CreateResult {
+  return db.transaction((tx): CreateResult => {
     const missingTags = missingTagIndexes(tx, request.tagIds);
     if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
     const photos = photoUses(request);
@@ -218,16 +239,19 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
 
 /**
  * Saves a recipe's content over what it had, lines, steps, tags and photos included, as edited by
- * `editorId`, whose uploads it can add. Its owner and visibility stay. The last save wins until
- * Phase 2's concurrency check.
+ * `editorId`, whose uploads it can add. Its owner and visibility stay. Refused if the recipe is no
+ * longer at `version`, the one the edit started from.
  */
 export function updateRecipe(
   db: Db,
   id: string,
   content: RecipeContent,
   editorId: string,
+  version: number,
 ): SaveResult {
   return db.transaction((tx): SaveResult => {
+    const current = atVersion(tx, id, version);
+    if (!current.ok) return current;
     const missingTags = missingTagIndexes(tx, content.tagIds);
     if (missingTags.length > 0) return { ok: false, reason: 'missing-tags', missingTags };
     const photos = photoUses(content);
@@ -236,11 +260,11 @@ export function updateRecipe(
 
     const [updated] = tx
       .update(recipe)
-      .set(contentColumns(content))
-      .where(live(id))
+      .set({ ...contentColumns(content), version: version + 1 })
+      .where(liveAt(id, version))
       .returning({ id: recipe.id })
       .all();
-    if (!updated) return { ok: false, reason: 'not-found' };
+    if (!updated) return { ok: false, reason: 'stale' };
 
     tx.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run();
     tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
@@ -252,35 +276,52 @@ export function updateRecipe(
   });
 }
 
-/** Makes a recipe private or shared. False if it doesn't exist or was deleted. */
-export function setRecipeVisibility(db: Db, id: string, visibility: Visibility): boolean {
-  return db.transaction((tx) => {
+/**
+ * Makes a recipe private or shared, if it's still at `version`. The visibility it already has
+ * changes nothing, the version included.
+ */
+export function setRecipeVisibility(
+  db: Db,
+  id: string,
+  visibility: Visibility,
+  version: number,
+): WriteResult {
+  return db.transaction((tx): WriteResult => {
+    const current = atVersion(tx, id, version);
+    if (!current.ok) return current;
     const [updated] = tx
       .update(recipe)
-      .set({ visibility })
-      .where(live(id))
+      .set({ visibility, version: version + 1 })
+      .where(and(liveAt(id, version), ne(recipe.visibility, visibility)))
       .returning({ id: recipe.id })
       .all();
-    if (!updated) return false;
-    enqueueJob(tx, indexRecipeJob, { recipeId: id });
-    return true;
+    if (updated) enqueueJob(tx, indexRecipeJob, { recipeId: id });
+    return { ok: true };
   });
 }
 
 /**
  * Deletes a recipe: it's hidden everywhere from now on, but its rows stay for the trash in Phase 2.
  * The audit event shows admins a shared recipe's title, but never a private one's: admins may not
- * see private recipes, so their titles stay out of the log. False if the recipe is already gone.
+ * see private recipes, so their titles stay out of the log. Refused if the recipe is already gone
+ * or no longer at `version`.
  */
-export function deleteRecipe(db: Db, origin: AuditOrigin, id: string): boolean {
-  return db.transaction((tx) => {
+export function deleteRecipe(
+  db: Db,
+  origin: AuditOrigin,
+  id: string,
+  version: number,
+): WriteResult {
+  return db.transaction((tx): WriteResult => {
+    const current = atVersion(tx, id, version);
+    if (!current.ok) return current;
     const [deleted] = tx
       .update(recipe)
-      .set({ deletedAt: new Date() })
-      .where(live(id))
+      .set({ deletedAt: new Date(), version: version + 1 })
+      .where(liveAt(id, version))
       .returning({ title: recipe.title, visibility: recipe.visibility })
       .all();
-    if (!deleted) return false;
+    if (!deleted) return { ok: false, reason: 'stale' };
     enqueueJob(tx, indexRecipeJob, { recipeId: id });
     recordAuditEvent(tx, origin, {
       action: 'recipe.deleted',
@@ -290,7 +331,7 @@ export function deleteRecipe(db: Db, origin: AuditOrigin, id: string): boolean {
           ? { title: deleted.title, visibility: 'shared' }
           : { visibility: 'private' },
     });
-    return true;
+    return { ok: true };
   });
 }
 
@@ -394,6 +435,7 @@ export function loadRecipe(db: Db | Tx, id: string): Recipe | undefined {
     tags,
     images,
     coverImageId: row.coverImageId,
+    version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

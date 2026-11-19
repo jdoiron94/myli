@@ -309,11 +309,12 @@ There are three roles: **admin**, **editor** and **viewer**.
   - An existing draft is kept.
   - That draft is now based on an out-of-date version, so publishing it later hits the normal concurrency check below.
 - **Optimistic concurrency:**
-  - each recipe has a `version` that increases with every write to its draft or published state
-  - responses include an `ETag`; writes must send `If-Match`
+  - each recipe has a `version` that increases with every write to its draft or published state: saving it, changing its visibility, deleting it. Setting the visibility it already has changes nothing, the version included.
+  - responses include an `ETag` (`"3"`); writes must send `If-Match` with the version they're based on. Only that strong `ETag` will do: `*`, a weak one or a list counts as out of date.
   - a write without `If-Match` gets `428 Precondition Required`
-  - if the version is out of date, the API returns `412 Precondition Failed` with the current version, so the client can show what changed ([ADR 0007](./adr/0007-revision-snapshots-and-optimistic-concurrency.md))
+  - if the version is out of date, the API returns `412 Precondition Failed` with the recipe as it is now, its version included, so the client can show what changed ([ADR 0007](./adr/0007-revision-snapshots-and-optimistic-concurrency.md))
   - this matters because editors can edit each other's recipes
+  - The editor saves against the version it opened, even if the recipe's page has loaded a newer one since. Refused, it says someone saved the recipe meanwhile, keeping what was typed. On the recipe's page, a refused change of visibility or deletion shows the recipe as it is now, and says so.
 
 ### 3.4 Search and discovery
 

@@ -530,6 +530,8 @@ export interface paths {
                 /** @description The new recipe. */
                 201: {
                     headers: {
+                        /** @description The recipe's version, for the `If-Match` of a change to it. */
+                        ETag?: string;
                         /** @description Where it lives. */
                         Location?: string;
                         [name: string]: unknown;
@@ -589,6 +591,8 @@ export interface paths {
                 /** @description The recipe. */
                 200: {
                     headers: {
+                        /** @description The recipe's version, for the `If-Match` of a change to it. */
+                        ETag?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -626,12 +630,15 @@ export interface paths {
         };
         /**
          * Save a recipe
-         * @description Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included; its owner and visibility stay. Until drafts arrive, the last save wins.
+         * @description Editors and admins, for shared recipes and their own private ones: editors can edit any shared recipe, whoever created it. Replaces all of the recipe's content, lines, steps and tags included; its owner and visibility stay. Send the version the edit started from in `If-Match`: if someone saved the recipe meanwhile, the save is refused with 412.
          */
         put: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
                 path: {
                     id: string;
                 };
@@ -646,6 +653,8 @@ export interface paths {
                 /** @description The recipe as saved. */
                 200: {
                     headers: {
+                        /** @description The recipe's version, for the `If-Match` of a change to it. */
+                        ETag?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -670,6 +679,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
                 /** @description The request failed validation. */
                 422: {
                     headers: {
@@ -677,6 +695,15 @@ export interface paths {
                     };
                     content: {
                         "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
                 /** @description Any other error, as RFC 9457 problem details. */
@@ -693,12 +720,15 @@ export interface paths {
         post?: never;
         /**
          * Delete a recipe
-         * @description Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, and the deletion is recorded in the audit log. (Restoring it from the trash comes with Phase 2.) Send `Content-Type: application/json` even though there is no body.
+         * @description Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, and the deletion is recorded in the audit log. (Restoring it from the trash comes with Phase 2.) Send its version in `If-Match`, and `Content-Type: application/json` even though there is no body.
          */
         delete: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
                 path: {
                     id: string;
                 };
@@ -731,6 +761,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
                 /** @description The request failed validation. */
                 422: {
                     headers: {
@@ -738,6 +777,15 @@ export interface paths {
                     };
                     content: {
                         "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
                 /** @description Any other error, as RFC 9457 problem details. */
@@ -766,12 +814,15 @@ export interface paths {
         get?: never;
         /**
          * Change a recipe's visibility
-         * @description The recipe's owner only, admins included: a private recipe is seen by its owner alone, a shared one by everyone signed in. Setting the visibility it already has changes nothing.
+         * @description The recipe's owner only, admins included: a private recipe is seen by its owner alone, a shared one by everyone signed in. Setting the visibility it already has changes nothing. Send its version in `If-Match`.
          */
         put: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
                 path: {
                     id: string;
                 };
@@ -786,6 +837,8 @@ export interface paths {
                 /** @description The recipe, with its visibility now. */
                 200: {
                     headers: {
+                        /** @description The recipe's version, for the `If-Match` of a change to it. */
+                        ETag?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -810,6 +863,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
                 /** @description The request failed validation. */
                 422: {
                     headers: {
@@ -817,6 +879,15 @@ export interface paths {
                     };
                     content: {
                         "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
                 /** @description Any other error, as RFC 9457 problem details. */
@@ -2482,6 +2553,8 @@ export interface components {
             images: components["schemas"]["Image"][];
             /** @description One of `images`, or `null` when there are none. */
             coverImageId: string | null;
+            /** @description Goes up with every change to the recipe. The `ETag` header carries it too, and every write sends it back in `If-Match`. */
+            version: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2622,6 +2695,75 @@ export interface components {
             visibility: "private" | "shared";
             /** @description Its cover photo, if it has photos. */
             cover: components["schemas"]["Image"] | null;
+        };
+        /** @description The recipe changed since it was loaded. */
+        StaleRecipeProblem: {
+            /** @enum {string} */
+            type: "/problems/stale-recipe";
+            /** @description Short summary of the problem type. */
+            title: string;
+            /** @enum {number} */
+            status: 412;
+            /** @description Explanation of this occurrence, written for the client. Never contains internals. */
+            detail?: string;
+            /** @description Matches the `X-Request-Id` response header and the server log lines for this request. */
+            requestId?: string;
+            /** @description The recipe as it is now, with its current `version`. */
+            recipe: {
+                id: string;
+                owner: {
+                    id: string;
+                    name: string;
+                };
+                visibility: components["schemas"]["Visibility"];
+                title: string;
+                description: string;
+                source: {
+                    url: string | null;
+                    title: string | null;
+                    author: string | null;
+                };
+                equipment: string[];
+                yield: {
+                    qty: number;
+                    unit: string | null;
+                } | null;
+                servings: number;
+                prepMinutes: number | null;
+                cookMinutes: number | null;
+                /** @description Set only when it differs from prep plus cook. See `recipeTotalMinutes`. */
+                totalMinutes: number | null;
+                difficulty: components["schemas"]["Difficulty"];
+                nutrition: {
+                    calories: number | null;
+                    proteinGrams: number | null;
+                    carbsGrams: number | null;
+                    fatGrams: number | null;
+                    fiberGrams: number | null;
+                    sugarGrams: number | null;
+                    sodiumMilligrams: number | null;
+                };
+                ingredientGroups: {
+                    label: string | null;
+                    ingredients: components["schemas"]["IngredientLine"][];
+                }[];
+                steps: {
+                    body: string;
+                    image: components["schemas"]["Image"] | null;
+                }[];
+                /** @description By type, then name. */
+                tags: components["schemas"]["Tag"][];
+                /** @description Its photos, in order. */
+                images: components["schemas"]["Image"][];
+                /** @description One of `images`, or `null` when there are none. */
+                coverImageId: string | null;
+                /** @description Goes up with every change to the recipe. The `ETag` header carries it too, and every write sends it back in `If-Match`. */
+                version: number;
+                /** Format: date-time */
+                createdAt: string;
+                /** Format: date-time */
+                updatedAt: string;
+            };
         };
         UpdateRecipeRequest: {
             title: string;

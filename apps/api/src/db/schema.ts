@@ -291,6 +291,11 @@ export const recipe = sqliteTable(
     updatedAt: updatedAt(),
     /** Set when the recipe is deleted, which hides it everywhere (the trash comes in Phase 2). */
     deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    /**
+     * Goes up by one with every write to the recipe, sent as its `ETag`. A write names the version
+     * it was based on in `If-Match`, and only goes ahead while that's still the version (ADR 0007).
+     */
+    version: integer('version').notNull().default(1),
   },
   (table) => [
     check('recipe_visibility_check', sql`${table.visibility} in ${sqlList(VISIBILITIES)}`),

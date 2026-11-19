@@ -28,7 +28,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { goWithNotice } from '@/lib/page-notice.ts';
 import { favoriteQuery, useSetFavorite } from './favorites.ts';
-import { type Recipe, recipeQuery, useChangeVisibility, useDeleteRecipe } from './recipe.ts';
+import {
+  type Recipe,
+  recipeQuery,
+  staleRecipe,
+  useChangeVisibility,
+  useDeleteRecipe,
+} from './recipe.ts';
 import { servingsQuery } from './servings.ts';
 
 /**
@@ -82,6 +88,12 @@ async function toggleFavorite() {
   }
 }
 
+/** Why a change failed. One based on an older version leaves the page showing the latest. */
+const refusalMessage = (error: unknown) =>
+  staleRecipe(error)
+    ? 'Someone changed this recipe meanwhile, and it shows their changes now. Try again if you still want to.'
+    : failureMessage(error);
+
 const changeVisibility = useChangeVisibility();
 
 async function toggleVisibility() {
@@ -90,9 +102,13 @@ async function toggleVisibility() {
   notice.value = undefined;
   failure.value = undefined;
   try {
-    await changeVisibility.mutateAsync({ id: props.recipe.id, visibility });
+    await changeVisibility.mutateAsync({
+      id: props.recipe.id,
+      version: props.recipe.version,
+      visibility,
+    });
   } catch (error) {
-    failure.value = failureMessage(error);
+    failure.value = refusalMessage(error);
     return;
   }
   notice.value =
@@ -108,13 +124,13 @@ const queryClient = useQueryClient();
 /** Home afterwards, which says it's deleted: the recipe's page has nothing to show. */
 async function remove() {
   if (deleteRecipe.isPending.value) return;
-  const { id, title } = props.recipe;
+  const { id, version, title } = props.recipe;
   notice.value = undefined;
   failure.value = undefined;
   try {
-    await deleteRecipe.mutateAsync(id);
+    await deleteRecipe.mutateAsync({ id, version });
   } catch (error) {
-    failure.value = failureMessage(error);
+    failure.value = refusalMessage(error);
     return;
   }
   await goWithNotice(router, { name: 'home' }, `Deleted “${title}”.`);

@@ -15,17 +15,24 @@ import type { AppEnv } from './context.ts';
 
 /**
  * Throw from a handler to answer with an RFC 9457 problem response.
- * `detail` is sent to the client as is, so it must never contain internals.
+ * `detail` is sent to the client as is, so it must never contain internals. A problem type with
+ * fields of its own passes them, its `type` included, as `extensions`.
  */
 export class HttpProblem extends Error {
   override name = 'HttpProblem';
   readonly status: ContentfulStatusCode;
   readonly detail: string | undefined;
+  readonly extensions: Record<string, unknown>;
 
-  constructor(status: ContentfulStatusCode, detail?: string) {
+  constructor(
+    status: ContentfulStatusCode,
+    detail?: string,
+    extensions: Record<string, unknown> = {},
+  ) {
     super(detail ?? STATUS_CODES[status]);
     this.status = status;
     this.detail = detail;
+    this.extensions = extensions;
   }
 }
 
@@ -44,12 +51,18 @@ export class InvalidFields extends Error {
   }
 }
 
-export function problemResponse(c: Context<AppEnv>, status: ContentfulStatusCode, detail?: string) {
+export function problemResponse(
+  c: Context<AppEnv>,
+  status: ContentfulStatusCode,
+  detail?: string,
+  extensions: Record<string, unknown> = {},
+) {
   const body: ProblemDetails = {
     type: 'about:blank',
     title: STATUS_CODES[status] ?? 'Unknown Error',
     status,
     detail,
+    ...extensions,
     requestId: c.get('requestId'),
   };
   return c.json(body, status, { 'Content-Type': PROBLEM_CONTENT_TYPE });
@@ -69,7 +82,7 @@ export const onError: ErrorHandler<AppEnv> = (error, c) => {
     );
   }
   if (error instanceof HttpProblem) {
-    return problemResponse(c, error.status, error.detail);
+    return problemResponse(c, error.status, error.detail, error.extensions);
   }
   if (error instanceof HTTPException) {
     // Hono's own middleware throws these with client-facing messages, but only trust them for 4xx.

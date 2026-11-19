@@ -2,13 +2,24 @@ import { favoriteSchema, RECIPES_PER_PAGE, recipeListSchema } from '@myli/shared
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { favorite } from '../db/schema.ts';
-import { insertRecipe } from '../recipes/testing.ts';
+import { ifMatch, insertRecipe } from '../recipes/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 
-function send(t: TestApp, method: string, path: string, cookie: string, body?: unknown) {
+function send(
+  t: TestApp,
+  method: string,
+  path: string,
+  cookie: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+) {
   return t.app.request(`/api/v1${path}`, {
     method,
-    headers: { cookie, ...(method !== 'GET' && { 'content-type': 'application/json' }) },
+    headers: {
+      cookie,
+      ...(method !== 'GET' && { 'content-type': 'application/json' }),
+      ...headers,
+    },
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 }
@@ -95,18 +106,23 @@ describe('GET /me/favorites', () => {
     const deleted = insertRecipe(t.db, owner.user.id);
     for (const id of [kept, madePrivate, deleted]) await choose(t, cookie, id, true);
 
-    await send(t, 'PUT', `/recipes/${madePrivate}/visibility`, owner.cookie, {
-      visibility: 'private',
-    });
-    await send(t, 'DELETE', `/recipes/${deleted}`, owner.cookie);
+    const visibility = (value: string) =>
+      send(
+        t,
+        'PUT',
+        `/recipes/${madePrivate}/visibility`,
+        owner.cookie,
+        { visibility: value },
+        ifMatch(t.db, madePrivate),
+      );
+    await visibility('private');
+    await send(t, 'DELETE', `/recipes/${deleted}`, owner.cookie, undefined, ifMatch(t.db, deleted));
 
     const { recipes, total } = await favorites(t, cookie);
     expect(recipes.map(({ id }) => id)).toEqual([kept]);
     expect(total).toBe(1);
 
-    await send(t, 'PUT', `/recipes/${madePrivate}/visibility`, owner.cookie, {
-      visibility: 'shared',
-    });
+    await visibility('shared');
     expect((await favorites(t, cookie)).recipes.map(({ id }) => id).sort()).toEqual(
       [kept, madePrivate].sort(),
     );

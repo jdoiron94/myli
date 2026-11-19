@@ -1,4 +1,4 @@
-import type { Role, Visibility } from '@myli/shared';
+import { type Role, type Visibility, versionETag } from '@myli/shared';
 import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -13,7 +13,7 @@ import {
 } from '@/testing.ts';
 import type { Recipe, RecipeSummary } from './recipe.ts';
 import { recipeQuery } from './recipe.ts';
-import { sampleRecipe } from './testing.ts';
+import { sampleRecipe, staleRecipeResponse } from './testing.ts';
 
 const ACTIONS = ['Favorite', 'Edit recipe', 'Share with everyone', 'Make private', 'Delete recipe'];
 /** The actions the page offers, in order. */
@@ -32,7 +32,8 @@ const status = () =>
 
 /**
  * Stands in for the API's copy of the recipe: GET answers it, or 404 once it's deleted, and PUT
- * /visibility and DELETE change it, unless `refuse()` gives an answer instead. Keeps what each sends.
+ * /visibility and DELETE change it, unless `refuse()` gives an answer instead. As the API does, a
+ * change based on another version than the stored one gets 412. Keeps what each sends.
  */
 function storeRecipe(
   recipe: Recipe,
@@ -41,6 +42,10 @@ function storeRecipe(
   answerPreferences();
   let stored: Recipe | undefined = recipe;
   const sent: { method: string; visibility?: Visibility }[] = [];
+  const stale = (request: Request) =>
+    stored && request.headers.get('if-match') !== versionETag(stored.version)
+      ? staleRecipeResponse(stored)
+      : undefined;
   apiServer.use(
     http.get('/api/v1/recipes/:id', () =>
       stored
@@ -50,14 +55,14 @@ function storeRecipe(
     http.put('/api/v1/recipes/:id/visibility', async ({ request }) => {
       const { visibility } = (await request.json()) as { visibility: Visibility };
       sent.push({ method: 'PUT', visibility });
-      const refused = await refuse();
+      const refused = (await refuse()) ?? stale(request);
       if (refused) return refused;
-      stored = { ...recipe, ...stored, visibility };
+      stored = { ...recipe, ...stored, visibility, version: (stored ?? recipe).version + 1 };
       return HttpResponse.json({ recipe: stored });
     }),
-    http.delete('/api/v1/recipes/:id', async () => {
+    http.delete('/api/v1/recipes/:id', async ({ request }) => {
       sent.push({ method: 'DELETE' });
-      const refused = await refuse();
+      const refused = (await refuse()) ?? stale(request);
       if (refused) return refused;
       stored = undefined;
       return new HttpResponse(null, { status: 204 });
@@ -339,6 +344,24 @@ describe('what a reader can do with a recipe', () => {
       after: NO_SEARCH_RESULTS,
       loading: 'Searching…',
     });
+  });
+
+  it('shows what someone changed meanwhile when deleting finds it, staying on the recipe', async () => {
+    storeRecipe(sampleRecipe(), () =>
+      staleRecipeResponse(sampleRecipe({ title: 'Their Bread', version: 2 })),
+    );
+    const { user, router } = await openRecipe();
+
+    await user.click(button('Delete recipe'));
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete recipe' }),
+    );
+
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(
+      'Someone changed this recipe meanwhile, and it shows their changes now. Try again if you still want to.',
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Their Bread' });
+    expect(router.currentRoute.value.fullPath).toBe('/recipes/recipe-bread');
   });
 
   it('says why deleting failed, staying on the recipe', async () => {

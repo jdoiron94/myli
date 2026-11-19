@@ -95,7 +95,7 @@ describe('buildRecipeDocument', () => {
 
   it('has nothing for a recipe that was deleted, or never existed', () => {
     const id = create();
-    deleteRecipe(db, { actorId: 'owner', ip: null, userAgent: null }, id);
+    deleteRecipe(db, { actorId: 'owner', ip: null, userAgent: null }, id, 1);
 
     expect(buildRecipeDocument(db, id)).toBeUndefined();
     expect(buildRecipeDocument(db, 'no-such-recipe')).toBeUndefined();

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { imageSchema, optionalImageSchema } from './image.ts';
+import { problemDetailsSchema } from './problem.ts';
 import { tagSchema } from './tags.ts';
 import { findUnit } from './units.ts';
 import { visibilitySchema } from './visibility.ts';
@@ -330,6 +331,12 @@ export const recipeSchema = z
     tags: z.array(tagSchema).describe('By type, then name.'),
     images: z.array(imageSchema).describe('Its photos, in order.'),
     coverImageId: z.string().nullable().describe('One of `images`, or `null` when there are none.'),
+    version: z
+      .int()
+      .positive()
+      .describe(
+        'Goes up with every change to the recipe. The `ETag` header carries it too, and every write sends it back in `If-Match`.',
+      ),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   })
@@ -338,6 +345,39 @@ export const recipeSchema = z
 export type Recipe = z.infer<typeof recipeSchema>;
 
 export const recipeResultSchema = z.object({ recipe: recipeSchema }).meta({ id: 'RecipeResult' });
+
+/** A recipe version's strong `ETag`, which a write sends back in `If-Match` (ADR 0007). */
+export const versionETag = (version: number) => `"${String(version)}"`;
+
+/**
+ * The `If-Match` header every write to an existing recipe sends. It's optional here so that a
+ * request without it gets 428 Precondition Required, not a validation error.
+ */
+export const ifMatchHeadersSchema = z.object({
+  'if-match': z
+    .string()
+    .optional()
+    .describe(
+      'The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412.',
+    ),
+});
+
+/** `type` of a write refused because the recipe changed since the caller loaded it. */
+export const STALE_RECIPE_PROBLEM_TYPE = '/problems/stale-recipe';
+
+/**
+ * A write whose `If-Match` names an older version of the recipe (ADR 0007): someone changed it
+ * meanwhile. It carries the recipe as it is now, so the client can show what changed.
+ */
+export const staleRecipeProblemSchema = problemDetailsSchema
+  .extend({
+    type: z.literal(STALE_RECIPE_PROBLEM_TYPE),
+    status: z.literal(412),
+    recipe: recipeSchema.describe('The recipe as it is now, with its current `version`.'),
+  })
+  .meta({ id: 'StaleRecipeProblem', description: 'The recipe changed since it was loaded.' });
+
+export type StaleRecipeProblem = z.infer<typeof staleRecipeProblemSchema>;
 
 /** The path parameter of one recipe. Unknown IDs get 404, so the format isn't checked. */
 export const recipeIdParamsSchema = z.object({ id: z.string().min(1).max(100) });

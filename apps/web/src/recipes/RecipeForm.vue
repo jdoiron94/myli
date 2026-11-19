@@ -14,7 +14,7 @@ import { DIFFICULTY_LABELS } from './format.ts';
 import IngredientsEditor from './IngredientsEditor.vue';
 import PhotosEditor from './PhotosEditor.vue';
 import { usePhotoLibrary } from './photo-library.ts';
-import { type Recipe, useCreateRecipe, useSaveRecipe } from './recipe.ts';
+import { type Recipe, staleRecipe, useCreateRecipe, useSaveRecipe } from './recipe.ts';
 import {
   DIFFICULTY_CHOICES,
   NUTRIENTS,
@@ -63,6 +63,11 @@ const library = usePhotoLibrary(props.recipe);
 const form = useTemplateRef('form');
 const createRecipe = useCreateRecipe();
 const saveRecipe = useSaveRecipe();
+/**
+ * The version the editor opened: a save is refused if the recipe changed since. Not the one
+ * `recipe` has later, which a refetch can move on while the form keeps what it opened with.
+ */
+const openedVersion = props.recipe?.version;
 /** Why saving failed, when it isn't a problem with one of the fields. */
 const failure = ref<string>();
 
@@ -71,12 +76,21 @@ const saveOnSubmit = handleSubmit(
     failure.value = undefined;
     let saved: Recipe;
     try {
-      saved = props.recipe
-        ? await saveRecipe.mutateAsync({ id: props.recipe.id, body: content })
-        : await createRecipe.mutateAsync({ ...content, visibility });
+      saved =
+        props.recipe && openedVersion !== undefined
+          ? await saveRecipe.mutateAsync({
+              id: props.recipe.id,
+              version: openedVersion,
+              body: content,
+            })
+          : await createRecipe.mutateAsync({ ...content, visibility });
     } catch (error) {
       const fieldErrors = apiFieldErrors(error, RECIPE_FORM_FIELDS);
-      if (fieldErrors) {
+      if (staleRecipe(error)) {
+        failure.value =
+          'Someone saved this recipe after you opened it, and saving now would undo their ' +
+          'changes. Copy anything you want to keep, then open the editor again.';
+      } else if (fieldErrors) {
         setErrors(fieldErrors);
         focusFirstInvalidField(form.value);
       } else {
