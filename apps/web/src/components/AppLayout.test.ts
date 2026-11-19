@@ -145,6 +145,7 @@ describe('the main navigation', () => {
       'Invitations',
       'Users',
       'Search index',
+      'Tags',
     ]);
   });
 

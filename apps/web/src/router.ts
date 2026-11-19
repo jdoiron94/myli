@@ -89,6 +89,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Search index', permission: 'search.reindex' },
   },
   {
+    path: '/admin/tags',
+    name: 'tags',
+    component: () => import('./pages/TagsPage.vue'),
+    meta: { title: 'Tags', permission: 'tag.manage' },
+  },
+  {
     // Ahead of `/recipes/:id` whatever the order: the router ranks fixed segments first.
     path: '/recipes/new',
     name: 'new-recipe',
