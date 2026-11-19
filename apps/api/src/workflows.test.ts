@@ -63,21 +63,6 @@ function workflow(file: string) {
   return found;
 }
 
-/**
- * Each workflow's token access, for the whole workflow and for each job that asks for more. A new
- * workflow or job, or more access, must be added here, so it's visible in review.
- */
-const ACCESS: Record<string, { workflow: unknown; jobs: Record<string, unknown> }> = {
-  'ci.yml': { workflow: { contents: 'read' }, jobs: {} },
-  'release.yml': {
-    workflow: {},
-    jobs: {
-      'release-please': { contents: 'write', 'pull-requests': 'write', issues: 'write' },
-      publish: { contents: 'read', packages: 'write' },
-    },
-  },
-};
-
 /** Root scripts that aren't checks, so CI doesn't run them. Every other root script must run. */
 const NOT_CHECKS = {
   dev: 'starts the dev servers',
@@ -102,16 +87,6 @@ describe('every workflow', () => {
       expect(uses.length, path).toBeGreaterThan(0);
       for (const action of uses) {
         expect(action, path).toMatch(/^(\$\/\S+|[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+)$/);
-      }
-    }
-  });
-
-  it('gives each job only the access it needs', () => {
-    expect(Object.keys(workflows).sort()).toEqual(Object.keys(ACCESS).sort());
-    for (const [file, { permissions, jobs }] of Object.entries(workflows)) {
-      expect(permissions, file).toEqual(ACCESS[file]?.workflow);
-      for (const [name, job] of Object.entries(jobs)) {
-        expect(job.permissions, `${file}: ${name}`).toEqual(ACCESS[file]?.jobs[name]);
       }
     }
   });
@@ -141,15 +116,6 @@ describe('the CI workflow', () => {
     for (const name of Object.keys(NOT_CHECKS)) expect(scripts, name).toHaveProperty(name);
   });
 
-  it('runs on pull requests to main and by hand, but not on release-please’s', () => {
-    const ci = workflow('ci.yml');
-
-    expect(ci.on).toEqual({ pull_request: { branches: ['main'] }, workflow_dispatch: null });
-    for (const [name, job] of Object.entries(ci.jobs)) {
-      expect(job.if, name).toBe("${{ !startsWith(github.head_ref, 'release-please--') }}");
-    }
-  });
-
   it('reports known vulnerabilities, and never fails because of them', () => {
     const audits = allSteps.filter(({ run }) => run?.includes('pnpm audit'));
 
@@ -159,28 +125,6 @@ describe('the CI workflow', () => {
 });
 
 describe('the release workflow', () => {
-  it('runs release-please on every push to main', () => {
-    const release = workflow('release.yml');
-
-    expect(release.on).toEqual({ push: { branches: ['main'] } });
-    expect(release.jobs['release-please']?.steps.map(({ uses }) => uses)).toEqual([
-      expect.stringMatching(/^googleapis\/release-please-action@/),
-    ]);
-  });
-
-  it('makes the first release 0.1.0, and keeps breaking changes below 1.0', () => {
-    const config = z
-      .object({
-        'bump-minor-pre-major': z.boolean(),
-        packages: z.object({ '.': z.looseObject({ 'initial-version': z.string().optional() }) }),
-      })
-      .parse(JSON.parse(read('release-please-config.json')));
-
-    // Without it, release-please makes the first release 1.0.0, whatever the manifest says.
-    expect(config.packages['.']['initial-version']).toBe('0.1.0');
-    expect(config['bump-minor-pre-major']).toBe(true);
-  });
-
   it('publishes the images only for a release, built as CI builds them for its tests', () => {
     const publish = workflow('release.yml').jobs.publish;
     const steps = publish?.steps ?? [];

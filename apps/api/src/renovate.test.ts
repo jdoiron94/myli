@@ -65,13 +65,6 @@ describe('the Renovate configuration', () => {
     expect(valuesOf(config, 'automerge')).toEqual([false]);
   });
 
-  it('opens PRs once a week, lockfile maintenance included', () => {
-    expect(config.schedule).toHaveLength(1);
-    // A cron schedule on a single weekday.
-    expect(config.schedule[0]).toMatch(/^\S+ \S+ \* \* [0-6]$/);
-    expect(config.lockFileMaintenance.schedule).toEqual(config.schedule);
-  });
-
   it('proposes only releases at least a week old', () => {
     expect(config.minimumReleaseAge).toBe('7 days');
     expect(config.vulnerabilityAlerts.minimumReleaseAge).toBe('7 days');

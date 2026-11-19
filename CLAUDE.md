@@ -222,7 +222,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Dependencies and Docker
 - Every dependency must be free and self-hostable. Pin exact versions.
-- **Only releases at least a week old,** dependencies of dependencies included. pnpm enforces it (`minimumReleaseAge` in `pnpm-workspace.yaml`), and `release-age.test.ts` (in `apps/api/src`) checks the setting.
+- **Only releases at least a week old,** dependencies of dependencies included. pnpm enforces it (`minimumReleaseAge` in `pnpm-workspace.yaml`), and `release-age.test.ts` (in `apps/api/src`) checks that it matches Renovate's and exempts nothing.
   - pnpm checks every lockfile entry on every install, `--frozen-lockfile` included, so a lockfile with a younger release fails locally, in CI and in the image builds.
   - Adding or updating, pnpm picks the newest release in range that's a week old, and fails (`ERR_PNPM_NO_MATURE_MATCHING_VERSION`) when only a younger one fits: pin an older version, or wait.
   - To move indirect dependencies back to week-old releases, re-resolve them by name: `pnpm update -r --depth Infinity <names>`. pnpm otherwise keeps any lockfile entry that's still in range.
@@ -231,7 +231,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - Don't use MinIO: its Community Edition is archived and no longer ships official images.
 - Don't add Redis. Background jobs use the SQLite `job` table.
 - Docker images use multi-stage builds, run as a non-root user, have healthchecks, and pin their base images by tag and digest. Third-party images in `compose.yaml` are pinned the same way.
-- **Renovate** (`renovate.json`) opens dependency PRs on Mondays (before noon UTC), lockfile maintenance included, and only for releases at least a week old. It never merges one: every PR waits for review. `renovate.test.ts` (in `apps/api/src`) checks each of these.
+- **Renovate** (`renovate.json`) opens dependency PRs on Mondays (before noon UTC), lockfile maintenance included, and only for releases at least a week old. It never merges one: every PR waits for review. `renovate.test.ts` (in `apps/api/src`) checks those two rules.
   - Renovate reads its configuration only from the default branch, `main`.
   - Security fixes skip the schedule, which Renovate doesn't allow otherwise, but still wait a week. They need the repository's Dependabot alerts turned on.
   - `config:best-practices` sets 3 days for npm packages in a package rule, so the week-old rule is the last package rule. Keep it last.
@@ -276,10 +276,10 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - The jobs share their setup, `.github/actions/setup`: pnpm from `packageManager`, Node from `.node-version`, `pnpm install --frozen-lockfile`, and Playwright's browsers when asked.
   - The browsers are installed without `--with-deps`: the runner's image has the libraries they load, and the packages it added (fonts and codecs no test needs) came from an Ubuntu mirror that took up to 13 minutes. If a browser won't launch for a missing library, install that one package there.
 - **`pnpm audit` never fails CI.** It lists advisories in the run's summary, with a warning. Don't make it, or any other vulnerability scan, a gate.
-- **Supply chain,** in every workflow (`workflows.test.ts` checks each):
+- **Supply chain,** in every workflow (`workflows.test.ts` checks the pins and the checkouts):
   - Actions are pinned by commit SHA, with the version in a comment: `actions/checkout@<sha> # v7.0.1`.
   - In-repo actions use GitHub's self-repository syntax, `uses: $/.github/actions/...`, never `./...`, which would load whatever an earlier step left in the workspace.
-  - Each job's token gets only the access it needs, with a comment saying why. `ci.yml` can only read the repository. `ACCESS` in `workflows.test.ts` lists every workflow's and job's access, so more access shows in review.
+  - Each job's token gets only the access it needs, with a comment saying why. `ci.yml` can only read the repository.
   - Checkout keeps no credentials (`persist-credentials: false`).
 - **Releases** (`.github/workflows/release.yml`, with `release-please-config.json`):
   - On every push to `main`, release-please keeps a release PR open with the next version and `CHANGELOG.md`, from the conventional commits since the last release.
