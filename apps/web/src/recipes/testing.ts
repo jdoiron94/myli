@@ -3,7 +3,15 @@ import { within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { answerPreferences } from '@/account/testing.ts';
 import { apiServer, problemResponse, testUsers } from '@/testing.ts';
-import type { Image, Recipe, RecipeDraft, RecipeSummary, Tag } from './recipe.ts';
+import type {
+  Image,
+  Recipe,
+  RecipeDraft,
+  RecipeRevision,
+  RecipeRevisionContent,
+  RecipeSummary,
+  Tag,
+} from './recipe.ts';
 import { recipeContent } from './recipe-form.ts';
 
 /** A 1600×1200 photo, with the sizes the API makes of one that wide. */
@@ -87,10 +95,6 @@ export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
 }
 
 /**
- * Answers GET /recipes/{id} with this recipe, and 404 for any other, and counts the requests. Also
- * answers the reader's preferences with imperial, unless the test answers them itself afterwards.
- */
-/**
  * A draft of the sample recipe as the API would send it, unchanged so far, saved by the admin from
  * its first revision.
  */
@@ -113,6 +117,89 @@ export const staleRecipeResponse = (recipe: Recipe) =>
     recipe,
   });
 
+/** What a revision records of a recipe: its content, with its tags and photos as they were. */
+export function revisionContent({
+  title,
+  description,
+  source,
+  equipment,
+  yield: makes,
+  servings,
+  prepMinutes,
+  cookMinutes,
+  totalMinutes,
+  difficulty,
+  nutrition,
+  ingredientGroups,
+  steps,
+  tags,
+  images,
+  coverImageId,
+}: Recipe): RecipeRevisionContent {
+  return {
+    title,
+    description,
+    source,
+    equipment,
+    yield: makes,
+    servings,
+    prepMinutes,
+    cookMinutes,
+    totalMinutes,
+    difficulty,
+    nutrition,
+    ingredientGroups,
+    steps,
+    tags,
+    images,
+    coverImageId,
+  };
+}
+
+/** Revision `number` of the sample recipe as the API would send it, saved by its owner, the editor. */
+export function sampleRevision(
+  number: number,
+  overrides: Partial<RecipeRevision> = {},
+): RecipeRevision {
+  return {
+    number,
+    author: { id: testUsers.editor.id, name: testUsers.editor.name },
+    message: null,
+    createdAt: `2026-11-1${String(number)}T09:00:00.000Z`,
+    content: revisionContent(sampleRecipe()),
+    ...overrides,
+  };
+}
+
+/**
+ * Answers a recipe's history with these revisions, newest first as given, and each one by its
+ * number, 404 for any other.
+ */
+export function answerRevisions(revisions: RecipeRevision[]) {
+  apiServer.use(
+    http.get('/api/v1/recipes/:id/revisions', () =>
+      HttpResponse.json({
+        revisions: revisions.map(({ number, author, message, createdAt }) => ({
+          number,
+          author,
+          message,
+          createdAt,
+        })),
+      }),
+    ),
+    http.get('/api/v1/recipes/:id/revisions/:number', ({ params }) => {
+      const revision = revisions.find(({ number }) => String(number) === params.number);
+      return revision
+        ? HttpResponse.json({ revision })
+        : problemResponse(404, 'There is no revision with this number.');
+    }),
+  );
+}
+
+/**
+ * Answers GET /recipes/{id} with this recipe, and 404 for any other, and counts the requests. Also
+ * answers the reader's preferences with imperial, unless the test answers them itself afterwards.
+ */
 export function answerRecipe(recipe: Recipe) {
   answerPreferences();
   const requests: string[] = [];

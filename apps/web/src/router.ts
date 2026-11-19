@@ -118,6 +118,22 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Cook mode' },
   },
   {
+    // For everyone who may read the recipe, so the page needs no check of its own.
+    path: '/recipes/:id/history',
+    name: 'recipe-history',
+    component: () => import('./pages/HistoryPage.vue'),
+    props: true,
+    meta: { title: 'History' },
+  },
+  {
+    // Revisions are numbered from 1, so any other address is a page that doesn't exist.
+    path: '/recipes/:id/history/:number([1-9]\\d*)',
+    name: 'recipe-revision',
+    component: () => import('./pages/RevisionPage.vue'),
+    props: (route) => ({ id: String(route.params.id), number: Number(route.params.number) }),
+    meta: { title: 'Revision' },
+  },
+  {
     // The page sets the tab's title to the recipe's once it's loaded.
     path: '/recipes/:id',
     name: 'recipe',

@@ -309,6 +309,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **History.** Shows every revision, newest first, with author, timestamp and message, to anyone who may see the recipe.
   - A recipe says which revision it shows: its latest, the published one.
   - Each revision shows the recipe as it was then: its tags with the names they had, its photos with the alt text they had.
+  - The recipe's page links to its history, which marks the revision published. Each revision's page says who saved it, when and why, and whether the recipe was published since.
 - **Compare** any two revisions:
   - a field-level diff (metadata, ingredients and steps added, removed or changed)
   - a text diff for markdown fields

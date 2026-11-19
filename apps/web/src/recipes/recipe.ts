@@ -21,6 +21,8 @@ export type UpdateRecipeRequest = components['schemas']['UpdateRecipeRequest'];
 export type RecipeContent = components['schemas']['RecipeContent'];
 export type RecipeDraft = components['schemas']['RecipeDraft'];
 export type RecipeRevisionContent = components['schemas']['RecipeRevisionContent'];
+export type RecipeRevisionSummary = components['schemas']['RecipeRevisionSummary'];
+export type RecipeRevision = components['schemas']['RecipeRevision'];
 
 /** One recipe, as the API shows it to the signed-in user. */
 export const recipeQuery = (id: string) =>
@@ -39,6 +41,26 @@ export const recipeDraftQuery = (id: string) =>
     queryKey: ['recipes', id, 'draft'],
     queryFn: async () =>
       responseData(await api.GET('/recipes/{id}/draft', { params: { path: { id } } })).draft,
+  });
+
+/** A recipe's history: its revisions, newest first, the first being the one published. */
+export const recipeRevisionsQuery = (id: string) =>
+  queryOptions({
+    queryKey: ['recipes', id, 'revisions'],
+    queryFn: async () =>
+      responseData(await api.GET('/recipes/{id}/revisions', { params: { path: { id } } }))
+        .revisions,
+  });
+
+/** One revision of a recipe, as it recorded the recipe. Revisions never change. */
+export const recipeRevisionQuery = (id: string, number: number) =>
+  queryOptions({
+    queryKey: ['recipes', id, 'revisions', number],
+    queryFn: async () =>
+      responseData(
+        await api.GET('/recipes/{id}/revisions/{number}', { params: { path: { id, number } } }),
+      ).revision,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 
 /** The lists of recipes: every one the reader may see, newest first, or their favorites. */

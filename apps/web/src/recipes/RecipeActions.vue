@@ -2,6 +2,7 @@
 import {
   ChefHatIcon,
   HeartIcon,
+  HistoryIcon,
   LockIcon,
   PencilIcon,
   PrinterIcon,
@@ -39,8 +40,9 @@ import {
 import { servingsQuery } from './servings.ts';
 
 /**
- * What the reader may do with a recipe: cook it or print it, which anyone who sees it may, and by
- * the policy, keep it as a favorite, edit it, change who sees it, delete it. None of it is printed.
+ * What the reader may do with a recipe: cook it, print it or see its history, which anyone who sees
+ * it may, and by the policy, keep it as a favorite, edit it, change who sees it, delete it. None of
+ * it is printed.
  */
 const props = defineProps<{ recipe: Recipe }>();
 
@@ -185,6 +187,16 @@ async function remove() {
       >
         <PrinterIcon aria-hidden="true" />
         Print
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        as-child
+      >
+        <RouterLink :to="{ name: 'recipe-history', params: { id: recipe.id } }">
+          <HistoryIcon aria-hidden="true" />
+          History
+        </RouterLink>
       </Button>
       <Button
         v-if="canEdit"

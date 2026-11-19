@@ -65,6 +65,8 @@ const updatedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }
           <span>Added by {{ recipe.owner.name }}</span>
           <span aria-hidden="true">·</span>
           <span>Updated {{ updatedFormat.format(new Date(recipe.updatedAt)) }}</span>
+          <span aria-hidden="true">·</span>
+          <span>Revision {{ recipe.revision }}</span>
           <template v-if="recipe.visibility === 'private'">
             <span aria-hidden="true">·</span>
             <span class="inline-flex items-center gap-1">
