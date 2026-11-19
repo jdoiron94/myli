@@ -216,7 +216,7 @@ describe('the photos editor', () => {
     ]);
     expect(document.activeElement).toBe(button('Remove photo 2'));
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await reopened();
     expect(saved).toEqual([{ images: undescribed('a', 'c'), coverImageId: 'a' }]);
   });
@@ -239,7 +239,7 @@ describe('the photos editor', () => {
     await user.click(button('Remove photo 1'));
     expect(altTexts()).toEqual(['A crusty loaf.', '']);
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await reopened();
     expect(saved).toEqual([
       {
@@ -257,7 +257,7 @@ describe('the photos editor', () => {
 
     await user.click(altField(1));
     await user.paste('x'.repeat(301));
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await waitFor(() => {
       expect(document.activeElement).toBe(altField(1));
@@ -273,7 +273,7 @@ describe('the photos editor', () => {
 
     expect(shownPhotos()).toEqual([]);
     expect(document.activeElement).toBe(button('Add photos'));
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await reopened();
     expect(saved).toEqual([{ images: undescribed(), coverImageId: null }]);
   });
@@ -291,7 +291,7 @@ describe('the photos editor', () => {
 
     await user.upload(fileInput(), photoFile('bread.jpg'));
     expect(await within(photosGroup()).findByText('Uploading photo 1 of 1…')).toBeDefined();
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     expect((await screen.findByText(/^Wait for the photos/)).textContent.trim()).toBe(
       'Wait for the photos to finish uploading, then save.',
@@ -302,7 +302,7 @@ describe('the photos editor', () => {
     await waitFor(() => {
       expect(shownPhotos()).toEqual([{ id: 'upload-1', cover: true }]);
     });
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await reopened();
     expect(saved).toEqual([{ images: undescribed('upload-1'), coverImageId: 'upload-1' }]);
   });
@@ -316,7 +316,7 @@ describe('the photos editor', () => {
       }),
     );
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await waitFor(() => {
       expect(document.activeElement).toBe(coverChoice(2));

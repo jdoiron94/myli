@@ -445,7 +445,7 @@ describe('the ingredients editor', () => {
 
       expect(describedBy(line(1))).toEqual(['Reads as: a few sprigs of thyme, fresh.']);
       expect(screen.queryByRole('button', { name: /^Read ingredient/ })).toBeNull();
-      await user.click(button('Save changes'));
+      await user.click(button('Publish'));
       await waitFor(() => {
         expect(saved).toEqual([
           [

@@ -26,7 +26,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { goWithNotice } from '@/lib/page-notice.ts';
+import { goWithNotice, pageNotice } from '@/lib/page-notice.ts';
 import { favoriteQuery, useSetFavorite } from './favorites.ts';
 import {
   type Recipe,
@@ -68,7 +68,9 @@ function print() {
   window.print();
 }
 
-const notice = ref<string>();
+const router = useRouter();
+/** What happened, starting with what the page that sent someone here said, like a discarded draft. */
+const notice = ref(pageNotice(router));
 const failure = ref<string>();
 
 // Only asked by someone who may keep it, and the button shows once it's known.
@@ -118,7 +120,6 @@ async function toggleVisibility() {
 }
 
 const deleteRecipe = useDeleteRecipe();
-const router = useRouter();
 const queryClient = useQueryClient();
 
 /** Home afterwards, which says it's deleted: the recipe's page has nothing to show. */

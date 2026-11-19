@@ -122,7 +122,7 @@ describe('the steps editor', () => {
 
     expect(stepTexts()).toEqual(['Bake. Then cool.', 'Mix.']);
     expect(step(1).getAttribute('contenteditable')).toBe('true');
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([
       [
@@ -138,7 +138,7 @@ describe('the steps editor', () => {
     await user.click(button('Move step 2 up'));
     await user.click(button('Add a step'));
     await focusedMarkdownEditor('Step 3');
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await screen.findByRole('heading', { level: 1, name: 'Weeknight Bread' });
     expect(saved).toEqual([
@@ -180,7 +180,7 @@ describe('the steps editor', () => {
     const many = Array.from({ length: RECIPE_LIMITS.steps + 1 }, (_, index) => `${String(index)}.`);
     const { user, saved } = await editSteps(...many);
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     expect(await screen.findByText('A recipe can have up to 100 steps.')).toBeTruthy();
     expect(saved).toEqual([]);
@@ -266,7 +266,7 @@ describe('a step’s photo', () => {
     expect(stepPhotos()).toEqual(['upload-1', null]);
     expect(altField(1).value).toBe('Dough shaped into a round.');
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await screen.findByRole('radio', { name: 'US customary' });
     expect(saved).toEqual([
       [
@@ -288,7 +288,7 @@ describe('a step’s photo', () => {
 
     expect(stepPhotos()).toEqual([null, null]);
     expect(document.activeElement).toBe(button('Add a photo to step 2'));
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
     await screen.findByRole('radio', { name: 'US customary' });
     expect(saved).toEqual([
       [
@@ -327,7 +327,7 @@ describe('a step’s photo', () => {
       }),
     );
 
-    await user.click(button('Save changes'));
+    await user.click(button('Publish'));
 
     await waitFor(() => {
       expect(describedBy(button('Remove photo from step 2'))).toEqual([detail]);

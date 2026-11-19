@@ -2164,6 +2164,17 @@
           "tagIds"
         ]
       },
+      "SavedDraftResult": {
+        "type": "object",
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/RecipeDraft"
+          }
+        },
+        "required": [
+          "draft"
+        ]
+      },
       "RecipeRevisionList": {
         "type": "object",
         "properties": {
@@ -4074,7 +4085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RecipeDraftResult"
+                  "$ref": "#/components/schemas/SavedDraftResult"
                 }
               }
             }

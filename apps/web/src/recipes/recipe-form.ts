@@ -7,10 +7,13 @@ import {
   parseQuantity,
   RECIPE_LIMITS,
   updateRecipeRequestSchema,
+  type Visibility,
   visibilitySchema,
 } from '@myli/shared';
 import { z } from 'zod';
-import type { IngredientLine, Recipe } from './recipe.ts';
+import type { Recipe, RecipeContent } from './recipe.ts';
+
+type IngredientLine = RecipeContent['ingredientGroups'][number]['ingredients'][number];
 
 /**
  * The recipe editor's form: what's typed in its fields, and the API's request it becomes. Every
@@ -300,8 +303,14 @@ export const recipeFormSchema = z
     coverImageId: content.coverImageId,
     /** Chosen only when creating a recipe. Afterwards it's changed on its own, by the owner. */
     visibility: visibilitySchema,
+    /** What changed, for the history: only when publishing an existing recipe. None if empty. */
+    message: z
+      .string()
+      .trim()
+      .transform((message) => (message === '' ? undefined : message))
+      .pipe(content.message),
   })
-  .transform(({ visibility, ...recipe }) => ({ content: recipe, visibility }));
+  .transform(({ visibility, message, ...recipe }) => ({ content: recipe, visibility, message }));
 
 export type RecipeFormValues = z.input<typeof recipeFormSchema>;
 export type RecipeFormResult = z.output<typeof recipeFormSchema>;
@@ -323,6 +332,7 @@ export const RECIPE_TEXT_FIELDS = [
   'equipment',
   ...NUTRIENTS.map((name) => `nutrition.${name}` as const),
   'visibility',
+  'message',
 ] as const;
 
 /**
@@ -353,47 +363,79 @@ const typed = (value: number | null) => (value === null ? '' : String(value));
 
 /** What the form starts with: a new recipe's empty fields, or an existing one's values. */
 export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
-  if (!recipe) {
-    return {
-      title: '',
-      source: { url: '', title: '', author: '' },
-      equipment: '',
-      yield: { qty: '', unit: '' },
-      servings: '',
-      prepMinutes: '',
-      cookMinutes: '',
-      totalMinutes: '',
-      difficulty: 'none',
-      nutrition: {
-        calories: '',
-        proteinGrams: '',
-        carbsGrams: '',
-        fatGrams: '',
-        fiberGrams: '',
-        sugarGrams: '',
-        sodiumMilligrams: '',
-      },
-      description: '',
-      ingredientGroups: [emptyGroup()],
-      steps: [emptyStep()],
-      tagIds: [],
-      images: [],
-      coverImageId: null,
-      // Nothing is shared by accident: sharing is a choice.
-      visibility: 'private',
-    };
-  }
-  const { source, nutrition } = recipe;
+  if (recipe) return contentFormValues(recipeContent(recipe), recipe.visibility);
+  return {
+    title: '',
+    source: { url: '', title: '', author: '' },
+    equipment: '',
+    yield: { qty: '', unit: '' },
+    servings: '',
+    prepMinutes: '',
+    cookMinutes: '',
+    totalMinutes: '',
+    difficulty: 'none',
+    nutrition: {
+      calories: '',
+      proteinGrams: '',
+      carbsGrams: '',
+      fatGrams: '',
+      fiberGrams: '',
+      sugarGrams: '',
+      sodiumMilligrams: '',
+    },
+    description: '',
+    ingredientGroups: [emptyGroup()],
+    steps: [emptyStep()],
+    tagIds: [],
+    images: [],
+    coverImageId: null,
+    // Nothing is shared by accident: sharing is a choice.
+    visibility: 'private',
+    message: '',
+  };
+}
+
+/** A recipe's content, as editing changes it and a draft holds it. */
+export function recipeContent(recipe: Recipe): RecipeContent {
   return {
     title: recipe.title,
+    description: recipe.description,
+    source: recipe.source,
+    equipment: recipe.equipment,
+    yield: recipe.yield,
+    servings: recipe.servings,
+    prepMinutes: recipe.prepMinutes,
+    cookMinutes: recipe.cookMinutes,
+    totalMinutes: recipe.totalMinutes,
+    difficulty: recipe.difficulty,
+    nutrition: recipe.nutrition,
+    ingredientGroups: recipe.ingredientGroups,
+    steps: recipe.steps.map(({ body, image }) => ({
+      body,
+      image: image && { id: image.id, alt: image.alt },
+    })),
+    tagIds: recipe.tags.map((tag) => tag.id),
+    images: recipe.images.map(({ id, alt }) => ({ id, alt })),
+    coverImageId: recipe.coverImageId,
+  };
+}
+
+/** What the form starts with for content: a recipe's, or its draft's. */
+export function contentFormValues(
+  content: RecipeContent,
+  visibility: Visibility,
+): RecipeFormValues {
+  const { source, nutrition } = content;
+  return {
+    title: content.title,
     source: { url: source.url ?? '', title: source.title ?? '', author: source.author ?? '' },
-    equipment: recipe.equipment.join('\n'),
-    yield: { qty: typed(recipe.yield?.qty ?? null), unit: recipe.yield?.unit ?? '' },
-    servings: String(recipe.servings),
-    prepMinutes: typed(recipe.prepMinutes),
-    cookMinutes: typed(recipe.cookMinutes),
-    totalMinutes: typed(recipe.totalMinutes),
-    difficulty: recipe.difficulty ?? 'none',
+    equipment: content.equipment.join('\n'),
+    yield: { qty: typed(content.yield?.qty ?? null), unit: content.yield?.unit ?? '' },
+    servings: String(content.servings),
+    prepMinutes: typed(content.prepMinutes),
+    cookMinutes: typed(content.cookMinutes),
+    totalMinutes: typed(content.totalMinutes),
+    difficulty: content.difficulty ?? 'none',
     nutrition: {
       calories: typed(nutrition.calories),
       proteinGrams: typed(nutrition.proteinGrams),
@@ -403,25 +445,23 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
       sugarGrams: typed(nutrition.sugarGrams),
       sodiumMilligrams: typed(nutrition.sodiumMilligrams),
     },
-    description: recipe.description,
+    description: content.description,
     ingredientGroups:
-      recipe.ingredientGroups.length === 0
+      content.ingredientGroups.length === 0
         ? [emptyGroup()]
-        : recipe.ingredientGroups.map((group) => ({
+        : content.ingredientGroups.map((group) => ({
             label: group.label ?? '',
             ingredients: group.ingredients.map(lineValues),
           })),
     steps:
-      recipe.steps.length === 0
+      content.steps.length === 0
         ? [emptyStep()]
-        : recipe.steps.map(({ body, image }) => ({
-            body,
-            image: image && { id: image.id, alt: image.alt },
-          })),
-    tagIds: recipe.tags.map((tag) => tag.id),
-    images: recipe.images.map(({ id, alt }) => ({ id, alt })),
-    coverImageId: recipe.coverImageId,
-    visibility: recipe.visibility,
+        : content.steps.map(({ body, image }) => ({ body, image })),
+    tagIds: content.tagIds,
+    images: content.images,
+    coverImageId: content.coverImageId,
+    visibility,
+    message: '',
   };
 }
 

@@ -18,6 +18,8 @@ export type RecipeSummary = components['schemas']['RecipeSummary'];
 export type RecipeList = components['schemas']['RecipeList'];
 export type CreateRecipeRequest = components['schemas']['CreateRecipeRequest'];
 export type UpdateRecipeRequest = components['schemas']['UpdateRecipeRequest'];
+export type RecipeContent = components['schemas']['RecipeContent'];
+export type RecipeDraft = components['schemas']['RecipeDraft'];
 
 /** One recipe, as the API shows it to the signed-in user. */
 export const recipeQuery = (id: string) =>
@@ -25,6 +27,17 @@ export const recipeQuery = (id: string) =>
     queryKey: ['recipes', id],
     queryFn: async () =>
       responseData(await api.GET('/recipes/{id}', { params: { path: { id } } })).recipe,
+  });
+
+/**
+ * A recipe's draft, or `null` when it has none. Only for whoever may edit the recipe: the API
+ * refuses anyone else, so ask only once `can()` allows it.
+ */
+export const recipeDraftQuery = (id: string) =>
+  queryOptions({
+    queryKey: ['recipes', id, 'draft'],
+    queryFn: async () =>
+      responseData(await api.GET('/recipes/{id}/draft', { params: { path: { id } } })).draft,
   });
 
 /** The lists of recipes: every one the reader may see, newest first, or their favorites. */
@@ -65,14 +78,18 @@ function showLatest(queryClient: QueryClient, error: unknown) {
 
 /**
  * A mutation that answers with a recipe as saved, which then becomes what its page shows, without
- * fetching it again.
+ * fetching it again. One that `discardsDraft` leaves the recipe without one.
  */
-function useRecipeMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<Recipe>) {
+function useRecipeMutation<TVariables>(
+  mutationFn: (variables: TVariables) => Promise<Recipe>,
+  { discardsDraft = false } = {},
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
     onSuccess: (recipe) => {
       queryClient.setQueryData(recipeQuery(recipe.id).queryKey, recipe);
+      if (discardsDraft) queryClient.setQueryData(recipeDraftQuery(recipe.id).queryKey, null);
     },
     onError: (error) => {
       showLatest(queryClient, error);
@@ -86,10 +103,10 @@ export const useCreateRecipe = () =>
   );
 
 /**
- * Saves a recipe's content, replacing all of it, unless it changed since `version`, the one the
- * edit started from. Its visibility is changed on its own.
+ * Publishes a recipe's content, replacing all of it, unless it changed since `version`, the one
+ * the edit is based on. That discards its draft. Its visibility is changed on its own.
  */
-export const useSaveRecipe = () =>
+export const usePublishRecipe = () =>
   useRecipeMutation(
     async ({ id, version, body }: { id: string; version: number; body: UpdateRecipeRequest }) =>
       responseData(
@@ -98,7 +115,66 @@ export const useSaveRecipe = () =>
           body,
         }),
       ).recipe,
+    { discardsDraft: true },
   );
+
+/**
+ * Saves a recipe's draft, unless the recipe changed since `version`. What's published stays as it
+ * is, but its version moves on, which the cached recipe takes too, so its page can go on changing
+ * it without being refused as out of date.
+ */
+export const useSaveDraft = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      version,
+      body,
+    }: {
+      id: string;
+      version: number;
+      body: RecipeContent;
+    }) =>
+      responseData(
+        await api.PUT('/recipes/{id}/draft', {
+          params: { path: { id }, header: basedOn(version) },
+          body,
+        }),
+      ).draft,
+    onSuccess: (draft, { id }) => {
+      queryClient.setQueryData(recipeDraftQuery(id).queryKey, draft);
+      queryClient.setQueryData(
+        recipeQuery(id).queryKey,
+        (recipe) => recipe && { ...recipe, version: draft.version },
+      );
+    },
+    onError: (error) => {
+      showLatest(queryClient, error);
+    },
+  });
+};
+
+/**
+ * Discards a recipe's draft, unless the recipe changed since `version`. What's published stays as
+ * it is; the recipe is fetched again for its new version.
+ */
+export const useDiscardDraft = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      await api.DELETE('/recipes/{id}/draft', {
+        params: { path: { id }, header: basedOn(version) },
+      });
+    },
+    onSuccess: async (_, { id }) => {
+      queryClient.setQueryData(recipeDraftQuery(id).queryKey, null);
+      await queryClient.invalidateQueries({ queryKey: recipeQuery(id).queryKey, exact: true });
+    },
+    onError: (error) => {
+      showLatest(queryClient, error);
+    },
+  });
+};
 
 /** Makes a recipe private or shared, unless it changed since `version`. Only its owner can. */
 export const useChangeVisibility = () =>

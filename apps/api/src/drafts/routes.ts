@@ -4,6 +4,7 @@ import {
   recipeContentSchema,
   recipeDraftResultSchema,
   recipeIdParamsSchema,
+  savedDraftResultSchema,
   versionETag,
 } from '@myli/shared';
 import { requireSession } from '../auth/session.ts';
@@ -15,11 +16,6 @@ import { discardDraft, loadDraft, saveDraft } from './drafts.ts';
 
 const WHO =
   'Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones.';
-
-const draftResult = (description: string) => ({
-  description,
-  content: { 'application/json': { schema: recipeDraftResultSchema } },
-});
 
 const refusals = {
   403: problem('The caller may see the recipe but not edit it.'),
@@ -34,7 +30,14 @@ const getDraft = createRoute({
   description: `${WHO} The draft, or \`null\` when the recipe has none.`,
   middleware: [requireSession] as const,
   request: { params: recipeIdParamsSchema },
-  responses: { 200: draftResult('The draft, or `null`.'), ...refusals, ...errorResponses },
+  responses: {
+    200: {
+      description: 'The draft, or `null`.',
+      content: { 'application/json': { schema: recipeDraftResultSchema } },
+    },
+    ...refusals,
+    ...errorResponses,
+  },
 });
 
 const putDraft = createRoute({
@@ -53,7 +56,10 @@ const putDraft = createRoute({
     body: { required: true, content: { 'application/json': { schema: recipeContentSchema } } },
   },
   responses: {
-    200: draftResult('The draft as saved, with the version the recipe is at now.'),
+    200: {
+      description: 'The draft as saved, with the version the recipe is at now.',
+      content: { 'application/json': { schema: savedDraftResultSchema } },
+    },
     ...refusals,
     ...conditionalResponses,
     ...errorResponses,
@@ -99,7 +105,10 @@ export function registerDraftRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) {
     const version = ifMatchVersion(c.req.valid('header')['if-match']);
     written(id, saveDraft(deps.db, id, c.req.valid('json'), c.var.user.id, version));
     c.var.logger.info({ recipeId: id }, 'recipe draft saved');
-    return c.json({ draft: loadDraft(deps.db, id) }, 200);
+    const draft = loadDraft(deps.db, id);
+    // Saved just now, in this same synchronous request.
+    if (!draft) throw new Error('The draft just saved is missing');
+    return c.json({ draft }, 200);
   });
 
   v1.openapi(deleteDraft, (c) => {

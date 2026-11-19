@@ -1005,7 +1005,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["RecipeDraftResult"];
+                        "application/json": components["schemas"]["SavedDraftResult"];
                     };
                 };
                 /** @description The caller may see the recipe but not edit it. */
@@ -3365,6 +3365,9 @@ export interface components {
             /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
             coverImageId: string | null;
             tagIds: number[];
+        };
+        SavedDraftResult: {
+            draft: components["schemas"]["RecipeDraft"];
         };
         RecipeRevisionList: {
             /** @description Newest first. The first is the one published. */

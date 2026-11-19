@@ -298,6 +298,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - Its tags and photos are checked as publishing would check them. The uploads it names become the recipe's, so they aren't discarded after a day, and whoever continues the draft sees them.
   - Saving it never changes the published recipe, its "Updated" date included, and it's never indexed for search.
   - Discarding the draft leaves the published version unchanged.
+  - The editor has **Save draft** and **Publish**, with an optional "What changed" message for the revision, and no autosave. It opens on the recipe's draft when there is one, saying who saved it last and when, and, if the recipe was published since the draft started, that publishing the draft replaces what that revision changed. **Discard draft** asks first, then goes back to the recipe, which says it was discarded.
 - **Publishing:**
   - copies the draft into the live tables, and discards the draft
   - saves an immutable **revision**: a full JSON snapshot of the recipe, plus the author, timestamp and an optional message
@@ -322,7 +323,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - a write without `If-Match` gets `428 Precondition Required`
   - if the version is out of date, the API returns `412 Precondition Failed` with the recipe as it is now, its version included, so the client can show what changed ([ADR 0007](./adr/0007-revision-snapshots-and-optimistic-concurrency.md))
   - this matters because editors can edit each other's recipes
-  - The editor saves against the version it opened, even if the recipe's page has loaded a newer one since. Refused, it says someone saved the recipe meanwhile, keeping what was typed. On the recipe's page, a refused change of visibility or deletion shows the recipe as it is now, and says so.
+  - The editor saves against the version it opened, or its own last draft save's, even if the recipe's page has loaded a newer one since. Refused, it says someone saved the recipe meanwhile, keeping what was typed. On the recipe's page, a refused change of visibility or deletion shows the recipe as it is now, and says so.
 
 ### 3.4 Search and discovery
 

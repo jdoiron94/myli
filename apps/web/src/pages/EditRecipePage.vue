@@ -7,8 +7,9 @@ import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import { goWithNotice } from '@/lib/page-notice.ts';
 import RecipeForm from '@/recipes/RecipeForm.vue';
-import { type Recipe, recipeQuery } from '@/recipes/recipe.ts';
+import { type Recipe, recipeDraftQuery, recipeQuery } from '@/recipes/recipe.ts';
 
 const props = defineProps<{ id: string }>();
 
@@ -37,6 +38,13 @@ const allowed = computed(
 );
 
 // One heading from the start, so focus can move to it after navigating, whatever the page then shows.
+// The draft, if it has one, which the form continues. Only asked once they may edit the recipe.
+const draftQuery = useQuery(
+  computed(() => ({ ...recipeDraftQuery(props.id), enabled: allowed.value })),
+);
+const draftRetry = useRetry(draftQuery);
+const draft = computed(() => draftQuery.data.value);
+
 const heading = computed(() => {
   if (notFound.value) return 'Recipe not found';
   if (recipe.value && !allowed.value) return "You can't edit this recipe";
@@ -48,6 +56,14 @@ const router = useRouter();
 function open(saved: Recipe) {
   void router.push({ name: 'recipe', params: { id: saved.id } });
 }
+
+function discarded() {
+  void goWithNotice(
+    router,
+    { name: 'recipe', params: { id: props.id } },
+    'Draft discarded. The recipe is as it was published.',
+  );
+}
 </script>
 
 <template>
@@ -56,13 +72,31 @@ function open(saved: Recipe) {
   </h1>
 
   <template v-if="recipe">
-    <RecipeForm
-      v-if="allowed"
-      :key="recipe.id"
-      class="mt-6"
-      :recipe="recipe"
-      @saved="open"
-    />
+    <template v-if="allowed">
+      <RecipeForm
+        v-if="draft !== undefined"
+        :key="recipe.id"
+        class="mt-6"
+        :recipe="recipe"
+        :draft="draft"
+        @saved="open"
+        @discarded="discarded"
+      />
+      <RetryableFailure
+        v-else-if="draftRetry.failure.value"
+        class="mt-4"
+        :error="draftRetry.failure.value"
+        :retrying="draftRetry.retrying.value"
+        :still-failing="draftRetry.stillFailing.value"
+        @retry="draftRetry.retry"
+      />
+      <p
+        v-else
+        class="mt-2 text-muted-foreground"
+      >
+        Loading the recipe…
+      </p>
+    </template>
     <template v-else>
       <p class="mt-2 text-muted-foreground">
         Your role doesn't include editing recipes. If you need it, ask an admin.
