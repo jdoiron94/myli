@@ -270,41 +270,51 @@ export function createRecipe(db: Db, ownerId: string, request: CreateRecipeReque
 /**
  * Publishes a recipe's content over what it had, lines, steps, tags and photos included, as edited
  * by `editorId`, whose uploads it can add, and records it as the next revision, with `message`.
- * Its owner and visibility stay, and its draft goes: what was published replaces it. Refused if the
- * recipe is no longer at `version`, the one the edit started from.
+ * Its owner and visibility stay, and its draft goes, since what was published replaces it, unless
+ * `keepDraft`. Refused if the recipe is no longer at `version`, the one the edit started from.
  */
+export function publishContent(
+  tx: Tx,
+  id: string,
+  content: RecipeContent,
+  editorId: string,
+  version: number,
+  { message = null, keepDraft = false }: { message?: string | null; keepDraft?: boolean } = {},
+): SaveResult {
+  const current = atVersion(tx, id, version);
+  if (!current.ok) return current;
+  const refused = refusedContent(tx, id, editorId, content);
+  if (refused) return refused;
+
+  const [updated] = tx
+    .update(recipe)
+    .set({ ...contentColumns(content), version: version + 1 })
+    .where(liveAt(id, version))
+    .returning({ id: recipe.id })
+    .all();
+  if (!updated) return { ok: false, reason: 'stale' };
+
+  tx.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run();
+  tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
+  tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
+  writeParts(tx, id, content);
+  writePhotos(tx, id, photoUses(content));
+  if (!keepDraft) tx.delete(recipeDraft).where(eq(recipeDraft.recipeId, id)).run();
+  recordPublished(tx, id, editorId, message);
+  enqueueJob(tx, indexRecipeJob, { recipeId: id });
+  return { ok: true, id };
+}
+
+/** `publishContent` in a transaction of its own: what saving the editor's changes does. */
 export function updateRecipe(
   db: Db,
   id: string,
   content: RecipeContent,
   editorId: string,
   version: number,
-  { message = null }: { message?: string | null } = {},
+  options: { message?: string | null } = {},
 ): SaveResult {
-  return db.transaction((tx): SaveResult => {
-    const current = atVersion(tx, id, version);
-    if (!current.ok) return current;
-    const refused = refusedContent(tx, id, editorId, content);
-    if (refused) return refused;
-
-    const [updated] = tx
-      .update(recipe)
-      .set({ ...contentColumns(content), version: version + 1 })
-      .where(liveAt(id, version))
-      .returning({ id: recipe.id })
-      .all();
-    if (!updated) return { ok: false, reason: 'stale' };
-
-    tx.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run();
-    tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run();
-    tx.delete(recipeTag).where(eq(recipeTag.recipeId, id)).run();
-    writeParts(tx, id, content);
-    writePhotos(tx, id, photoUses(content));
-    tx.delete(recipeDraft).where(eq(recipeDraft.recipeId, id)).run();
-    recordPublished(tx, id, editorId, message);
-    enqueueJob(tx, indexRecipeJob, { recipeId: id });
-    return { ok: true, id };
-  });
+  return db.transaction((tx) => publishContent(tx, id, content, editorId, version, options));
 }
 
 /**

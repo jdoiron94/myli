@@ -1153,6 +1153,253 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a recipe's revisions
+         * @description Anyone who may see the recipe: any signed-in user, for shared recipes and their own private ones. Someone else's private recipe answers 404. Every revision, newest first, without its content.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Its history. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeRevisionList"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{id}/revisions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a revision of a recipe
+         * @description Anyone who may see the recipe: any signed-in user, for shared recipes and their own private ones. Someone else's private recipe answers 404. The recipe as that revision recorded it, its tags with the names they had then.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    number: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The revision. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeRevisionResult"];
+                    };
+                };
+                /** @description No recipe has this ID, the caller may not see it, or it has no such revision. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{id}/revisions/{number}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a revision of a recipe
+         * @description Whoever may edit the recipe: editors and admins, for shared recipes and their own private ones. Publishes the revision’s content as the next revision, with the message “Restored from revision #n”, and records it in the audit log. History is never rewritten, and the draft stays. Tags deleted since are left out. Send the version it’s based on in `If-Match`, and `Content-Type: application/json` even though there is no body.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
+                path: {
+                    id: string;
+                    number: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The recipe as restored. */
+                200: {
+                    headers: {
+                        /** @description The recipe's version, for the `If-Match` of a change to it. */
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeResult"];
+                    };
+                };
+                /** @description The caller may see the recipe but not edit it. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, the caller may not see it, or it has no such revision. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The revision can no longer be restored. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/images": {
         parameters: {
             query?: never;
@@ -3114,6 +3361,79 @@ export interface components {
             /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
             coverImageId: string | null;
             tagIds: number[];
+        };
+        RecipeRevisionList: {
+            /** @description Newest first. The first is the one published. */
+            revisions: components["schemas"]["RecipeRevisionSummary"][];
+        };
+        RecipeRevisionSummary: {
+            /** @description Its place in the history, from 1. */
+            number: number;
+            author: {
+                id: string;
+                name: string;
+            };
+            message: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RecipeRevisionResult: {
+            revision: components["schemas"]["RecipeRevision"];
+        };
+        RecipeRevision: {
+            /** @description Its place in the history, from 1. */
+            number: number;
+            author: {
+                id: string;
+                name: string;
+            };
+            message: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            content: components["schemas"]["RecipeRevisionContent"];
+        };
+        RecipeRevisionContent: {
+            title: string;
+            description: string;
+            source: {
+                url: string | null;
+                title: string | null;
+                author: string | null;
+            };
+            equipment: string[];
+            yield: {
+                qty: number;
+                unit: string | null;
+            } | null;
+            servings: number;
+            prepMinutes: number | null;
+            cookMinutes: number | null;
+            /** @description Set only when it differs from prep plus cook. See `recipeTotalMinutes`. */
+            totalMinutes: number | null;
+            difficulty: components["schemas"]["Difficulty"];
+            nutrition: {
+                calories: number | null;
+                proteinGrams: number | null;
+                carbsGrams: number | null;
+                fatGrams: number | null;
+                fiberGrams: number | null;
+                sugarGrams: number | null;
+                sodiumMilligrams: number | null;
+            };
+            ingredientGroups: {
+                label: string | null;
+                ingredients: components["schemas"]["IngredientLine"][];
+            }[];
+            steps: {
+                body: string;
+                image: components["schemas"]["Image"] | null;
+            }[];
+            /** @description By type, then name. */
+            tags: components["schemas"]["Tag"][];
+            /** @description Its photos, in order. */
+            images: components["schemas"]["Image"][];
+            /** @description One of `images`, or `null` when there are none. */
+            coverImageId: string | null;
         };
         ImageResult: {
             image: components["schemas"]["Image"];
