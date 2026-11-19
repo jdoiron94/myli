@@ -20,6 +20,7 @@ export type CreateRecipeRequest = components['schemas']['CreateRecipeRequest'];
 export type UpdateRecipeRequest = components['schemas']['UpdateRecipeRequest'];
 export type RecipeContent = components['schemas']['RecipeContent'];
 export type RecipeDraft = components['schemas']['RecipeDraft'];
+export type RecipeRevisionContent = components['schemas']['RecipeRevisionContent'];
 
 /** One recipe, as the API shows it to the signed-in user. */
 export const recipeQuery = (id: string) =>
