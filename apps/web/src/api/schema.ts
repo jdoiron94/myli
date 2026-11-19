@@ -130,7 +130,7 @@ export interface paths {
                     before?: number;
                     limit?: number;
                     /** @description Only events of this kind. */
-                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "public_link.created" | "public_link.revoked" | "instance.exported";
+                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
                 };
                 header?: never;
                 path?: never;
@@ -1068,6 +1068,230 @@ export interface paths {
                 };
                 /** @description The new tag. */
                 201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TagResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count the recipes with each tag
+         * @description Admins. Counts only the recipes the caller may see, so recipes kept private by others are left out.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The count for each tag that some recipe the caller may see has. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TagUsage"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a tag
+         * @description Admins. Allergen tags are a fixed list and are refused with status 409. Every recipe with the tag is indexed again, and an audit event records the change. A name another tag of the same type has, ignoring case and spacing, is refused at `name`: merge the two instead.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenameTagRequest"];
+                };
+            };
+            responses: {
+                /** @description The renamed tag. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TagResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a tag
+         * @description Admins. Allergen tags are a fixed list and are refused with status 409. Every recipe with the tag is indexed again, and an audit event records the change. The tag comes off every recipe that had it.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The tag is deleted. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a tag into another
+         * @description Admins. Allergen tags are a fixed list and are refused with status 409. Every recipe with the tag is indexed again, and an audit event records the change. Every recipe with the tag gets the other one instead, and the tag is deleted. The other tag must be of the same type.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MergeTagRequest"];
+                };
+            };
+            responses: {
+                /** @description The tag it was merged into. */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2165,7 +2389,7 @@ export interface components {
         AuditEvent: {
             id: number;
             /** @enum {string} */
-            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "public_link.created" | "public_link.revoked" | "instance.exported";
+            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
             /** @description Who did it. `null` when nobody was signed in, as for a failed sign-in. */
             actor: {
                 id: string;
@@ -2174,7 +2398,7 @@ export interface components {
             /** @description What it was done to, if anything. */
             target: {
                 /** @enum {string} */
-                type: "invitation" | "user" | "recipe";
+                type: "invitation" | "user" | "recipe" | "tag";
                 id: string;
             } | null;
             /** @description Details that depend on the action, such as the email a failed sign-in tried. */
@@ -2459,6 +2683,20 @@ export interface components {
              */
             type: "cuisine" | "meal_type" | "diet" | "custom";
             name: string;
+        };
+        TagUsage: {
+            /** @description How many recipes the caller may see have each tag. A tag no recipe has is left out. */
+            usage: {
+                tagId: number;
+                recipes: number;
+            }[];
+        };
+        RenameTagRequest: {
+            name: string;
+        };
+        MergeTagRequest: {
+            /** @description Another tag of the same type, which takes its place. */
+            intoId: number;
         };
         PreferencesResult: {
             preferences: components["schemas"]["UserPreferences"];
