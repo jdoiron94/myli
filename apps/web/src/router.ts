@@ -134,6 +134,18 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Revision' },
   },
   {
+    // Any two revisions, by number, the earlier first as the history links them.
+    path: '/recipes/:id/history/compare/:from([1-9]\\d*)/:to([1-9]\\d*)',
+    name: 'compare-revisions',
+    component: () => import('./pages/ComparePage.vue'),
+    props: (route) => ({
+      id: String(route.params.id),
+      from: Number(route.params.from),
+      to: Number(route.params.to),
+    }),
+    meta: { title: 'Compare revisions' },
+  },
+  {
     // The page sets the tab's title to the recipe's once it's loaded.
     path: '/recipes/:id',
     name: 'recipe',

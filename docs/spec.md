@@ -314,6 +314,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - a field-level diff (metadata, ingredients and steps added, removed or changed)
   - a text diff for markdown fields
   - computed when viewed, never stored
+  - The history compares any two revisions, the earlier first, and links each to a comparison with the one before it. Text shows as typed, markdown included: what was taken out struck through, what was put in underlined, each said for screen readers, never by color alone. A tag renamed in between counts as the same tag.
 - **Restore** publishes an older revision's snapshot as a **new** revision, with the automatic message "Restored from revision #n". History is never rewritten or deleted.
   - Tags deleted since are left out.
   - It's recorded in the audit log, with the recipe's title only when it's shared, as deleting it is.

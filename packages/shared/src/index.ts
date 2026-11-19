@@ -17,6 +17,21 @@ export {
   auditEventListSchema,
   auditEventSchema,
 } from './audit.ts';
+export {
+  compareRecipes,
+  diffList,
+  diffText,
+  type IngredientRow,
+  type ListComparison,
+  type ListEntry,
+  NUTRIENTS,
+  type Nutrient,
+  RECIPE_DETAILS,
+  type RecipeComparison,
+  type RecipeDetail,
+  type RecipeStep,
+  type TextPart,
+} from './compare.ts';
 export { type Favorite, favoriteSchema } from './favorites.ts';
 export {
   IMAGE_MAX_BYTES,

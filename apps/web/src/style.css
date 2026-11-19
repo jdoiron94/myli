@@ -37,6 +37,10 @@
   --color-destructive: var(--destructive);
   --color-caution: var(--caution);
   --color-caution-foreground: var(--caution-foreground);
+  --color-added: var(--added);
+  --color-added-foreground: var(--added-foreground);
+  --color-removed: var(--removed);
+  --color-removed-foreground: var(--removed-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -84,6 +88,13 @@
   /* What to look out for, like a recipe's allergens: Tailwind's amber 900 on amber 100, 8:1. */
   --caution: oklch(0.962 0.059 95.617);
   --caution-foreground: oklch(0.414 0.112 45.904);
+  /* What a comparison of two versions shows as put in, and as taken out: Tailwind's green and red
+     900 on 100, 8:1 and more. Never the only sign: added text is underlined, removed struck through,
+     and each is said for screen readers. */
+  --added: oklch(0.962 0.044 156.743);
+  --added-foreground: oklch(0.393 0.095 152.535);
+  --removed: oklch(0.936 0.032 17.717);
+  --removed-foreground: oklch(0.396 0.141 25.723);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -124,6 +135,11 @@
     /* Amber 200 on amber 950, 11:1. */
     --caution: oklch(0.279 0.077 45.635);
     --caution-foreground: oklch(0.924 0.12 95.746);
+    /* Green and red 200 on 950, 10:1 and more. */
+    --added: oklch(0.266 0.065 152.934);
+    --added-foreground: oklch(0.925 0.084 155.995);
+    --removed: oklch(0.258 0.092 26.042);
+    --removed-foreground: oklch(0.885 0.062 18.334);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);

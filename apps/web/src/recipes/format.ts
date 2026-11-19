@@ -2,6 +2,8 @@ import {
   type Difficulty,
   displayAmount,
   formatAmount,
+  NUTRIENTS,
+  type Nutrient,
   type ParsedIngredient,
   resolveUnit,
   type TagType,
@@ -77,18 +79,27 @@ export function shownTags(tags: readonly Tag[]): { tags: Tag[]; allergens: Tag[]
   };
 }
 
+/** Each nutrient's name and unit, as a recipe's page writes them. */
+export const NUTRIENT_FACTS: Readonly<Record<Nutrient, { label: string; unit: string }>> = {
+  calories: { label: 'Calories', unit: '' },
+  proteinGrams: { label: 'Protein', unit: ' g' },
+  carbsGrams: { label: 'Carbohydrates', unit: ' g' },
+  fatGrams: { label: 'Fat', unit: ' g' },
+  fiberGrams: { label: 'Fiber', unit: ' g' },
+  sugarGrams: { label: 'Sugar', unit: ' g' },
+  sodiumMilligrams: { label: 'Sodium', unit: ' mg' },
+};
+
+/** "210", "2.5 g", "380 mg". */
+export const formatNutrient = (nutrient: Nutrient, value: number) =>
+  `${formatNumber(value)}${NUTRIENT_FACTS[nutrient].unit}`;
+
 /** The nutrition a recipe states per serving, as label and value, leaving out what it doesn't. */
 export function nutritionFacts(nutrition: Recipe['nutrition']): { label: string; value: string }[] {
-  const facts: [string, number | null, string][] = [
-    ['Calories', nutrition.calories, ''],
-    ['Protein', nutrition.proteinGrams, ' g'],
-    ['Carbohydrates', nutrition.carbsGrams, ' g'],
-    ['Fat', nutrition.fatGrams, ' g'],
-    ['Fiber', nutrition.fiberGrams, ' g'],
-    ['Sugar', nutrition.sugarGrams, ' g'],
-    ['Sodium', nutrition.sodiumMilligrams, ' mg'],
-  ];
-  return facts.flatMap(([label, value, unit]) =>
-    value === null ? [] : [{ label, value: `${formatNumber(value)}${unit}` }],
-  );
+  return NUTRIENTS.flatMap((nutrient) => {
+    const value = nutrition[nutrient];
+    return value === null
+      ? []
+      : [{ label: NUTRIENT_FACTS[nutrient].label, value: formatNutrient(nutrient, value) }];
+  });
 }
