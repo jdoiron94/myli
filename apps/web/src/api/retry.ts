@@ -8,6 +8,22 @@ interface RetryableQuery {
 }
 
 /**
+ * Queries a page needs together, as one for `useRetry`: failed while any of them is, and tried again
+ * together, each that failed.
+ */
+export function allOf(...queries: RetryableQuery[]): RetryableQuery {
+  return {
+    error: computed(() => queries.find(({ error }) => error.value)?.error.value ?? null),
+    isFetching: computed(() => queries.some(({ isFetching }) => isFetching.value)),
+    refetch: async () => {
+      const failed = queries.filter(({ error }) => error.value);
+      const results = await Promise.all(failed.map((query) => query.refetch()));
+      return { error: results.find(({ error }) => error)?.error ?? null };
+    },
+  };
+}
+
+/**
  * Tries a failed query again when asked, for a page that shows the failure with a Try again button
  * (`RetryableFailure`). Tried again before it has any data, a query goes back to pending and loses
  * its error until the new answer. `failure` keeps the last one meanwhile, so the page goes on showing

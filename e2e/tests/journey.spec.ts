@@ -608,6 +608,55 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     ).toHaveText(['Contains wheat', 'Southern']);
   });
 
+  await test.step('an edit is saved as a draft, continued later, and published with what changed', async () => {
+    await page.getByRole('link', { name: 'Edit recipe' }).click();
+    await expect(heading(page, 'Edit recipe')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Servings' }).fill('10');
+    await page.getByRole('button', { name: 'Save draft' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Draft saved' })).toBeVisible();
+    await page.getByRole('link', { name: 'Cancel' }).click();
+
+    // The recipe is still as published, and says it has a draft.
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await expect(page.getByText(/^You saved a draft of this recipe on /)).toBeVisible();
+    await checkPage(page);
+    await page.getByRole('link', { name: 'Continue draft' }).click();
+
+    await expect(page.getByText(/^You're continuing the draft you saved on /)).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Servings' })).toHaveValue('10');
+    await page.getByRole('textbox', { name: 'What changed' }).fill('Serves more');
+    await checkPage(page);
+    await page.getByRole('button', { name: 'Publish' }).click();
+
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await expect(page.getByText('Revision 2', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Edit recipe' })).toBeVisible();
+  });
+
+  await test.step('its history lists both revisions, and shows the first as it was', async () => {
+    await page.getByRole('link', { name: 'History' }).click();
+    const revisions = page.getByRole('list', { name: 'Revisions' }).getByRole('listitem');
+    await expect(revisions).toHaveCount(2);
+    await expect(revisions.first()).toContainText('Serves more');
+    await checkPage(page);
+
+    await page.getByRole('link', { name: 'Revision 1' }).click();
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await expect(
+      page.getByText('The recipe was published again since, and is at revision 2 now.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    // Its tags with the names they had then, before the rename.
+    await expect(
+      page.getByRole('main').getByRole('list', { name: 'Tags' }).getByRole('listitem'),
+    ).toHaveText(['Contains wheat', 'American']);
+    await checkPage(page);
+
+    await page.getByRole('link', { name: 'See it as published' }).click();
+    await expect(page.getByText('Revision 2', { exact: true })).toBeVisible();
+  });
+
   await test.step('the recipe is deleted once asked, which the audit log records', async () => {
     const address = new URL(page.url()).pathname;
     const id = address.split('/').at(-1);
