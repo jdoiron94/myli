@@ -104,6 +104,14 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Edit recipe' },
   },
   {
+    // For everyone who may read the recipe, so the page needs no check of its own.
+    path: '/recipes/:id/cook',
+    name: 'cook',
+    component: () => import('./pages/CookPage.vue'),
+    props: true,
+    meta: { title: 'Cook mode' },
+  },
+  {
     // The page sets the tab's title to the recipe's once it's loaded.
     path: '/recipes/:id',
     name: 'recipe',

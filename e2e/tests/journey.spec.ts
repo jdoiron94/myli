@@ -527,6 +527,22 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
   });
 
+  await test.step('cook mode shows its ingredients and every step, and goes back', async () => {
+    await page.getByRole('link', { name: 'Cook mode' }).click();
+
+    await expect(page).toHaveURL(/\/cook$/);
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Steps' }).getByRole('listitem')).toHaveText([
+      'Mix everything.',
+      'Bake at 400°F.',
+    ]);
+    // Whether the screen can be kept on depends on the browser, but it says which.
+    await expect(page.getByRole('status').filter({ hasText: 'screen' })).toBeVisible();
+    await checkPage(page);
+    await page.getByRole('link', { name: 'Back to recipe' }).click();
+    await expect(page.getByRole('link', { name: 'Cook mode' })).toBeVisible();
+  });
+
   await test.step('the recipe is deleted once asked, which the audit log records', async () => {
     const address = new URL(page.url()).pathname;
     const id = address.split('/').at(-1);

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { HeartIcon, LockIcon, PencilIcon, TrashIcon, UsersIcon } from '@lucide/vue';
+import { ChefHatIcon, HeartIcon, LockIcon, PencilIcon, TrashIcon, UsersIcon } from '@lucide/vue';
 import { can, type RecipeAction } from '@myli/shared';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { computed, ref } from 'vue';
-import { RouterLink, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { failureMessage } from '@/api/failure.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import {
@@ -21,10 +21,11 @@ import { Button } from '@/components/ui/button';
 import { goWithNotice } from '@/lib/page-notice.ts';
 import { favoriteQuery, useSetFavorite } from './favorites.ts';
 import { type Recipe, recipeQuery, useChangeVisibility, useDeleteRecipe } from './recipe.ts';
+import { servingsQuery } from './servings.ts';
 
 /**
- * What the reader may do with a recipe, by the policy: keep it as a favorite, edit it, change who
- * sees it, delete it.
+ * What the reader may do with a recipe: cook it, which anyone who sees it may, and by the policy,
+ * keep it as a favorite, edit it, change who sees it, delete it.
  */
 const props = defineProps<{ recipe: Recipe }>();
 
@@ -39,6 +40,14 @@ const canEdit = computed(() => allowed('recipe.edit'));
 const canSetVisibility = computed(() => allowed('recipe.setVisibility'));
 const canDelete = computed(() => allowed('recipe.trash'));
 const shared = computed(() => props.recipe.visibility === 'shared');
+
+// Cook mode opens at the servings chosen here, which are in the address.
+const route = useRoute();
+const cookLink = computed(() => ({
+  name: 'cook',
+  params: { id: props.recipe.id },
+  query: servingsQuery(route.query),
+}));
 
 const notice = ref<string>();
 const failure = ref<string>();
@@ -101,8 +110,17 @@ async function remove() {
 </script>
 
 <template>
-  <div v-if="canFavorite || canEdit || canSetVisibility || canDelete">
+  <div>
     <div class="flex flex-wrap gap-2">
+      <Button
+        size="sm"
+        as-child
+      >
+        <RouterLink :to="cookLink">
+          <ChefHatIcon aria-hidden="true" />
+          Cook mode
+        </RouterLink>
+      </Button>
       <!-- A toggle: its name stays, and it says whether it's on. -->
       <Button
         v-if="canFavorite && favorite.data.value !== undefined"
