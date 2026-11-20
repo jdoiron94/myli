@@ -84,16 +84,25 @@ export const reindexRecipesJob = defineJob({
   },
 });
 
-/** Queues a rebuild, unless one is already waiting or under way. Its job's ID, either way. */
+/**
+ * Queues a rebuild, unless one is already waiting or under way. Its job's ID, either way. Immediate,
+ * so it holds the write lock from the start: deferred, it would read, then fail at once when it came
+ * to write if another connection, like the API's worker beside `pnpm reindex`, wrote in between.
+ */
 export function queueReindex(db: Db): number {
-  return db.transaction((tx) => {
-    const waiting = tx
-      .select({ id: job.id })
-      .from(job)
-      .where(and(eq(job.type, reindexRecipesJob.type), inArray(job.status, ['pending', 'running'])))
-      .get();
-    return waiting?.id ?? enqueueJob(tx, reindexRecipesJob, {});
-  });
+  return db.transaction(
+    (tx) => {
+      const waiting = tx
+        .select({ id: job.id })
+        .from(job)
+        .where(
+          and(eq(job.type, reindexRecipesJob.type), inArray(job.status, ['pending', 'running'])),
+        )
+        .get();
+      return waiting?.id ?? enqueueJob(tx, reindexRecipesJob, {});
+    },
+    { behavior: 'immediate' },
+  );
 }
 
 /**

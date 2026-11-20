@@ -92,7 +92,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 
 ### Database
 - The Drizzle schema in `apps/api/src/db/schema.ts` is authoritative. After changing it, run `pnpm db:generate` and commit the new migration in `apps/api/drizzle/` (`pnpm test` fails if a schema change has no migration).
-- Never edit a migration that has been committed; add a new one. The API applies pending migrations on startup, before it listens.
+- Never edit a migration that has been committed; add a new one.
+- A transaction that reads and then writes, on a path that can run in another process beside the API (a script's, like `queueReindex()` for `pnpm reindex`), passes `{ behavior: 'immediate' }`. In WAL mode, a deferred one fails at once with `SQLITE_BUSY_SNAPSHOT` when another connection commits between its read and its write, whatever the busy timeout. Within the API it can't happen: it has one connection, and better-sqlite3's transactions are synchronous. The API applies pending migrations on startup, before it listens.
 - Enumerated text columns get a CHECK constraint, not just a TypeScript type.
 - **Revisions** (`recipe_revision`, ADR 0007): every write that changes a recipe's content records its next revision with `recordRevision()` (`revisions/snapshot.ts`), in the same transaction, from the recipe as `loadRecipe` reads it then. Revisions are never changed or deleted, except with their recipe when it's purged.
   - The snapshot's format is `recipeSnapshotSchema`, and stored snapshots are never rewritten. A change to it bumps `schemaVersion` and makes `readSnapshot()` upgrade older ones. The stored snapshot in `snapshot.test.ts` must keep reading, unchanged.
