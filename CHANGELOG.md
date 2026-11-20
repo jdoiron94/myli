@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0](https://github.com/jdoiron94/myli/compare/v0.7.0...v0.8.0) (2026-11-20)
+
+
+### Features
+
+* **api:** say which revision a recipe shows ([f0193c8](https://github.com/jdoiron94/myli/commit/f0193c8fb09d6453eed533bd3c79c07e969a3e44))
+* compare any two revisions of a recipe ([fde3f66](https://github.com/jdoiron94/myli/commit/fde3f66fadee81668ad4c2a3fdca32eef82bba2e))
+* **web:** add a favicon ([16fb357](https://github.com/jdoiron94/myli/commit/16fb357582880625fb0e9f4616f0941eaef57d55))
+* **web:** restore an earlier revision of a recipe ([717537d](https://github.com/jdoiron94/myli/commit/717537d4f6d09e641f7f4e47a6ab9ef502231f3e))
+* **web:** save a recipe's draft, continue it, discard it or publish it ([adc0ada](https://github.com/jdoiron94/myli/commit/adc0adaa3e7f1d5318577600889dec1d19f05e88))
+* **web:** say what changed when an edit is refused, and offer the ways on ([4d87058](https://github.com/jdoiron94/myli/commit/4d87058f460076fc28cececd3f28ca53354d42ae))
+* **web:** show a recipe's history and each revision as it was ([2b75859](https://github.com/jdoiron94/myli/commit/2b75859531c2fc521914a4915bae9dfade76ce58))
+* **web:** tell whoever may edit a recipe that it has a draft ([8c83374](https://github.com/jdoiron94/myli/commit/8c833747673394d35176537319a44d26e3d767e3))
+
+
+### Bug Fixes
+
+* **api:** queue a search rebuild while the API writes to the database ([7b72bcf](https://github.com/jdoiron94/myli/commit/7b72bcfd93eff6be9dbec54aad0e9e9b2ad6c148))
+
 ## [0.7.0](https://github.com/jdoiron94/myli/compare/v0.6.0...v0.7.0) (2026-11-19)
 
 
