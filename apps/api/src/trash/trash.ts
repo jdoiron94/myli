@@ -13,7 +13,7 @@ import { indexRecipeJob } from '../search/indexing.ts';
  * restore it (`recipe.trash`) sees it: its owner, and admins while it's shared.
  */
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** When a recipe deleted at `deletedAt` is due to be deleted for good. */
 export const purgeDate = (deletedAt: Date, retentionDays: number) =>

@@ -5,6 +5,7 @@ import { createLocalBlobStore } from './blobs/local.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
 import { loadEnvOrExit } from './env.ts';
 import { allJobs } from './jobs/all.ts';
+import { scheduleDailyJobs } from './jobs/daily.ts';
 import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
 import type { Mailer } from './mail/mailer.ts';
@@ -84,6 +85,11 @@ if (requeued > 0) {
 }
 worker.start();
 logger.info('job worker started');
+const dailyJobs = scheduleDailyJobs({
+  db,
+  logger,
+  trashRetentionDays: env.TRASH_RETENTION_DAYS,
+});
 
 const app = createApp({ logger, auth, db, env, search, blobs });
 
@@ -110,6 +116,7 @@ function exit(code: number): never {
 async function shutdown(signal: NodeJS.Signals) {
   logger.info({ signal }, 'shutting down');
   search.stop();
+  dailyJobs.stop();
   setTimeout(() => {
     logger.error(
       { timeoutMs: SHUTDOWN_TIMEOUT_MS },

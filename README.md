@@ -15,6 +15,7 @@ A self-hosted recipe manager for your household, run with Docker Compose.
   - drafts and published versions
   - full revision history, with side-by-side comparison and restore
   - protection against overwriting someone else's edits
+  - a trash, where deleted recipes can be restored for 30 days, or as long as you set
   - comments and ratings
 - **Personal organization:** favorites, collections and private notes.
 - **Shopping lists:** built from selected recipes, with quantities scaled, units normalized and duplicates merged.

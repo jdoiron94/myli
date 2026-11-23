@@ -19,6 +19,7 @@
     "@myli/shared": "workspace:*",
     "better-auth": "catalog:",
     "better-sqlite3": "13.0.3",
+    "croner": "11.0.1",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.18",
     "meilisearch": "0.62.0",
