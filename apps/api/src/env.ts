@@ -86,7 +86,8 @@ export const envSchema = z
       }),
     // How long an invitation link works.
     INVITATION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
-    // How long a deleted recipe stays in the trash, where it can be restored.
+    // How long a deleted recipe stays in the trash, where it can be restored, before the daily purge
+    // deletes it for good (`trash/purge.ts`).
     TRASH_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     // Optional: email. Off unless SMTP_HOST is set. The default port depends on SMTP_SECURITY.
     SMTP_HOST: z.string().regex(/^\S+$/, 'must be a host name or IP address').optional(),

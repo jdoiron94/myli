@@ -1,3 +1,4 @@
+import { and, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { Db, Tx } from '../db/database.ts';
 import { job } from '../db/schema.ts';
@@ -25,4 +26,29 @@ export function enqueueJob<TPayload extends z.ZodType>(
     .returning({ id: job.id })
     .get();
   return inserted.id;
+}
+
+/**
+ * Queues a job, unless one of its type is already waiting or under way, for a job that does a
+ * whole task each time, like rebuilding the search index or purging the trash. Its job's ID, either
+ * way. Immediate, so it holds the write lock from the start: deferred, it would read, then fail at
+ * once when it came to write if another connection, like the API's worker beside `pnpm reindex`,
+ * wrote in between.
+ */
+export function enqueueUnlessWaiting<TPayload extends z.ZodType>(
+  db: Db,
+  definition: JobDefinition<TPayload>,
+  payload: z.input<TPayload>,
+): number {
+  return db.transaction(
+    (tx) => {
+      const waiting = tx
+        .select({ id: job.id })
+        .from(job)
+        .where(and(eq(job.type, definition.type), inArray(job.status, ['pending', 'running'])))
+        .get();
+      return waiting?.id ?? enqueueJob(tx, definition, payload);
+    },
+    { behavior: 'immediate' },
+  );
 }

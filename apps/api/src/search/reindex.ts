@@ -1,10 +1,10 @@
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import { count, isNull } from 'drizzle-orm';
 import type { Meilisearch } from 'meilisearch';
 import { z } from 'zod';
 import type { Db } from '../db/database.ts';
-import { job, recipe } from '../db/schema.ts';
+import { recipe } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
-import { enqueueJob } from '../jobs/queue.ts';
+import { enqueueUnlessWaiting } from '../jobs/queue.ts';
 import type { Logger } from '../logger.ts';
 import { buildRecipeDocument, type RecipeSearchDocument } from './document.ts';
 import { RECIPES_INDEX, RECIPES_SETTINGS } from './settings.ts';
@@ -84,26 +84,8 @@ export const reindexRecipesJob = defineJob({
   },
 });
 
-/**
- * Queues a rebuild, unless one is already waiting or under way. Its job's ID, either way. Immediate,
- * so it holds the write lock from the start: deferred, it would read, then fail at once when it came
- * to write if another connection, like the API's worker beside `pnpm reindex`, wrote in between.
- */
-export function queueReindex(db: Db): number {
-  return db.transaction(
-    (tx) => {
-      const waiting = tx
-        .select({ id: job.id })
-        .from(job)
-        .where(
-          and(eq(job.type, reindexRecipesJob.type), inArray(job.status, ['pending', 'running'])),
-        )
-        .get();
-      return waiting?.id ?? enqueueJob(tx, reindexRecipesJob, {});
-    },
-    { behavior: 'immediate' },
-  );
-}
+/** Queues a rebuild, unless one is already waiting or under way. Its job's ID, either way. */
+export const queueReindex = (db: Db): number => enqueueUnlessWaiting(db, reindexRecipesJob, {});
 
 /**
  * Queues a rebuild if the index is empty while SQLite has recipes, as after Meilisearch lost its
