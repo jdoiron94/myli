@@ -264,7 +264,11 @@ describe('what a reader can do with a recipe', () => {
 
     await user.click(button('Delete recipe'));
     const dialog = screen.getByRole('alertdialog', { name: 'Delete “Weeknight Bread”?' });
-    expect(within(dialog).getByText("It's gone for everyone straight away.")).toBeDefined();
+    expect(
+      within(dialog).getByText(
+        "It's gone for everyone straight away. You can restore it from the trash.",
+      ),
+    ).toBeDefined();
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(sent).toEqual([]);
 

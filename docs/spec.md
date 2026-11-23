@@ -285,8 +285,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 
 **Trash**
 - Deleting a recipe moves it to the trash. It disappears from search and lists immediately.
-- It's deleted from its page, after a confirmation. The page then goes home, which says it's deleted, and the recipe's address shows it as not found.
+- It's deleted from its page, after a confirmation that says it can be restored from the trash. The page then goes home, which says it's deleted, and the recipe's address shows it as not found.
 - The trash lists the deleted recipes each person may restore, most recently deleted first: their own, and for admins, shared ones too. To everyone else a deleted recipe doesn't exist, even to someone who could read it before; an admin never sees someone else's private one.
+- The Trash page is linked from the account menu for whoever may delete recipes. It shows each recipe's owner, when it was deleted and when it goes for good. Restoring needs no confirmation, since it takes nothing away; the page then says it's restored, with a link to it.
 - Restoring brings it back as it was: who sees it, its draft, history, photos and favorites, and when it was last changed. Like deleting, it's recorded in the audit log, with the title only if the recipe is shared.
 - A recipe stays in the trash for `TRASH_RETENTION_DAYS` (30 by default), and the trash shows when each is due to go. A scheduled job then deletes it for good.
 

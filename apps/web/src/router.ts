@@ -51,6 +51,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Favorites', permission: 'personal.write' },
   },
   {
+    path: '/trash',
+    name: 'trash',
+    component: () => import('./pages/TrashPage.vue'),
+    meta: { title: 'Trash', permission: 'trash.read' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('./pages/LoginPage.vue'),

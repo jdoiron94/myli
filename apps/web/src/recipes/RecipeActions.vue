@@ -263,7 +263,7 @@ async function remove() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{{ recipe.title }}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              It's gone for everyone straight away.
+              It's gone for everyone straight away. You can restore it from the trash.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

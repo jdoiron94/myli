@@ -714,4 +714,35 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await page.goto(address);
     await expect(heading(page, 'Recipe not found')).toBeVisible();
   });
+
+  await test.step('the trash restores it as it was, which the audit log records', async () => {
+    await page.getByRole('button', { name: `Account: ${ADMIN.name}` }).click();
+    await page.getByRole('menuitem', { name: 'Trash' }).click();
+
+    await expect(heading(page, 'Trash')).toBeVisible();
+    const restore = page.getByRole('button', { name: 'Restore Weeknight Bread' });
+    await expect(restore).toBeVisible();
+    await checkPage(page);
+    await restore.click();
+
+    await expect(page.getByText('The trash is empty.')).toBeVisible();
+    const status = page.getByRole('status').filter({ hasText: 'Restored' });
+    await expect(status).toHaveText('Restored “Weeknight Bread”. Go to the recipe');
+    await status.getByRole('link', { name: 'Go to the recipe' }).click();
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await expect(page.getByText('Revision 3', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Favorite' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    const id = new URL(page.url()).pathname.split('/').at(-1);
+    const response = await page.request.get('/api/v1/audit-events?action=recipe.restored');
+    expect(response.status()).toBe(200);
+    const { events } = (await response.json()) as { events: { target: { id: string } | null }[] };
+    expect(events.map(({ target }) => target?.id)).toEqual([id]);
+
+    await page.getByRole('link', { name: 'myli', exact: true }).click();
+    await expect(listed).toBeVisible();
+  });
 });

@@ -69,6 +69,32 @@ describe('the account menu', () => {
     expect(menu.textContent).toContain('Editor');
   });
 
+  it('links to the trash for whoever may delete recipes, focusing its heading there', async () => {
+    apiServer.use(
+      http.get('/api/v1/trash', () => HttpResponse.json({ recipes: [], retentionDays: 30 })),
+    );
+    const { router, user } = await renderApp('/');
+
+    await user.click(accountButton());
+    await user.click(await screen.findByRole('menuitem', { name: 'Trash' }));
+
+    await screen.findByText('The trash is empty.');
+    expect(router.currentRoute.value.fullPath).toBe('/trash');
+    const heading = screen.getByRole('heading', { level: 1, name: 'Trash' });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(heading);
+    });
+  });
+
+  it('offers viewers only signing out, since they can’t delete recipes', async () => {
+    const { user } = await renderApp('/', { signedInAs: 'viewer' });
+
+    await user.click(screen.getByRole('button', { name: 'Account: Alan Turing' }));
+
+    const items = within(await screen.findByRole('menu')).getAllByRole('menuitem');
+    expect(items.map((item) => item.textContent.trim())).toEqual(['Sign out']);
+  });
+
   it('signs out, goes to the sign-in page and forgets what was fetched', async () => {
     let signedOut = false;
     apiServer.use(
