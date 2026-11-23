@@ -15,6 +15,8 @@ export const ROLE_ACTIONS = [
   'tag.manage',
   /** Favorites, collections, personal notes and shopping lists. */
   'personal.write',
+  /** See the trash: the deleted recipes they may restore (`recipe.trash`). */
+  'trash.read',
   'user.invite',
   /** Change roles and deactivate users. */
   'user.manage',
@@ -71,6 +73,8 @@ const ROLE_RULES = {
   'tag.create': ['admin', 'editor'],
   'tag.manage': ['admin'],
   'personal.write': ['admin', 'editor'],
+  // Whoever may delete a recipe: an admin any they can see, an editor their own.
+  'trash.read': ['admin', 'editor'],
   'user.invite': ['admin'],
   'user.manage': ['admin'],
   'auditLog.read': ['admin'],

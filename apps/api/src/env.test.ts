@@ -57,6 +57,7 @@ describe('loadEnv', () => {
         { address: 'fd00::', prefix: 8, family: 'ipv6' },
       ],
       INVITATION_TTL_DAYS: 14,
+      TRASH_RETENTION_DAYS: 30,
       SMTP_SECURITY: 'starttls',
     });
   });

@@ -14,7 +14,9 @@ import {
   type RoleAction,
   type Visibility,
 } from '@myli/shared';
+import { eq } from 'drizzle-orm';
 import { createUserWithPassword } from './auth/users.ts';
+import { recipe as recipeTable } from './db/schema.ts';
 import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
 import {
@@ -31,9 +33,16 @@ export type Caller = 'anonymous' | Role;
 
 /**
  * Who may call an endpoint: anyone, any signed-in user, users whose role allows an action, or, for
- * an endpoint on one recipe, users the policy lets do an action to that recipe.
+ * an endpoint on one recipe, users the policy lets do an action to that recipe. An endpoint on a
+ * recipe in the trash is tried against one that was deleted, which is hidden from everyone the
+ * policy doesn't let do the action: they get 404, never 403.
  */
-export type Access = 'public' | 'signed-in' | RoleAction | { recipe: RecipeAction };
+export type Access =
+  | 'public'
+  | 'signed-in'
+  | RoleAction
+  | { recipe: RecipeAction }
+  | { trashedRecipe: RecipeAction };
 
 /**
  * The recipes an endpoint on one recipe is tried against, as in `policy.test.ts`: whose it is,
@@ -378,6 +387,19 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/trash',
+    access: 'trash.read',
+    send: (t, cookie) => request(t, 'GET', '/trash', cookie),
+  },
+  {
+    method: 'post',
+    path: '/trash/{id}/restore',
+    access: { trashedRecipe: 'recipe.trash' },
+    send: (t, cookie, recipeId) =>
+      request(t, 'POST', `/trash/${recipeId}/restore`, cookie, undefined, ifMatch(t.db, recipeId)),
+  },
+  {
+    method: 'get',
     path: '/recipes/{id}/favorite',
     access: { recipe: 'recipe.interact' },
     send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/favorite`, cookie),
@@ -466,6 +488,7 @@ export function expectedOutcome(access: Access, caller: Caller, recipeCase?: Rec
     ownerId: recipeCase.owner === 'caller' ? user.id : 'someone else',
     visibility: recipeCase.visibility,
   };
+  if ('trashedRecipe' in access) return can(user, access.trashedRecipe, recipe) ? 'allowed' : 404;
   if (!can(user, 'recipe.read', recipe)) return 404;
   return can(user, access.recipe, recipe) ? 'allowed' : 403;
 }
@@ -511,6 +534,13 @@ export async function findMismatches(
       const ownerId =
         recipeCase.owner === 'caller' && signedIn ? signedIn.user.id : await someoneElse(t);
       recipeId = insertRecipe(t.db, ownerId, recipeCase.visibility);
+      if (typeof endpoint.access === 'object' && 'trashedRecipe' in endpoint.access) {
+        t.db
+          .update(recipeTable)
+          .set({ deletedAt: new Date() })
+          .where(eq(recipeTable.id, recipeId))
+          .run();
+      }
     }
     const { status } = await endpoint.send(t, signedIn?.cookie, recipeId);
     const expected = expectedOutcome(endpoint.access, caller, recipeCase);

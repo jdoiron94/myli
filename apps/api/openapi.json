@@ -2522,6 +2522,81 @@
           "coverImageId"
         ]
       },
+      "TrashList": {
+        "type": "object",
+        "properties": {
+          "recipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrashedRecipe"
+            },
+            "description": "Most recently deleted first."
+          },
+          "retentionDays": {
+            "type": "integer",
+            "description": "How many days a deleted recipe stays in the trash before it’s deleted for good."
+          }
+        },
+        "required": [
+          "recipes",
+          "retentionDays"
+        ]
+      },
+      "TrashedRecipe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "purgeAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it’s deleted for good, unless it’s restored first. The purge runs once a day, so it may stay up to a day longer."
+          },
+          "version": {
+            "type": "integer",
+            "description": "The version to send in `If-Match` to restore it."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "visibility",
+          "owner",
+          "deletedAt",
+          "purgeAt",
+          "version"
+        ]
+      },
       "ImageResult": {
         "type": "object",
         "properties": {
@@ -3758,7 +3833,7 @@
           "Recipes"
         ],
         "summary": "Delete a recipe",
-        "description": "Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, and the deletion is recorded in the audit log. (Restoring it from the trash comes with Phase 2.) Send its version in `If-Match`, and `Content-Type: application/json` even though there is no body.",
+        "description": "Its owner, or an admin for any recipe they can see. The recipe moves to the trash: it is hidden everywhere at once, but to whoever may restore it (`POST /trash/{id}/restore`), and the deletion is recorded in the audit log. Send its version in `If-Match`, and `Content-Type: application/json` even though there is no body.",
         "parameters": [
           {
             "schema": {
@@ -3783,7 +3858,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Deleted."
+            "description": "Moved to the trash."
           },
           "403": {
             "description": "The caller may see the recipe but not delete it.",
@@ -4469,6 +4544,148 @@
           },
           "409": {
             "description": "The revision can no longer be restored.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "The recipe changed since the version in `If-Match`. The body holds it as it is now.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleRecipeProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "The request has no `If-Match`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trash": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "List the trash",
+        "description": "Editors and admins. The deleted recipes the caller may restore, most recently deleted first: their own, and for admins, shared ones too. Each is deleted for good once it has been in the trash for `retentionDays`.",
+        "responses": {
+          "200": {
+            "description": "The trash.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrashList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trash/{id}/restore": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Restore a recipe from the trash",
+        "description": "Its owner, or an admin while it’s shared. The recipe comes back as it was, for everyone who saw it before, and the restore is recorded in the audit log. Anyone else gets 404, as for a recipe that isn’t in the trash. Send the version it’s based on in `If-Match`, and `Content-Type: application/json` even though there is no body.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412."
+            },
+            "required": false,
+            "description": "The `ETag` of the version the change is based on, such as `\"3\"`. Required: without it the answer is 428. A version that is no longer current gets 412.",
+            "name": "if-match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recipe as restored.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The recipe's version, for the `If-Match` of a change to it."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe in the trash has this ID, or the caller may not restore it.",
             "content": {
               "application/problem+json": {
                 "schema": {

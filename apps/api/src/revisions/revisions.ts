@@ -10,7 +10,13 @@ import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { image, recipe, recipeRevision, tag, user } from '../db/schema.ts';
 import { toImage } from '../images/images.ts';
-import { atVersion, loadRecipe, publishContent, type WriteResult } from '../recipes/recipes.ts';
+import {
+  atVersion,
+  auditedRecipe,
+  loadRecipe,
+  publishContent,
+  type WriteResult,
+} from '../recipes/recipes.ts';
 import { latestRevision, readSnapshot, snapshotOf } from './snapshot.ts';
 
 /** The message of the first revision of a recipe saved before revisions were kept. */
@@ -193,14 +199,10 @@ export function restoreRevision(
       .get();
     // Written in this transaction: only a bug could lose it.
     if (!row) throw new Error('a recipe just restored could not be read back');
-    const { title, visibility } = row;
     recordAuditEvent(tx, origin, {
       action: 'revision.restored',
       target: { type: 'recipe', id: recipeId },
-      metadata:
-        visibility === 'shared'
-          ? { restored: number, revision: restored, title, visibility }
-          : { restored: number, revision: restored, visibility },
+      metadata: { restored: number, revision: restored, ...auditedRecipe(row) },
     });
     return { ok: true, revision: restored };
   });

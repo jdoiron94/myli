@@ -6,7 +6,7 @@ import {
   type RecipeContent,
   type Visibility,
 } from '@myli/shared';
-import { and, asc, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import {
@@ -28,7 +28,8 @@ import { byTypeThenName } from '../tags/tags.ts';
 /**
  * Recipes (spec §3.2). The live tables hold the published version; publishing writes them and
  * records a revision, and a write based on an older version is refused (ADR 0007). Drafts are in
- * `drafts/drafts.ts`. A deleted recipe is hidden everywhere, exactly as if it didn't exist.
+ * `drafts/drafts.ts`. A deleted recipe is in the trash, hidden everywhere, exactly as if it didn't
+ * exist, but to whoever may restore it (`trash/trash.ts`).
  *
  * Every write that changes a recipe's search document queues `indexRecipeJob` in its transaction,
  * so the index follows whether or not Meilisearch is up (spec §4).
@@ -342,10 +343,16 @@ export function setRecipeVisibility(
 }
 
 /**
- * Deletes a recipe: it's hidden everywhere from now on, but its rows stay for the trash in Phase 2.
- * The audit event shows admins a shared recipe's title, but never a private one's: admins may not
- * see private recipes, so their titles stay out of the log. Refused if the recipe is already gone
- * or no longer at `version`.
+ * How an audit event names a recipe: by its title only while it's shared. Admins read the log and
+ * may not see private recipes, so a private recipe's title never enters it.
+ */
+export const auditedRecipe = ({ title, visibility }: { title: string; visibility: Visibility }) =>
+  visibility === 'shared' ? { title, visibility } : { visibility };
+
+/**
+ * Moves a recipe to the trash (spec §3.2): it's hidden everywhere from now on, as if it didn't
+ * exist, until it's restored (`trash/trash.ts`) or purged. When it was last changed stays, since
+ * deleting doesn't change it. Refused if the recipe is already gone or no longer at `version`.
  */
 export function deleteRecipe(
   db: Db,
@@ -358,7 +365,7 @@ export function deleteRecipe(
     if (!current.ok) return current;
     const [deleted] = tx
       .update(recipe)
-      .set({ deletedAt: new Date(), version: version + 1 })
+      .set({ deletedAt: new Date(), version: version + 1, updatedAt: sql`${recipe.updatedAt}` })
       .where(liveAt(id, version))
       .returning({ title: recipe.title, visibility: recipe.visibility })
       .all();
@@ -367,10 +374,7 @@ export function deleteRecipe(
     recordAuditEvent(tx, origin, {
       action: 'recipe.deleted',
       target: { type: 'recipe', id },
-      metadata:
-        deleted.visibility === 'shared'
-          ? { title: deleted.title, visibility: 'shared' }
-          : { visibility: 'private' },
+      metadata: auditedRecipe(deleted),
     });
     return { ok: true };
   });
@@ -382,6 +386,15 @@ export function findRecipeAccess(db: Db | Tx, id: string): PolicyRecipe | undefi
     .select({ ownerId: recipe.ownerId, visibility: recipe.visibility })
     .from(recipe)
     .where(live(id))
+    .get();
+}
+
+/** What authorizing restoring a recipe in the trash needs. `undefined` unless it's in the trash. */
+export function findTrashedAccess(db: Db | Tx, id: string): PolicyRecipe | undefined {
+  return db
+    .select({ ownerId: recipe.ownerId, visibility: recipe.visibility })
+    .from(recipe)
+    .where(and(eq(recipe.id, id), isNotNull(recipe.deletedAt)))
     .get();
 }
 

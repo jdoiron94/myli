@@ -20,6 +20,7 @@ type TestEnv = Pick<
   | 'PUBLIC_URL'
   | 'BETTER_AUTH_SECRET'
   | 'INVITATION_TTL_DAYS'
+  | 'TRASH_RETENTION_DAYS'
   | 'SMTP_HOST'
   | 'TRUSTED_PROXIES'
 >;
@@ -33,6 +34,7 @@ export const TEST_ENV = {
   PUBLIC_URL: 'https://myli.test',
   BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret',
   INVITATION_TTL_DAYS: 7,
+  TRASH_RETENTION_DAYS: 30,
   TRUSTED_PROXIES: [],
 } as const satisfies TestEnv;
 

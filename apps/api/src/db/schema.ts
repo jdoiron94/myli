@@ -290,7 +290,10 @@ export const recipe = sqliteTable(
     nutritionSodiumMg: real(NUTRITION_COLUMNS.sodiumMilligrams),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
-    /** Set when the recipe is deleted, which hides it everywhere (the trash comes in Phase 2). */
+    /**
+     * Set while the recipe is in the trash, which hides it everywhere but there, until it's restored
+     * or purged.
+     */
     deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
     /**
      * Goes up by one with every write to the recipe, sent as its `ETag`. A write names the version
