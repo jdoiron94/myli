@@ -720,7 +720,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a recipe
-         * @description Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, and the deletion is recorded in the audit log. (Restoring it from the trash comes with Phase 2.) Send its version in `If-Match`, and `Content-Type: application/json` even though there is no body.
+         * @description Its owner, or an admin for any recipe they can see. The recipe moves to the trash: it is hidden everywhere at once, but to whoever may restore it (`POST /trash/{id}/restore`), and the deletion is recorded in the audit log. Send its version in `If-Match`, and `Content-Type: application/json` even though there is no body.
          */
         delete: {
             parameters: {
@@ -736,7 +736,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Deleted. */
+                /** @description Moved to the trash. */
                 204: {
                     headers: {
                         [name: string]: unknown;
@@ -1349,6 +1349,154 @@ export interface paths {
                 };
                 /** @description The revision can no longer be restored. */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The recipe changed since the version in `If-Match`. The body holds it as it is now. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["StaleRecipeProblem"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description The request has no `If-Match`. */
+                428: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the trash
+         * @description Editors and admins. The deleted recipes the caller may restore, most recently deleted first: their own, and for admins, shared ones too. Each is deleted for good once it has been in the trash for `retentionDays`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The trash. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrashList"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a recipe from the trash
+         * @description Its owner, or an admin while it’s shared. The recipe comes back as it was, for everyone who saw it before, and the restore is recorded in the audit log. Anyone else gets 404, as for a recipe that isn’t in the trash. Send the version it’s based on in `If-Match`, and `Content-Type: application/json` even though there is no body.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description The `ETag` of the version the change is based on, such as `"3"`. Required: without it the answer is 428. A version that is no longer current gets 412. */
+                    "if-match"?: string;
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The recipe as restored. */
+                200: {
+                    headers: {
+                        /** @description The recipe's version, for the `If-Match` of a change to it. */
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeResult"];
+                    };
+                };
+                /** @description No recipe in the trash has this ID, or the caller may not restore it. */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3441,6 +3589,31 @@ export interface components {
             images: components["schemas"]["Image"][];
             /** @description One of `images`, or `null` when there are none. */
             coverImageId: string | null;
+        };
+        TrashList: {
+            /** @description Most recently deleted first. */
+            recipes: components["schemas"]["TrashedRecipe"][];
+            /** @description How many days a deleted recipe stays in the trash before it’s deleted for good. */
+            retentionDays: number;
+        };
+        TrashedRecipe: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            visibility: "private" | "shared";
+            owner: {
+                id: string;
+                name: string;
+            };
+            /** Format: date-time */
+            deletedAt: string;
+            /**
+             * Format: date-time
+             * @description When it’s deleted for good, unless it’s restored first. The purge runs once a day, so it may stay up to a day longer.
+             */
+            purgeAt: string;
+            /** @description The version to send in `If-Match` to restore it. */
+            version: number;
         };
         ImageResult: {
             image: components["schemas"]["Image"];

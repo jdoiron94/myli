@@ -19,6 +19,7 @@ import { registerSearchRoutes } from './search/routes.ts';
 import type { SearchAccess } from './search/service.ts';
 import { registerSetupRoutes } from './setup/routes.ts';
 import { registerTagRoutes } from './tags/routes.ts';
+import { registerTrashRoutes } from './trash/routes.ts';
 import { registerUserRoutes } from './users/routes.ts';
 
 /**
@@ -36,7 +37,10 @@ export interface V1Deps {
 }
 
 /** The settings route handlers need from the environment. */
-export type AppSettings = Pick<Env, 'PUBLIC_URL' | 'INVITATION_TTL_DAYS' | 'SMTP_HOST'>;
+export type AppSettings = Pick<
+  Env,
+  'PUBLIC_URL' | 'INVITATION_TTL_DAYS' | 'TRASH_RETENTION_DAYS' | 'SMTP_HOST'
+>;
 
 export function createV1Router(deps: V1Deps) {
   const v1 = new OpenAPIHono<AppEnv>({ defaultHook: validationHook });
@@ -60,6 +64,7 @@ export function createV1Router(deps: V1Deps) {
   registerRecipeRoutes(v1, { db: deps.db });
   registerDraftRoutes(v1, { db: deps.db });
   registerRevisionRoutes(v1, { db: deps.db });
+  registerTrashRoutes(v1, { db: deps.db, retentionDays: deps.env.TRASH_RETENTION_DAYS });
   registerImageRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerTagRoutes(v1, { db: deps.db });
   registerPreferenceRoutes(v1, { db: deps.db });

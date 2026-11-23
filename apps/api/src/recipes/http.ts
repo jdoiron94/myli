@@ -85,6 +85,14 @@ export function refusal(failure: ContentRefusal | { ok: false; reason: 'not-foun
   );
 }
 
+/** The 412 for a write based on an old version, with the recipe as it is now (ADR 0007). */
+export function staleRecipeProblem(recipe: Recipe): HttpProblem {
+  return new HttpProblem(412, 'This recipe changed after you loaded it.', {
+    type: STALE_RECIPE_PROBLEM_TYPE,
+    recipe,
+  });
+}
+
 /** Authorizing and answering for one recipe, against `db`. */
 export function recipeGuards(db: Db) {
   /** The recipe, which the handler just authorized or wrote. */
@@ -95,12 +103,7 @@ export function recipeGuards(db: Db) {
   }
 
   /** The 412 for a write based on an old version, with the recipe as it is now. */
-  function staleProblem(id: string): HttpProblem {
-    return new HttpProblem(412, 'This recipe changed after you loaded it.', {
-      type: STALE_RECIPE_PROBLEM_TYPE,
-      recipe: found(id),
-    });
-  }
+  const staleProblem = (id: string) => staleRecipeProblem(found(id));
 
   /** Throws unless the caller may do `action` to the recipe: 401, 404 if hidden or gone, 403. */
   function authorizeOn(c: Parameters<typeof authorize>[0], action: RecipeAction, id: string) {

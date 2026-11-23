@@ -1,10 +1,10 @@
 import type { PolicyRecipe, RecipeAction } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
-import { authorize, notFound, requirePermission } from './auth/authorize.ts';
+import { authorize, authorizeTrashed, notFound, requirePermission } from './auth/authorize.ts';
 import { requireSession } from './auth/session.ts';
 import { renderOpenApiDocument } from './openapi-document.ts';
 import { type Access, ENDPOINTS, type EndpointCase, findMismatches } from './permission-matrix.ts';
-import { findRecipeAccess } from './recipes/recipes.ts';
+import { findRecipeAccess, findTrashedAccess } from './recipes/recipes.ts';
 import { createTestApp } from './testing.ts';
 
 const HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']);
@@ -61,13 +61,32 @@ describe('the harness itself', () => {
       authorize(c, 'recipe.read', recipe);
     });
     recipeRoute('leaky', () => undefined);
+    // Recipes in the trash: one route hides them from whoever may not restore them, one answers
+    // 403 to someone who may read the recipe, which tells them it was deleted.
+    const trashRoute = (path: string, check: Check) =>
+      t.app.get(`/api/v1/test/${path}/:id`, requireSession, (c) => {
+        const recipe = findTrashedAccess(t.db, c.req.param('id'));
+        if (!recipe) throw notFound('Recipe');
+        check(c, recipe);
+        return c.json({});
+      });
+    trashRoute('trash', (c, recipe) => {
+      authorizeTrashed(c, recipe);
+    });
+    trashRoute('trash-leaky', (c, recipe) => {
+      authorize(c, 'recipe.trash', recipe);
+    });
     return t;
   }
 
-  const recipeEndpoint = (path: string, action: RecipeAction): EndpointCase => ({
+  const recipeEndpoint = (
+    path: string,
+    action: RecipeAction,
+    { trashed = false } = {},
+  ): EndpointCase => ({
     method: 'get',
     path: `/${path}/{id}`,
-    access: { recipe: action },
+    access: trashed ? { trashedRecipe: action } : { recipe: action },
     send: (t, cookie, recipeId) =>
       t.app.request(`/api/v1/test/${path}/${recipeId}`, { headers: cookie ? { cookie } : {} }),
   });
@@ -91,6 +110,12 @@ describe('the harness itself', () => {
     expect(await findMismatches(recipeEndpoint('edit', 'recipe.edit'), appWithTestRoutes)).toEqual(
       [],
     );
+    expect(
+      await findMismatches(
+        recipeEndpoint('trash', 'recipe.trash', { trashed: true }),
+        appWithTestRoutes,
+      ),
+    ).toEqual([]);
   });
 
   it('reports each way an endpoint can let in or turn away the wrong callers', async () => {
@@ -101,6 +126,7 @@ describe('the harness itself', () => {
         endpoint('/members', 'public'),
         recipeEndpoint('leaky', 'recipe.read'),
         recipeEndpoint('read-only-check', 'recipe.edit'),
+        recipeEndpoint('trash-leaky', 'recipe.trash', { trashed: true }),
         // A crash doesn't count as getting through.
         endpoint('/crashes', 'signed-in'),
       ].map((wrong) => findMismatches(wrong, appWithTestRoutes)),
@@ -122,6 +148,12 @@ describe('the harness itself', () => {
         'viewer GET /read-only-check/{id} on their own private recipe: expected 403, got 200',
         'viewer GET /read-only-check/{id} on their own shared recipe: expected 403, got 200',
         "viewer GET /read-only-check/{id} on someone else's shared recipe: expected 403, got 200",
+      ],
+      [
+        "editor GET /trash-leaky/{id} on someone else's shared recipe: expected 404, got 403",
+        'viewer GET /trash-leaky/{id} on their own private recipe: expected 404, got 403',
+        'viewer GET /trash-leaky/{id} on their own shared recipe: expected 404, got 403',
+        "viewer GET /trash-leaky/{id} on someone else's shared recipe: expected 404, got 403",
       ],
       [
         'admin GET /crashes: expected allowed, got 500',

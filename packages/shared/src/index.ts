@@ -211,6 +211,12 @@ export {
   USER_TAG_TYPES,
 } from './tags.ts';
 export {
+  type TrashedRecipe,
+  type TrashList,
+  trashedRecipeSchema,
+  trashListSchema,
+} from './trash.ts';
+export {
   convert,
   DEFAULT_UNIT_SYSTEM,
   type Dimension,

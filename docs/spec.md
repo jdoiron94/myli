@@ -286,8 +286,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Trash**
 - Deleting a recipe moves it to the trash. It disappears from search and lists immediately.
 - It's deleted from its page, after a confirmation. The page then goes home, which says it's deleted, and the recipe's address shows it as not found.
-- The owner or an admin can restore it.
-- A scheduled job permanently purges recipes after the retention period (see Open questions).
+- The trash lists the deleted recipes each person may restore, most recently deleted first: their own, and for admins, shared ones too. To everyone else a deleted recipe doesn't exist, even to someone who could read it before; an admin never sees someone else's private one.
+- Restoring brings it back as it was: who sees it, its draft, history, photos and favorites, and when it was last changed. Like deleting, it's recorded in the audit log, with the title only if the recipe is shared.
+- A recipe stays in the trash for `TRASH_RETENTION_DAYS` (30 by default), and the trash shows when each is due to go. A scheduled job then deletes it for good.
 
 ### 3.3 Drafts, revisions and history
 
@@ -567,14 +568,14 @@ Each phase is delivered as small, atomic increments, each reviewed on its own (s
 | **3. Shopping lists** | Aggregation, normalization and dedup; manual items; multiple lists; check-off |
 | **4. Best effort and polish** | URL import; JSON and JSON-LD export; full-instance export; backup and restore tooling; the S3 blob storage adapter, tested against Garage; finished documentation |
 
-Until Phase 2, saving a recipe changes its published version directly, and deleting one sets `deleted_at`, which hides it everywhere. Drafts, the trash page, restoring and purging come with Phase 2.
+Before Phase 2, saving a recipe changed its published version directly. Deleting one has always set `deleted_at`, so recipes deleted then are in the trash too, counted from when they were deleted.
 
 ## Open questions
 
 These need decisions before or during the phase that uses them:
 
-1. **Trash retention period** before permanent purge (Phase 2). Suggestion: 30 days, configurable.
+1. ~~**Trash retention period** before permanent purge (Phase 2).~~ Decided: 30 days by default, set with `TRASH_RETENTION_DAYS`.
 2. **Bayesian rating parameters** (Phase 2). Suggestion: prior = the instance-wide mean rating, weight = 3 ratings.
 3. ~~**Image limits** (Phase 1).~~ Decided: uploads up to 10 MB. Variants are served as WebP, at sizes chosen from the layouts images appear in, so they look good where they're shown: 640, 1280 and 2048 pixels wide.
-4. **Revision retention** (Phase 2). Suggestion: keep all revisions; snapshots are small.
+4. ~~**Revision retention** (Phase 2).~~ Decided: keep every revision while its recipe exists; snapshots are small.
 5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided in Phase 0: record every one and keep them. Revisit pruning when the Phase 2 purge job exists.

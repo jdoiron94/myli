@@ -158,14 +158,14 @@ const deleteRecipeRoute = createRoute({
   tags: ['Recipes'],
   summary: 'Delete a recipe',
   description:
-    'Its owner, or an admin for any recipe they can see. The recipe is hidden everywhere at once, ' +
-    'and the deletion is recorded in the audit log. (Restoring it from the trash comes with ' +
-    'Phase 2.) Send its version in `If-Match`, and `Content-Type: application/json` even though ' +
-    'there is no body.',
+    'Its owner, or an admin for any recipe they can see. The recipe moves to the trash: it is ' +
+    'hidden everywhere at once, but to whoever may restore it (`POST /trash/{id}/restore`), and ' +
+    'the deletion is recorded in the audit log. Send its version in `If-Match`, and ' +
+    '`Content-Type: application/json` even though there is no body.',
   middleware: [requireSession] as const,
   request: { params: recipeIdParamsSchema, headers: ifMatchHeadersSchema },
   responses: {
-    204: { description: 'Deleted.' },
+    204: { description: 'Moved to the trash.' },
     403: problem('The caller may see the recipe but not delete it.'),
     404: problem('No recipe has this ID, or the caller may not see it.'),
     ...conditionalResponses,

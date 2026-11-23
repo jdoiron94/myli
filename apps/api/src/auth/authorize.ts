@@ -71,3 +71,15 @@ export function authorize(
     : can(user, action as RecipeAction, resource);
   if (!allowed) throw forbidden();
 }
+
+/**
+ * Checks that the caller may restore a recipe in the trash, which is all anyone does with one, and
+ * throws unless they may: 401 when signed out, otherwise 404, identical to `notFound()`. A deleted
+ * recipe is hidden from everyone else, as if it didn't exist (spec §3.2 Trash), so there's no 403:
+ * it would tell someone who may only read the recipe that it was deleted.
+ */
+export function authorizeTrashed(c: WithUser, recipe: PolicyRecipe): void {
+  const user = c.var.user;
+  if (!user) throw signInRequired();
+  if (!can(user, 'recipe.trash', recipe)) throw notFound('Recipe');
+}
