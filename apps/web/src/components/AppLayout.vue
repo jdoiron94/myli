@@ -6,6 +6,7 @@ import {
   SearchCheckIcon,
   SearchIcon,
   TagsIcon,
+  TrashIcon,
   UserCogIcon,
 } from '@lucide/vue';
 import { can } from '@myli/shared';
@@ -22,8 +23,9 @@ const router = useRouter();
 const { data: signedInUser } = useQuery(sessionQuery);
 const signOut = useSignOut();
 /**
- * The pages in the header, with their icons: links, then the admin pages in one menu. Each shows
- * only for someone whose role allows its `meta.permission`.
+ * The pages in the header, with their icons: links, then the admin pages in one menu, and in the
+ * account menu, the ones of the reader's own that they open now and then. Each shows only for
+ * someone whose role allows its `meta.permission`.
  */
 const NAV_PAGES = [
   { name: 'search', icon: SearchIcon },
@@ -36,6 +38,7 @@ const ADMIN_PAGES = [
   { name: 'search-index', icon: SearchCheckIcon },
   { name: 'tags', icon: TagsIcon },
 ] as const;
+const ACCOUNT_PAGES = [{ name: 'trash', icon: TrashIcon }] as const;
 
 function allowed(pages: readonly { name: string; icon: Component }[]) {
   return pages
@@ -47,6 +50,7 @@ function allowed(pages: readonly { name: string; icon: Component }[]) {
 }
 const navLinks = computed(() => allowed(NAV_PAGES));
 const adminLinks = computed(() => allowed(ADMIN_PAGES));
+const accountLinks = computed(() => allowed(ACCOUNT_PAGES));
 
 function focusMain() {
   main.value?.focus();
@@ -124,6 +128,7 @@ onBeforeUnmount(stopForgetting);
         <AccountMenu
           v-if="signedInUser"
           :user="signedInUser"
+          :pages="accountLinks"
           @sign-out="signOut.mutate()"
         />
       </div>

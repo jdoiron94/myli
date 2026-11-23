@@ -237,10 +237,12 @@ export const useDeleteRecipe = () => {
     onError: (error) => {
       showLatest(queryClient, error);
     },
-    // Lists (favorites too) and searches from before would show it, until each was fetched again.
+    // Lists (favorites too) and searches from before would show it, until each was fetched again,
+    // and the trash from before wouldn't (`trashQuery`).
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: ['recipe-list'] });
       queryClient.removeQueries({ queryKey: ['search'] });
+      queryClient.removeQueries({ queryKey: ['trash'] });
     },
   });
 };

@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useMenuNavigation } from '@/lib/menu-navigation.ts';
 
 /**
  * The admin pages the signed-in user may open, in one menu, so the header stays short as they
@@ -18,15 +19,7 @@ const props = defineProps<{ pages: { icon: Component; route: RouteLocationResolv
 const route = useRoute();
 /** Whether the current page is one of these, which marks the button as the current link is. */
 const current = computed(() => props.pages.some((page) => page.route.path === route.path));
-
-/** Set when an item goes to another page, whose heading then takes focus (`AppLayout`). */
-let leaving = false;
-
-function onCloseAutoFocus(event: Event) {
-  // Otherwise focus would go back to the button, away from the new page's heading.
-  if (leaving) event.preventDefault();
-  leaving = false;
-}
+const { selected, closeAutoFocus } = useMenuNavigation();
 </script>
 
 <template>
@@ -49,14 +42,14 @@ function onCloseAutoFocus(event: Event) {
     </DropdownMenuTrigger>
     <DropdownMenuContent
       class="w-auto"
-      @close-auto-focus="onCloseAutoFocus"
+      @close-auto-focus="closeAutoFocus"
     >
       <!-- RouterLink marks the current page's item with aria-current="page". -->
       <DropdownMenuItem
         v-for="page in pages"
         :key="page.route.fullPath"
         as-child
-        @select="leaving = page.route.path !== route.path"
+        @select="selected(page.route)"
       >
         <RouterLink
           :to="page.route.fullPath"
