@@ -23,7 +23,7 @@ async function open(path = '/collections/weeknight') {
 }
 
 describe('a collection’s page', () => {
-  it('moves recipes earlier and later, focus going with them, and takes one out', async () => {
+  it('moves recipes earlier and later, focus going with them, and takes one out once confirmed', async () => {
     const sent = storeCollections([
       { id: 'weeknight', name: 'Weeknight', recipes: [bread, curry, tacos] },
     ]);
@@ -43,7 +43,18 @@ describe('a collection’s page', () => {
     await user.click(first);
     expect(document.activeElement).toBe(first);
 
-    await user.click(screen.getByRole('button', { name: 'Take out: Tacos' }));
+    const takeOut = screen.getByRole('button', { name: 'Take out: Tacos' });
+    await user.click(takeOut);
+    const asked = await screen.findByRole('alertdialog', {
+      name: 'Take “Tacos” out of this collection?',
+    });
+    await user.click(within(asked).getByRole('button', { name: 'Cancel' }));
+    expect(document.activeElement).toBe(takeOut);
+    await user.click(takeOut);
+    const confirm = await screen.findByRole('alertdialog', {
+      name: 'Take “Tacos” out of this collection?',
+    });
+    await user.click(within(confirm).getByRole('button', { name: 'Take out' }));
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
     });
@@ -97,6 +108,8 @@ describe('a collection’s page', () => {
     storeCollections([{ id: 'weeknight', name: 'Weeknight', recipes: [bread, curry, tacos] }], 2);
     const { user, router } = await open('/collections/weeknight?page=2');
     await user.click(await screen.findByRole('button', { name: 'Take out: Tacos' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Take out' }));
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
     });

@@ -629,6 +629,22 @@ test('the recipe is found from home and search, rated, kept, collected, commente
     await checkPage(page);
     await card.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+
+    // Taken out only once confirmed, from a dialog the menu opens as it closes, which leaves the
+    // page usable afterwards.
+    await collections.click();
+    await page.getByRole('menuitemcheckbox', { name: 'Weeknight' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Take it out of “Weeknight”?' })
+      .getByRole('button', { name: 'Take out' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: 'Taken out' })).toHaveText(
+      'Taken out of “Weeknight”.',
+    );
+    await expect(collections).toBeFocused();
+    await collections.click();
+    await expect(weeknight).toHaveAttribute('aria-checked', 'false');
+    await page.keyboard.press('Escape');
   });
 
   await test.step('cook mode shows its ingredients and every step, and goes back', async () => {

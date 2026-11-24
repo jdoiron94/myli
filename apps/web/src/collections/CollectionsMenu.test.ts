@@ -65,16 +65,29 @@ async function openMenu(user: Awaited<ReturnType<typeof openRecipe>>['user']) {
 }
 
 describe('the recipe’s collections menu', () => {
-  it('puts the recipe in a collection once checked, and takes it out once unchecked', async () => {
+  it('puts the recipe in a collection once checked, and takes it out once unchecked and confirmed', async () => {
     const sent = storeCollections(['weeknight']);
     const { user } = await openRecipe('editor');
+    // Hidden while the menu is open, as everything else is.
+    const trigger = screen.getByRole('button', { name: 'Collections' });
     expect(await openMenu(user)).toEqual({ Baking: 'false', Weeknight: 'true' });
 
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Baking' }));
     expect(await screen.findByText('Added to “Baking”.')).toBeDefined();
     expect(await openMenu(user)).toEqual({ Baking: 'true', Weeknight: 'true' });
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Weeknight' }));
+    const asked = await screen.findByRole('alertdialog', { name: 'Take it out of “Weeknight”?' });
+    await user.click(within(asked).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+    expect(await openMenu(user)).toEqual({ Baking: 'true', Weeknight: 'true' });
+
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Weeknight' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Take it out of “Weeknight”?' });
+    await user.click(within(confirm).getByRole('button', { name: 'Take out' }));
     expect(await screen.findByText('Taken out of “Weeknight”.')).toBeDefined();
+    expect(document.activeElement).toBe(trigger);
 
     expect(sent.filter((request) => !request.startsWith('GET'))).toEqual([
       'PUT baking',

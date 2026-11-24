@@ -317,14 +317,34 @@ async function removeRecipe(recipeId: string, title: string) {
             <ArrowRightIcon aria-hidden="true" />
             Move later<span class="sr-only">: {{ recipe.title }}</span>
           </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            @click="removeRecipe(recipe.id, recipe.title)"
-          >
-            <XIcon aria-hidden="true" />
-            Take out<span class="sr-only">: {{ recipe.title }}</span>
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger as-child>
+              <Button
+                variant="ghost"
+                size="xs"
+              >
+                <XIcon aria-hidden="true" />
+                Take out<span class="sr-only">: {{ recipe.title }}</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Take “{{ recipe.title }}” out of this collection?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The recipe stays as it is. Adding it again puts it at the end.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  @click="removeRecipe(recipe.id, recipe.title)"
+                >
+                  Take out
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </li>
     </ol>
