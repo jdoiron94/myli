@@ -917,13 +917,12 @@ export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], stri
   }
   for (const { owner, name, recipes } of DEMO_COLLECTIONS) {
     const created = createCollection(db, owners[owner], name);
-    if (!created.ok) throw new Error(`could not create the demo collection “${name}”`);
     for (const title of recipes) {
       const keeper = keepers.get(title);
       const id = savedIds.get(title);
       if (!keeper || !id) throw new Error(`the demo collection “${name}” names “${title}”`);
       keeper(owner);
-      addToCollection(db, created.collection.id, id);
+      addToCollection(db, created.id, id);
     }
   }
   return DEMO_RECIPES.length;

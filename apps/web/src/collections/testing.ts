@@ -1,4 +1,3 @@
-import { VALIDATION_PROBLEM_TYPE } from '@myli/shared';
 import { HttpResponse, http } from 'msw';
 import type { RecipeSummary } from '@/recipes/recipe.ts';
 import { apiServer, problemResponse } from '@/testing.ts';
@@ -11,31 +10,13 @@ interface StoredCollection {
 
 /**
  * Stands in for the API's copy of the signed-in user's collections, as it answers them, and keeps
- * what each change sent. A name another of theirs has, whatever its case, is refused at its field.
+ * what each change sent.
  */
 export function storeCollections(initial: StoredCollection[]) {
   let collections = initial;
   const sent: { method: string; path: string; body?: unknown }[] = [];
   const find = (id: unknown) => collections.find((collection) => collection.id === id);
   const missing = () => problemResponse(404, 'Collection not found.');
-  const taken = (name: string, except?: string) => {
-    const existing = collections.find(
-      (collection) =>
-        collection.id !== except && collection.name.toLowerCase() === name.toLowerCase(),
-    );
-    return existing
-      ? problemResponse(422, 'The request has invalid fields.', {
-          type: VALIDATION_PROBLEM_TYPE,
-          errors: [
-            {
-              in: 'body',
-              pointer: '#/name',
-              detail: `You already have a collection called “${existing.name}”.`,
-            },
-          ],
-        })
-      : undefined;
-  };
   const record = async (request: Request) => {
     const text = await request.text();
     sent.push({
@@ -56,8 +37,6 @@ export function storeCollections(initial: StoredCollection[]) {
     ),
     http.post('/api/v1/collections', async ({ request }) => {
       const { name } = (await record(request)) as { name: string };
-      const refused = taken(name);
-      if (refused) return refused;
       const created = { id: `collection-${String(collections.length + 1)}`, name, recipes: [] };
       collections = [...collections, created];
       return HttpResponse.json({ id: created.id, name, recipeCount: 0 }, { status: 201 });
@@ -70,8 +49,6 @@ export function storeCollections(initial: StoredCollection[]) {
       const { name } = (await record(request)) as { name: string };
       const found = find(params.id);
       if (!found) return missing();
-      const refused = taken(name, found.id);
-      if (refused) return refused;
       found.name = name;
       return new HttpResponse(null, { status: 204 });
     }),

@@ -579,7 +579,8 @@ export const comment = sqliteTable(
 
 /**
  * Each user's collections of recipes (spec §3.3), which no one else ever sees, admins included.
- * Names are unique to their owner, compared as tag names are (`tagNameKey`).
+ * Names needn't differ. They're listed by name, compared as tag names are (`nameKey`, from
+ * `tagNameKey`).
  */
 export const collection = sqliteTable(
   'collection',
@@ -594,7 +595,7 @@ export const collection = sqliteTable(
     nameKey: text('name_key').notNull(),
     createdAt: createdAt(),
   },
-  (table) => [uniqueIndex('collection_owner_name_key_idx').on(table.ownerId, table.nameKey)],
+  (table) => [index('collection_owner_name_key_idx').on(table.ownerId, table.nameKey)],
 );
 
 /**

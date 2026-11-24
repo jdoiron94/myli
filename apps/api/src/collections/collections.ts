@@ -5,7 +5,7 @@ import {
   type PolicyUser,
   tagNameKey,
 } from '@myli/shared';
-import { and, asc, count, eq, max, ne } from 'drizzle-orm';
+import { and, asc, count, eq, max } from 'drizzle-orm';
 import type { Db, Tx } from '../db/database.ts';
 import { collection, collectionItem, recipe } from '../db/schema.ts';
 import { readableBy, recipeSummaries, SUMMARY_COLUMNS } from '../recipes/list.ts';
@@ -34,67 +34,26 @@ export function listCollections(db: Db, user: PolicyUser): CollectionSummary[] {
     .all();
 }
 
-/** Another of the owner's collections already has the name. */
-interface NameTaken {
-  ok: false;
-  reason: 'name-taken';
-  existing: string;
+/** Creates a collection for the owner, with no recipes yet. Its name needn't differ from theirs. */
+export function createCollection(db: Db, ownerId: string, name: string): CollectionSummary {
+  const [created] = db
+    .insert(collection)
+    .values({ ownerId, name, nameKey: tagNameKey(name) })
+    .returning({ id: collection.id })
+    .all();
+  if (!created) throw new Error('the collection was not created');
+  return { id: created.id, name, recipeCount: 0 };
 }
 
-function nameTaken(db: Db | Tx, ownerId: string, name: string, except?: string): NameTaken | null {
-  const row = db
-    .select({ name: collection.name })
-    .from(collection)
-    .where(
-      and(
-        eq(collection.ownerId, ownerId),
-        eq(collection.nameKey, tagNameKey(name)),
-        except === undefined ? undefined : ne(collection.id, except),
-      ),
-    )
-    .get();
-  return row ? { ok: false, reason: 'name-taken', existing: row.name } : null;
-}
-
-export function createCollection(
-  db: Db,
-  ownerId: string,
-  name: string,
-): { ok: true; collection: CollectionSummary } | NameTaken {
-  return db.transaction(
-    (tx) => {
-      const taken = nameTaken(tx, ownerId, name);
-      if (taken) return taken;
-      const [created] = tx
-        .insert(collection)
-        .values({ ownerId, name, nameKey: tagNameKey(name) })
-        .returning({ id: collection.id })
-        .all();
-      if (!created) throw new Error('the collection was not created');
-      return { ok: true, collection: { id: created.id, name, recipeCount: 0 } };
-    },
-    // Reads, then writes, and the seed runs it beside the API.
-    { behavior: 'immediate' },
-  );
-}
-
-/** Renames one of the owner's collections. Another way of writing its own name is fine. */
-export function renameCollection(
-  db: Db,
-  ownerId: string,
-  id: string,
-  name: string,
-): { ok: true } | { ok: false; reason: 'not-found' } | NameTaken {
-  return db.transaction((tx) => {
-    if (!ownsCollection(tx, ownerId, id)) return { ok: false, reason: 'not-found' };
-    const taken = nameTaken(tx, ownerId, name, id);
-    if (taken) return taken;
-    tx.update(collection)
+/** Renames one of the owner's collections. Whether they have one with this ID. */
+export function renameCollection(db: Db, ownerId: string, id: string, name: string): boolean {
+  return (
+    db
+      .update(collection)
       .set({ name, nameKey: tagNameKey(name) })
-      .where(eq(collection.id, id))
-      .run();
-    return { ok: true };
-  });
+      .where(owned(ownerId, id))
+      .run().changes > 0
+  );
 }
 
 /** Deletes one of the owner's collections, not its recipes. Whether it had one with this ID. */

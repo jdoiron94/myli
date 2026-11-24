@@ -155,6 +155,13 @@
       "when": 1795546984874,
       "tag": "0021_collection",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1795548900563,
+      "tag": "0022_collection_names_may_repeat",
+      "breakpoints": true
     }
   ]
 }

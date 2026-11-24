@@ -17,7 +17,7 @@ import { notFound, requirePermission } from '../auth/authorize.ts';
 import { requireSession } from '../auth/session.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
-import { errorResponses, HttpProblem, InvalidFields } from '../problems.ts';
+import { errorResponses, HttpProblem } from '../problems.ts';
 import { recipeGuards } from '../recipes/http.ts';
 import {
   addToCollection,
@@ -57,11 +57,6 @@ const TOO_MANY = `A collection holds at most ${String(COLLECTION_MAX_RECIPES)} r
 const CHANGED =
   'The collection changed since it was loaded. Load it again, then put its recipes in order.';
 
-const nameTakenField = (existing: string) =>
-  new InvalidFields([
-    { path: ['name'], detail: `You already have a collection called “${existing}”.` },
-  ]);
-
 const getCollections = createRoute({
   method: 'get',
   path: '/collections',
@@ -80,7 +75,7 @@ const postCollection = createRoute({
   path: '/collections',
   tags: ['Collections'],
   summary: 'Create a collection',
-  description: `${PERSONAL} Each of theirs has a name of its own, whatever its case.`,
+  description: `${PERSONAL} Its name needn't differ from their others'.`,
   middleware: [requirePermission('personal.write')] as const,
   request: {
     body: { required: true, content: { 'application/json': { schema: collectionRequestSchema } } },
@@ -220,9 +215,7 @@ export function registerCollectionRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db
   v1.openapi(getCollections, (c) => c.json({ collections: listCollections(db, c.var.user) }, 200));
 
   v1.openapi(postCollection, (c) => {
-    const result = createCollection(db, c.var.user.id, c.req.valid('json').name);
-    if (!result.ok) throw nameTakenField(result.existing);
-    return c.json(result.collection, 201);
+    return c.json(createCollection(db, c.var.user.id, c.req.valid('json').name), 201);
   });
 
   v1.openapi(getCollection, (c) => {
@@ -232,16 +225,9 @@ export function registerCollectionRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db
   });
 
   v1.openapi(putCollection, (c) => {
-    const result = renameCollection(
-      db,
-      c.var.user.id,
-      c.req.valid('param').id,
-      c.req.valid('json').name,
-    );
-    if (!result.ok) {
-      throw result.reason === 'not-found'
-        ? notFound('Collection')
-        : nameTakenField(result.existing);
+    const { id } = c.req.valid('param');
+    if (!renameCollection(db, c.var.user.id, id, c.req.valid('json').name)) {
+      throw notFound('Collection');
     }
     return c.body(null, 204);
   });

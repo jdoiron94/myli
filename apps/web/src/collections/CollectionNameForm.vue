@@ -9,7 +9,7 @@ import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.
 
 /**
  * Names a collection, new or renamed. `save` sends the name: a refusal it throws shows here, at the
- * field for a 422, like a name the reader already has. Once it's saved, the form empties again.
+ * field for a 422. Once it's saved, the form empties again.
  */
 const props = defineProps<{
   label: string;
