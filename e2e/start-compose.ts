@@ -8,6 +8,8 @@
  * otherwise read: no first admin, so the run starts at first-run setup, and no SMTP, so invitation
  * links are shown. The API's log goes to Playwright's output.
  *
+ * It prints STACK_READY once the stack can be tested, which Playwright waits for.
+ *
  * When Playwright stops this launcher, it removes the stack, volumes included. If it's killed, or
  * stopped while still starting the stack, the stack is left running; build-images.ts removes it
  * before the next run, and this launcher before starting its own.
@@ -15,7 +17,7 @@
 import { type SpawnSyncOptions, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { dockerClientEnvironment, IMAGE_TAG } from './images.ts';
+import { dockerClientEnvironment, IMAGE_TAG, STACK_READY } from './images.ts';
 
 const { PROJECT, PUBLIC_URL, HTTP_PORT, PROXY_SUBNET } = process.env;
 if (!PROJECT || !PUBLIC_URL || !HTTP_PORT || !PROXY_SUBNET) {
@@ -73,10 +75,47 @@ const down = () => {
   compose('down', '--volumes', '--remove-orphans', '--timeout', '10');
 };
 
+/** How long the host's addresses must stay as they are before the stack counts as ready. */
+const SETTLED_MS = 3_000;
+/** The longest it waits for that, should something else on the host keep changing them. */
+const SETTLE_LIMIT_MS = 30_000;
+
+/**
+ * Waits until the host's IP addresses have stopped changing, as `ip monitor` reports them.
+ *
+ * Each container's interface on the host gets an IPv6 link-local address a second or two after it
+ * starts, once duplicate address detection is done. Chromium takes each new address for a change of
+ * network and drops its HTTP/2 connections, failing the requests in flight with
+ * net::ERR_NETWORK_CHANGED. Caddy answers before then, and tests that started on that failed now
+ * and then: the first to run, the API docs page's, lost its OpenAPI document.
+ *
+ * Where `ip` can't run (macOS, whose Docker runs in a VM), the host's network doesn't change.
+ */
+function hostNetworkSettled(): Promise<void> {
+  return new Promise((resolve) => {
+    const monitor = spawn('ip', ['monitor', 'address'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let quiet = setTimeout(settled, SETTLED_MS);
+    const limit = setTimeout(settled, SETTLE_LIMIT_MS);
+    function settled() {
+      clearTimeout(quiet);
+      clearTimeout(limit);
+      monitor.kill();
+      resolve();
+    }
+    monitor.stdout.on('data', () => {
+      clearTimeout(quiet);
+      quiet = setTimeout(settled, SETTLED_MS);
+    });
+    monitor.once('error', settled);
+  });
+}
+
 down();
 // The images were just built, so nothing is built or pulled here, other than Meilisearch the first
 // time.
 compose('up', '--detach', '--wait', '--wait-timeout', '120', '--no-build');
+await hostNetworkSettled();
+process.stdout.write(`${STACK_READY}\n`);
 // Keeps the process alive until Playwright's signal.
 const logs = spawn('docker', [...composeArgs, 'logs', '--follow', '--no-log-prefix', 'api'], {
   ...options,
