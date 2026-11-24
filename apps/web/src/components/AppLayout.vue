@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  FolderIcon,
   HeartIcon,
   MailIcon,
   PlusIcon,
@@ -30,6 +31,7 @@ const signOut = useSignOut();
 const NAV_PAGES = [
   { name: 'search', icon: SearchIcon },
   { name: 'favorites', icon: HeartIcon },
+  { name: 'collections', icon: FolderIcon },
   { name: 'new-recipe', icon: PlusIcon },
 ] as const;
 const ADMIN_PAGES = [

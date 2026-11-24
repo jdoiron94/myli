@@ -15,6 +15,7 @@ import { computed, ref } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { failureMessage } from '@/api/failure.ts';
 import { sessionQuery } from '@/auth/session.ts';
+import CollectionsMenu from '@/collections/CollectionsMenu.vue';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +42,8 @@ import { servingsQuery } from './servings.ts';
 
 /**
  * What the reader may do with a recipe: cook it, print it or see its history, which anyone who sees
- * it may, and by the policy, keep it as a favorite, edit it, change who sees it, delete it. None of
- * it is printed.
+ * it may, and by the policy, keep it as a favorite or in collections, edit it, change who sees it,
+ * delete it. None of it is printed.
  */
 const props = defineProps<{ recipe: Recipe }>();
 
@@ -180,6 +181,12 @@ async function remove() {
         />
         Favorite
       </Button>
+      <CollectionsMenu
+        v-if="canFavorite"
+        :recipe-id="recipe.id"
+        @done="(message) => { failure = undefined; notice = message; }"
+        @failed="(message) => { notice = undefined; failure = message; }"
+      />
       <Button
         variant="outline"
         size="sm"

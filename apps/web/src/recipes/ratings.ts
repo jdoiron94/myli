@@ -27,6 +27,7 @@ export function useRateRecipe() {
       // Their cards show the ratings, and sorting by rating may order them differently.
       void queryClient.invalidateQueries({ queryKey: ['recipe-list'] });
       void queryClient.invalidateQueries({ queryKey: ['search'] });
+      void queryClient.invalidateQueries({ queryKey: ['collections'] });
     },
   });
 }

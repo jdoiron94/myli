@@ -160,9 +160,9 @@ describe('the main navigation', () => {
       .getAllByRole('link')
       .map((link) => link.textContent.trim());
 
-  it('links admins to search, favorites and a new recipe, and gathers the admin pages in one menu', async () => {
+  it('links admins to search, favorites, collections and a new recipe, and gathers the admin pages in one menu', async () => {
     const { user } = await renderApp('/', { signedInAs: 'admin' });
-    expect(linkNames()).toEqual(['Search', 'Favorites', 'New recipe']);
+    expect(linkNames()).toEqual(['Search', 'Favorites', 'Collections', 'New recipe']);
 
     await user.click(adminButton());
 

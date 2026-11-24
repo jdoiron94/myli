@@ -225,10 +225,12 @@ test('an admin sets up myli, invites someone and manages their account', async (
 
     await expect(heading(member, "You don't have access to this page")).toBeVisible();
     await expect(member).toHaveURL('/admin/users');
-    // An editor's header links to search, their favorites and a new recipe, with no Admin menu.
+    // An editor's header links to search, their favorites and collections and a new recipe, with
+    // no Admin menu.
     await expect(member.getByRole('navigation', { name: 'Main' }).getByRole('link')).toHaveText([
       'Search',
       'Favorites',
+      'Collections',
       'New recipe',
     ]);
     await expect(adminMenuButton(member)).toHaveCount(0);
@@ -444,7 +446,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags, an
   recipePath = new URL(page.url()).pathname;
 });
 
-test('the recipe is found from home and search, rated, kept, commented on and noted, cooked from and printed', async ({
+test('the recipe is found from home and search, rated, kept, collected, commented on and noted, cooked from and printed', async ({
   page,
   searchAvailable,
 }) => {
@@ -588,6 +590,45 @@ test('the recipe is found from home and search, rated, kept, commented on and no
     await page.reload();
     await expect(note.getByRole('textbox', { name: 'Note' })).toHaveText('Less salt next time.');
     await checkPage(page);
+  });
+
+  await test.step('it’s kept in a new collection, which shows it, from where it opens again', async () => {
+    const collections = page.getByRole('button', { name: 'Collections' });
+    await collections.click();
+    await expect(page.getByRole('menuitem', { name: 'No collections yet' })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'New collection…' }).click();
+    await expect(heading(page, 'Collections')).toBeFocused();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Weeknight');
+    await page.getByRole('button', { name: 'Create collection' }).click();
+    await expect(page.getByRole('link', { name: 'Weeknight' })).toBeFocused();
+
+    await page.goBack();
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await collections.click();
+    const weeknight = page.getByRole('menuitemcheckbox', { name: 'Weeknight' });
+    await expect(weeknight).toHaveAttribute('aria-checked', 'false');
+    await checkPage(page, { popup: true });
+    await weeknight.click();
+    await expect(page.getByRole('status').filter({ hasText: 'Added' })).toHaveText(
+      'Added to “Weeknight”.',
+    );
+
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Collections' })
+      .click();
+    await expect(page.getByRole('listitem').filter({ hasText: 'Weeknight' })).toContainText(
+      '1 recipe',
+    );
+    await page.getByRole('link', { name: 'Weeknight' }).click();
+    await expect(heading(page, 'Weeknight')).toBeVisible();
+    const card = page
+      .getByRole('list', { name: 'Recipes in this collection' })
+      .getByRole('link', { name: 'Weeknight Bread' });
+    await expect(card).toBeVisible();
+    await checkPage(page);
+    await card.click();
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
   });
 
   await test.step('cook mode shows its ingredients and every step, and goes back', async () => {
