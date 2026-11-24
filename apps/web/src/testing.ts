@@ -130,6 +130,13 @@ export function answerComments(comments: components['schemas']['Comment'][] = []
   apiServer.use(http.get(COMMENTS_PATH, () => HttpResponse.json({ comments })));
 }
 
+const NOTE_PATH = `${API_BASE_PATH}/recipes/:id/note`;
+
+/** Answers the signed-in user's note on every recipe with `note`: none, unless given. */
+export function answerNote(note: components['schemas']['Note'] | null = null) {
+  apiServer.use(http.get(NOTE_PATH, () => HttpResponse.json({ note })));
+}
+
 const DRAFT_PATH = `${API_BASE_PATH}/recipes/:id/draft`;
 
 /** Answers every recipe's draft with `draft`: none, unless given. */
@@ -160,8 +167,8 @@ export interface RenderAppOptions {
  * Renders the whole app at `path`, once the page there has loaded. As in main.ts, the app mounts
  * while the router is still making its first navigation, which waits for the session and, when no
  * one is signed in, for whether setup is needed. It answers both from the options, the recipe
- * list and search with no recipes, and every recipe as unrated and uncommented, no favorite and
- * with no draft, unless the test already answers them itself. Queries retry without waiting in between.
+ * list and search with no recipes, and every recipe as unrated and uncommented, no favorite, with
+ * no note of the reader's and no draft, unless the test already answers them itself. Queries retry without waiting in between.
  */
 export async function renderApp(
   path: string,
@@ -172,11 +179,12 @@ export async function renderApp(
   // Home lists recipes, and search searches for them.
   if (!answered('GET', RECIPE_LIST_PATH)) answerRecipeList();
   if (!answered('GET', SEARCH_PATH)) answerSearch();
-  // A recipe's page asks for its ratings, its comments and whether it's a favorite, and its editor
-  // whether it has a draft.
+  // A recipe's page asks for its ratings, its comments, whether it's a favorite and the reader's
+  // note, and its editor whether it has a draft.
   if (!answered('GET', RATING_PATH)) answerRating();
   if (!answered('GET', COMMENTS_PATH)) answerComments();
   if (!answered('GET', FAVORITE_PATH)) answerFavorite();
+  if (!answered('GET', NOTE_PATH)) answerNote();
   if (!answered('GET', DRAFT_PATH)) answerDraft();
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';

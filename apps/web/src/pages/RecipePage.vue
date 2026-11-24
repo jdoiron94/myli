@@ -10,6 +10,7 @@ import RetryableFailure from '@/components/RetryableFailure.vue';
 import RecipeActions from '@/recipes/RecipeActions.vue';
 import RecipeBody from '@/recipes/RecipeBody.vue';
 import RecipeComments from '@/recipes/RecipeComments.vue';
+import RecipeNote from '@/recipes/RecipeNote.vue';
 import RecipeRating from '@/recipes/RecipeRating.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
 import { useServings } from '@/recipes/servings.ts';
@@ -96,6 +97,7 @@ const updatedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }
         v-model:servings="servings"
         :content="recipe"
       />
+      <RecipeNote :recipe="recipe" />
       <RecipeComments :recipe="recipe" />
     </template>
 
