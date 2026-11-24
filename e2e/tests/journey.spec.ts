@@ -14,10 +14,14 @@ const MEMBER = {
   password: 'Staple battery 2 horse!',
 };
 
-// The tests after the first sign in with the admin it set up, so each needs the one before. Each
-// goes through many pages and checks each with axe in both themes, which takes Chromium about half
-// a minute here: more than Playwright's default 30 seconds, on a slower machine.
+// The tests after the first sign in with the admin it set up, and go on with the recipe the one
+// before wrote, so each needs the one before. Each goes through several pages and checks each with
+// axe in both themes, which takes Chromium up to about 25 seconds here. A minute leaves room for a
+// slower machine, like CI's runners; a test that takes much longer here is split.
 test.describe.configure({ mode: 'serial', timeout: 60_000 });
+
+/** Where the recipe the journey writes lives, once it's written. */
+let recipePath = '';
 
 const heading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 // `exact`, so "Show password" doesn't match too.
@@ -50,6 +54,18 @@ async function signIn(page: Page, { email, password }: { email: string; password
   await passwordField(page).fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
+
+/** Signs in the admin the first test set up, from the sign-in page, as each test after it starts. */
+async function signInAsAdmin(page: Page) {
+  await page.goto('/login');
+  await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
+  await signIn(page, ADMIN);
+  await expect(heading(page, 'Recipes')).toBeVisible();
+}
+
+/** The recipe the journey writes, as home lists it. */
+const listedRecipe = (page: Page) =>
+  page.getByRole('list', { name: 'Recipes' }).getByRole('link', { name: 'Weeknight Bread' });
 
 test('an admin sets up myli, invites someone and manages their account', async ({
   page,
@@ -245,14 +261,10 @@ test('an admin sets up myli, invites someone and manages their account', async (
   });
 });
 
-test('an admin writes a recipe, with a formatted description, steps and tags', async ({
+test('an admin writes a recipe, with a formatted description, steps and tags, and shares it', async ({
   page,
-  searchAvailable,
 }) => {
-  await page.goto('/login');
-  await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
-  await signIn(page, ADMIN);
-  await expect(heading(page, 'Recipes')).toBeVisible();
+  await signInAsAdmin(page);
 
   await test.step('the description is edited in place, with its toolbar', async () => {
     await page
@@ -429,9 +441,15 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
     await expect(page.getByRole('button', { name: 'Make private' })).toBeFocused();
   });
 
-  const listed = page.getByRole('list', { name: 'Recipes' }).getByRole('link', {
-    name: 'Weeknight Bread',
-  });
+  recipePath = new URL(page.url()).pathname;
+});
+
+test('the recipe is found from home and search, kept, cooked from and printed', async ({
+  page,
+  searchAvailable,
+}) => {
+  await signInAsAdmin(page);
+  const listed = listedRecipe(page);
 
   await test.step('home lists it, from the database, with or without search', async () => {
     await page.getByRole('link', { name: 'myli', exact: true }).click();
@@ -607,6 +625,13 @@ test('an admin writes a recipe, with a formatted description, steps and tags', a
       page.getByRole('main').getByRole('list', { name: 'Tags' }).getByRole('listitem'),
     ).toHaveText(['Contains wheat', 'Southern']);
   });
+});
+
+test('the recipe is revised, deleted and restored from the trash', async ({ page }) => {
+  await signInAsAdmin(page);
+  const listed = listedRecipe(page);
+  await page.goto(recipePath);
+  await expect(heading(page, 'Weeknight Bread')).toBeVisible();
 
   await test.step('an edit is saved as a draft, continued later, and published with what changed', async () => {
     await page.getByRole('link', { name: 'Edit recipe' }).click();
