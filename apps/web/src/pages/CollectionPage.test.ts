@@ -50,8 +50,59 @@ describe('a collection’s page', () => {
     expect(titles()).toEqual(['Curry', 'Bread']);
     expect(screen.getByText('Took “Tacos” out of this collection.')).toBeDefined();
     expect(sent.map(({ method, path, body }) => [method, path, body])).toEqual([
-      ['PUT', '/collections/weeknight/order', { recipeIds: ['curry', 'bread', 'tacos'] }],
+      ['POST', '/collections/weeknight/recipes/bread/move', { direction: 'later' }],
       ['DELETE', '/collections/weeknight/recipes/tacos', undefined],
+    ]);
+  });
+
+  it('pages its recipes, moving one from the end of a page onto the next, focus going with it', async () => {
+    storeCollections([{ id: 'weeknight', name: 'Weeknight', recipes: [bread, curry, tacos] }], 2);
+    const { user, router } = await open();
+    expect(screen.getByText('3 recipes')).toBeDefined();
+    expect(titles()).toEqual(['Bread', 'Curry']);
+
+    await user.click(screen.getByRole('button', { name: 'Move later: Curry' }));
+    await waitFor(() => {
+      expect([router.currentRoute.value.fullPath, titles()]).toEqual([
+        '/collections/weeknight?page=2',
+        ['Curry'],
+      ]);
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Move later: Curry' }),
+      );
+    });
+
+    // Last of all now.
+    expect(
+      screen.getByRole('button', { name: 'Move later: Curry' }).getAttribute('aria-disabled'),
+    ).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Move earlier: Curry' }));
+    await waitFor(() => {
+      expect([router.currentRoute.value.fullPath, titles()]).toEqual([
+        '/collections/weeknight',
+        ['Bread', 'Curry'],
+      ]);
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Move earlier: Curry' }),
+      );
+    });
+  });
+
+  it('goes back a page once the last recipe on one is taken out', async () => {
+    storeCollections([{ id: 'weeknight', name: 'Weeknight', recipes: [bread, curry, tacos] }], 2);
+    const { user, router } = await open('/collections/weeknight?page=2');
+    await user.click(await screen.findByRole('button', { name: 'Take out: Tacos' }));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
+    });
+    expect([router.currentRoute.value.fullPath, titles()]).toEqual([
+      '/collections/weeknight',
+      ['Bread', 'Curry'],
     ]);
   });
 

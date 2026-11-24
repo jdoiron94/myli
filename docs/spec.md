@@ -274,10 +274,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Favorites:** a per-user flag on a recipe, for any recipe its user can see, set with the Favorite button on the recipe's page. The Favorites page, linked from the header, lists them most recently chosen first, from the database, 24 to a page. One they can no longer see, because it was deleted or made private by its owner, is left out and not counted, and shows again if the recipe comes back.
 - **Collections:** named, per-user, ordered groups of recipes. Other users never see them, admins included.
   - listed by name; two can have the same name. Renaming or deleting one leaves its recipes as they are
-  - any recipe its user can see can go in, once, at the end; its user puts them in the order they like, and takes them out
+  - any recipe its user can see can go in, once, at the end, with no limit on how many; its user moves each one place earlier or later, and takes them out
   - one they can no longer see, because it was deleted or made private by its owner, is left out and not counted, keeps its place, and shows again if it comes back
-  - a collection holds at most 500 recipes, shown on one page
-  - the Collections page, linked from the header, lists them with how many recipes each shows, and creates one. A collection's page shows its recipes' cards in order, each moved earlier or later or taken out, and renames the collection or deletes it, asking first. On a recipe's page, the Collections menu has a checked item for each collection that holds it, and links to the Collections page to create one
+  - the Collections page, linked from the header, lists them with how many recipes each shows, and creates one. A collection's page shows its recipes' cards in order, 24 to a page, each moved earlier or later (onto the next page or the one before, from either end of one) or taken out, and renames the collection or deletes it, asking first. On a recipe's page, the Collections menu has a checked item for each collection that holds it, and links to the Collections page to create one
 - **Personal notes:** one private markdown note per user per recipe, for any recipe its user can see. No one else ever sees it, admins included. It's kept while the recipe is out of its writer's sight (made private by its owner, or in the trash) and shows again if it comes back. Like ratings and comments, it isn't part of the recipe: no revision, no search, no audit event.
   - written on the recipe's page, under its steps, and saved with Save note; Delete note asks first. Not printed
 

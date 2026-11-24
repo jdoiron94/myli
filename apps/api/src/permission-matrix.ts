@@ -539,15 +539,6 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'put',
-    path: '/collections/{id}/order',
-    access: 'personal.write',
-    send: async (t, cookie) =>
-      request(t, 'PUT', `/collections/${await ownCollection(t, cookie)}/order`, cookie, {
-        recipeIds: [],
-      }),
-  },
-  {
-    method: 'put',
     path: '/collections/{id}/recipes/{recipeId}',
     access: { recipe: 'recipe.interact' },
     send: async (t, cookie, recipeId) =>
@@ -569,6 +560,18 @@ export const ENDPOINTS: readonly EndpointCase[] = [
         `/collections/${await ownCollection(t, cookie)}/recipes/${recipeId}`,
         cookie,
       ),
+  },
+  {
+    method: 'post',
+    path: '/collections/{id}/recipes/{recipeId}/move',
+    access: { recipe: 'recipe.interact' },
+    send: async (t, cookie, recipeId) => {
+      const id = await ownCollection(t, cookie);
+      await request(t, 'PUT', `/collections/${id}/recipes/${recipeId}`, cookie);
+      return request(t, 'POST', `/collections/${id}/recipes/${recipeId}/move`, cookie, {
+        direction: 'later',
+      });
+    },
   },
   {
     method: 'get',

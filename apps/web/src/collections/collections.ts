@@ -1,3 +1,4 @@
+import type { MOVE_DIRECTIONS } from '@myli/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { api, responseData } from '@/api/client.ts';
 import { useRefreshingMutation } from '@/api/refreshing-mutation.ts';
@@ -15,12 +16,23 @@ export const collectionsQuery = queryOptions({
   queryFn: async () => responseData(await api.GET('/collections')).collections,
 });
 
-/** One of the signed-in user's collections, with the recipes in it they may see, in its order. */
-export const collectionQuery = (id: string) =>
+/** Every page of one of the signed-in user's collections. */
+export const collectionKey = (id: string) => [...COLLECTIONS, 'one', id];
+
+/**
+ * One of the signed-in user's collections, with a page of the recipes in it they may see, in its
+ * order. While another page of it loads, the last one stays, so the page doesn't jump back to its
+ * loading state; another collection's never does.
+ */
+export const collectionQuery = (id: string, page: number) =>
   queryOptions({
-    queryKey: [...COLLECTIONS, 'one', id],
+    queryKey: [...collectionKey(id), page],
     queryFn: async () =>
-      responseData(await api.GET('/collections/{id}', { params: { path: { id } } })),
+      responseData(
+        await api.GET('/collections/{id}', { params: { path: { id }, query: { page } } }),
+      ),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === id ? previous : undefined,
   });
 
 /** The IDs of the signed-in user's collections that hold a recipe. */
@@ -72,12 +84,28 @@ export const useSetInCollection = () =>
     },
   );
 
-/** Puts the recipes a collection shows in a new order: every one of them, each once. */
-export const useReorderCollection = () =>
+export type MoveDirection = (typeof MOVE_DIRECTIONS)[number];
+
+/**
+ * Moves a recipe one place earlier or later in a collection, past the one before or after it, which
+ * may be on another page.
+ */
+export const useMoveInCollection = () =>
   useRefreshingMutation(
     COLLECTIONS,
-    async ({ id, recipeIds }: { id: string; recipeIds: string[] }) => {
-      await api.PUT('/collections/{id}/order', { params: { path: { id } }, body: { recipeIds } });
+    async ({
+      id,
+      recipeId,
+      direction,
+    }: {
+      id: string;
+      recipeId: string;
+      direction: MoveDirection;
+    }) => {
+      await api.POST('/collections/{id}/recipes/{recipeId}/move', {
+        params: { path: { id, recipeId } },
+        body: { direction },
+      });
     },
   );
 

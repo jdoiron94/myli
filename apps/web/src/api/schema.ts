@@ -3118,11 +3118,13 @@ export interface paths {
         };
         /**
          * Get a collection and its recipes
-         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Its recipes in the order they put them, only those they may see now. One they may no longer see stays in it, and shows again if it comes back.
+         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Its recipes in the order they put them, one page at a time, only those they may see now. One they may no longer see stays in it, and shows again if it comes back.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    page?: number;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -3281,85 +3283,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections/{id}/order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Put the recipes in a collection in order
-         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Given every recipe the collection shows them, each once. They take the places those recipes had, so one the caller may not see now keeps its own.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CollectionOrder"];
-                };
-            };
-            responses: {
-                /** @description In their new order. */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The caller has no collection with this ID. */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description The recipes given aren’t exactly those the collection shows now. */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description The request failed validation. */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ValidationProblem"];
-                    };
-                };
-                /** @description Any other error, as RFC 9457 problem details. */
-                default: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/collections/{id}/recipes/{recipeId}": {
         parameters: {
             query?: never;
@@ -3370,7 +3293,7 @@ export interface paths {
         get?: never;
         /**
          * Add a recipe to a collection
-         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Any recipe they can see, put at the end. One already in it keeps its place. A collection holds at most 500 recipes.
+         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Any recipe they can see, put at the end. One already in it keeps its place.
          */
         put: {
             parameters: {
@@ -3402,15 +3325,6 @@ export interface paths {
                 };
                 /** @description The caller has no collection with this ID, or no recipe has this ID that they may see. */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description The collection is full. A collection holds at most 500 recipes. */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3500,6 +3414,86 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{id}/recipes/{recipeId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a recipe one place in a collection
+         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Earlier or later among the recipes they see in it, swapping places with that one, which may be on another page: one they can’t see now keeps its own. One already at that end stays.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    recipeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CollectionMove"];
+                };
+            };
+            responses: {
+                /** @description Moved, or already at that end. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The caller may see the recipe but keeps no collections: viewers are read-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The caller has no collection with this ID, no recipe has this ID that they may see, or the recipe isn’t in the collection. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4978,12 +4972,19 @@ export interface components {
         Collection: {
             id: string;
             name: string;
-            /** @description In the order the caller put them, only those they may see now. One they may no longer see stays in the collection, and shows again if it comes back. */
+            /** @description One page of them, in the order the caller put them, only those they may see now. One they may no longer see stays in the collection, and shows again if it comes back. */
             recipes: components["schemas"]["RecipeSummary"][];
+            /** @description How many recipes the list holds, across every page: only ones the caller may see. */
+            total: number;
+            page: number;
+            totalPages: number;
         };
-        CollectionOrder: {
-            /** @description Every recipe the collection shows, each once, in their new order. */
-            recipeIds: string[];
+        CollectionMove: {
+            /**
+             * @description Past the recipe before it or after it among those the caller sees, which may be on another page.
+             * @enum {string}
+             */
+            direction: "earlier" | "later";
         };
         RecipeCollections: {
             collectionIds: string[];

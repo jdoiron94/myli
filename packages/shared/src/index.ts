@@ -18,20 +18,20 @@ export {
   auditEventSchema,
 } from './audit.ts';
 export {
-  COLLECTION_MAX_RECIPES,
   COLLECTION_NAME_MAX_LENGTH,
   type Collection,
   type CollectionList,
-  type CollectionOrder,
+  type CollectionMove,
   type CollectionRequest,
   type CollectionSummary,
   collectionIdParamsSchema,
   collectionListSchema,
-  collectionOrderSchema,
+  collectionMoveSchema,
   collectionRecipeParamsSchema,
   collectionRequestSchema,
   collectionSchema,
   collectionSummarySchema,
+  MOVE_DIRECTIONS,
   type RecipeCollections,
   recipeCollectionsSchema,
 } from './collections.ts';

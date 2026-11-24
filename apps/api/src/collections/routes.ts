@@ -1,9 +1,8 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import {
-  COLLECTION_MAX_RECIPES,
   collectionIdParamsSchema,
   collectionListSchema,
-  collectionOrderSchema,
+  collectionMoveSchema,
   collectionRecipeParamsSchema,
   collectionRequestSchema,
   collectionSchema,
@@ -12,6 +11,7 @@ import {
   problemDetailsSchema,
   recipeCollectionsSchema,
   recipeIdParamsSchema,
+  recipeListQuerySchema,
 } from '@myli/shared';
 import { notFound, requirePermission } from '../auth/authorize.ts';
 import { requireSession } from '../auth/session.ts';
@@ -26,10 +26,10 @@ import {
   deleteCollection,
   listCollections,
   loadCollection,
+  moveInCollection,
   ownsCollection,
   removeFromCollection,
   renameCollection,
-  reorderCollection,
 } from './collections.ts';
 
 const problem = (description: string) => ({
@@ -53,9 +53,7 @@ const viewersCantAdd = problem(
   'The caller may see the recipe but keeps no collections: viewers are read-only.',
 );
 
-const TOO_MANY = `A collection holds at most ${String(COLLECTION_MAX_RECIPES)} recipes.`;
-const CHANGED =
-  'The collection changed since it was loaded. Load it again, then put its recipes in order.';
+const NOT_IN_IT = 'The recipe isn’t in this collection.';
 
 const getCollections = createRoute({
   method: 'get',
@@ -92,10 +90,10 @@ const getCollection = createRoute({
   tags: ['Collections'],
   summary: 'Get a collection and its recipes',
   description:
-    `${PERSONAL} Its recipes in the order they put them, only those they may see now. One they ` +
-    'may no longer see stays in it, and shows again if it comes back.',
+    `${PERSONAL} Its recipes in the order they put them, one page at a time, only those they may ` +
+    'see now. One they may no longer see stays in it, and shows again if it comes back.',
   middleware: [requirePermission('personal.write')] as const,
-  request: { params: collectionIdParamsSchema },
+  request: { params: collectionIdParamsSchema, query: recipeListQuerySchema },
   responses: {
     200: json('The collection.', collectionSchema),
     404: noCollection,
@@ -136,42 +134,43 @@ const deleteCollectionRoute = createRoute({
   },
 });
 
-const putOrder = createRoute({
-  method: 'put',
-  path: '/collections/{id}/order',
-  tags: ['Collections'],
-  summary: 'Put the recipes in a collection in order',
-  description:
-    `${PERSONAL} Given every recipe the collection shows them, each once. They take the places ` +
-    'those recipes had, so one the caller may not see now keeps its own.',
-  middleware: [requirePermission('personal.write')] as const,
-  request: {
-    params: collectionIdParamsSchema,
-    body: { required: true, content: { 'application/json': { schema: collectionOrderSchema } } },
-  },
-  responses: {
-    204: { description: 'In their new order.' },
-    404: noCollection,
-    409: problem('The recipes given aren’t exactly those the collection shows now.'),
-    ...errorResponses,
-  },
-});
-
 const putRecipe = createRoute({
   method: 'put',
   path: '/collections/{id}/recipes/{recipeId}',
   tags: ['Collections'],
   summary: 'Add a recipe to a collection',
-  description:
-    `${PERSONAL} Any recipe they can see, put at the end. One already in it keeps its place. ` +
-    TOO_MANY,
+  description: `${PERSONAL} Any recipe they can see, put at the end. One already in it keeps its place.`,
   middleware: [requireSession] as const,
   request: { params: collectionRecipeParamsSchema },
   responses: {
     204: { description: 'In it.' },
     403: viewersCantAdd,
     404: noRecipe,
-    409: problem(`The collection is full. ${TOO_MANY}`),
+    ...errorResponses,
+  },
+});
+
+const moveRecipe = createRoute({
+  method: 'post',
+  path: '/collections/{id}/recipes/{recipeId}/move',
+  tags: ['Collections'],
+  summary: 'Move a recipe one place in a collection',
+  description:
+    `${PERSONAL} Earlier or later among the recipes they see in it, swapping places with that ` +
+    'one, which may be on another page: one they can’t see now keeps its own. One already at that ' +
+    'end stays.',
+  middleware: [requireSession] as const,
+  request: {
+    params: collectionRecipeParamsSchema,
+    body: { required: true, content: { 'application/json': { schema: collectionMoveSchema } } },
+  },
+  responses: {
+    204: { description: 'Moved, or already at that end.' },
+    403: viewersCantAdd,
+    404: problem(
+      'The caller has no collection with this ID, no recipe has this ID that they may see, or ' +
+        'the recipe isn’t in the collection.',
+    ),
     ...errorResponses,
   },
 });
@@ -219,7 +218,12 @@ export function registerCollectionRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db
   });
 
   v1.openapi(getCollection, (c) => {
-    const found = loadCollection(db, c.var.user, c.req.valid('param').id);
+    const found = loadCollection(
+      db,
+      c.var.user,
+      c.req.valid('param').id,
+      c.req.valid('query').page,
+    );
     if (!found) throw notFound('Collection');
     return c.json(found, 200);
   });
@@ -239,22 +243,23 @@ export function registerCollectionRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db
     return c.body(null, 204);
   });
 
-  v1.openapi(putOrder, (c) => {
-    const { id } = c.req.valid('param');
-    if (!ownsCollection(db, c.var.user.id, id)) throw notFound('Collection');
-    const result = reorderCollection(db, c.var.user, id, c.req.valid('json').recipeIds);
-    if (!result.ok) throw new HttpProblem(409, CHANGED);
-    return c.body(null, 204);
-  });
-
   // The recipe first, as on every endpoint on one recipe: hidden from the caller, it's a 404 before
   // anything else, and a viewer's refusal is a 403.
   v1.openapi(putRecipe, (c) => {
     const { id, recipeId } = c.req.valid('param');
     authorizeOn(c, 'recipe.interact', recipeId);
     if (!ownsCollection(db, c.var.user.id, id)) throw notFound('Collection');
-    const result = addToCollection(db, id, recipeId);
-    if (!result.ok) throw new HttpProblem(409, `The collection is full. ${TOO_MANY}`);
+    addToCollection(db, id, recipeId);
+    return c.body(null, 204);
+  });
+
+  v1.openapi(moveRecipe, (c) => {
+    const { id, recipeId } = c.req.valid('param');
+    authorizeOn(c, 'recipe.interact', recipeId);
+    if (!ownsCollection(db, c.var.user.id, id)) throw notFound('Collection');
+    if (!moveInCollection(db, c.var.user, id, recipeId, c.req.valid('json').direction)) {
+      throw new HttpProblem(404, NOT_IN_IT);
+    }
     return c.body(null, 204);
   });
 

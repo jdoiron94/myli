@@ -1,20 +1,25 @@
 <script setup lang="ts">
 import { ArrowLeftIcon, ArrowRightIcon, PencilIcon, TrashIcon, XIcon } from '@lucide/vue';
+import { recipeListQuerySchema } from '@myli/shared';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
+import { until } from '@vueuse/core';
 import { computed, nextTick, ref, useTemplateRef, watchEffect } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import CollectionNameForm from '@/collections/CollectionNameForm.vue';
 import {
+  collectionKey,
   collectionQuery,
+  type MoveDirection,
   recipeCountText,
   useDeleteCollection,
+  useMoveInCollection,
   useRenameCollection,
-  useReorderCollection,
   useSetInCollection,
 } from '@/collections/collections.ts';
+import PageLinks from '@/components/PageLinks.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import {
   AlertDialog,
@@ -29,16 +34,21 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { goWithNotice } from '@/lib/page-notice.ts';
+import { useFocusAfterPaging } from '@/lib/paging.ts';
 import RecipeCard from '@/recipes/RecipeCard.vue';
 import { documentTitle } from '@/router.ts';
 
 /**
- * One of the reader's collections (spec §3.3): its recipes in their order, which they change, and
- * renaming or deleting it. No one else sees it.
+ * One of the reader's collections (spec §3.3): its recipes in their order, which they change, a
+ * page at a time, the page in the address (`?page=2`), and renaming or deleting it. No one else
+ * sees it.
  */
 const props = defineProps<{ id: string }>();
 
-const query = useQuery(computed(() => collectionQuery(props.id)));
+const route = useRoute();
+/** The page the address asks for, or the first, if it asks for none or for one that can't be. */
+const page = computed(() => recipeListQuerySchema.safeParse(route.query).data?.page ?? 1);
+const query = useQuery(computed(() => collectionQuery(props.id, page.value)));
 const { failure: loadFailure, retrying, stillFailing, retry } = useRetry(query);
 const collection = computed(() => query.data.value);
 
@@ -51,7 +61,6 @@ const heading = computed(() => {
   return notFound.value ? 'Collection not found' : 'Collection';
 });
 
-const route = useRoute();
 watchEffect(() => {
   // Only while this page is the current one: the router sets the next page's title as it leaves.
   if (route.name === 'collection' && (collection.value || notFound.value)) {
@@ -106,36 +115,65 @@ async function deleteCollection() {
     return;
   }
   await goWithNotice(router, { name: 'collections' }, `Deleted “${name}”.`);
-  queryClient.removeQueries({ queryKey: collectionQuery(props.id).queryKey });
+  queryClient.removeQueries({ queryKey: collectionKey(props.id) });
 }
 
-const reorder = useReorderCollection();
+const pageLink = (to: number) => ({ query: to > 1 ? { page: String(to) } : {} });
+const count = useTemplateRef('count');
+const { paged } = useFocusAfterPaging(() => collection.value?.page, count);
+
+/** Whether the recipe at `index` on this page is first or last of all, so it can't move that way. */
+function atEnd(index: number, direction: MoveDirection) {
+  const shown = collection.value;
+  if (!shown) return true;
+  return direction === 'earlier'
+    ? shown.page === 1 && index === 0
+    : shown.page >= shown.totalPages && index === shown.recipes.length - 1;
+}
+
+/** Once the page shows the recipe, fetched again, focuses the element with this ID. */
+async function focusWhenShown(elementId: string, recipeId: string) {
+  await until(
+    computed(
+      () =>
+        !query.isFetching.value &&
+        collection.value?.recipes.some((recipe) => recipe.id === recipeId) === true,
+    ),
+  ).toBe(true, { timeout: 10_000 });
+  await focusById(elementId);
+}
+
+const move = useMoveInCollection();
 
 /**
- * Moves a recipe one place earlier or later. Focus stays on the button pressed, which moves with
- * it, once the collection has been fetched again.
+ * Moves a recipe one place earlier or later. From either end of a page, that's onto the page next
+ * to it, which then shows. Focus stays on the button pressed, which moves with it.
  */
-async function move(index: number, by: -1 | 1) {
-  const recipes = collection.value?.recipes;
-  const to = index + by;
-  if (!recipes || reorder.isPending.value || to < 0 || to >= recipes.length) return;
-  const ids = recipes.map((recipe) => recipe.id);
-  const [moved] = ids.splice(index, 1);
-  if (moved === undefined) return;
-  ids.splice(to, 0, moved);
+async function moveRecipe(index: number, direction: MoveDirection) {
+  const shown = collection.value;
+  const recipe = shown?.recipes[index];
+  if (!shown || !recipe || move.isPending.value || atEnd(index, direction)) return;
   starting();
   try {
-    await reorder.mutateAsync({ id: props.id, recipeIds: ids });
+    await move.mutateAsync({ id: props.id, recipeId: recipe.id, direction });
   } catch (error) {
     failure.value = failureMessage(error);
     return;
   }
-  await focusById(`${by < 0 ? 'earlier' : 'later'}-${moved}`);
+  if (direction === 'earlier' && index === 0) {
+    await router.push(pageLink(shown.page - 1));
+  } else if (direction === 'later' && index === shown.recipes.length - 1) {
+    await router.push(pageLink(shown.page + 1));
+  }
+  await focusWhenShown(`${direction}-${recipe.id}`, recipe.id);
 }
 
 const takeOut = useSetInCollection();
 
-/** It's gone from the list, and its buttons with it: focus goes to the heading. */
+/**
+ * It's gone from the list, and its buttons with it: focus goes to the heading. Taking out the last
+ * on a page goes back to the page before, which has some.
+ */
 async function removeRecipe(recipeId: string, title: string) {
   if (takeOut.isPending.value) return;
   starting();
@@ -144,6 +182,10 @@ async function removeRecipe(recipeId: string, title: string) {
     notice.value = `Took “${title}” out of this collection.`;
   } catch (error) {
     failure.value = failureMessage(error);
+  }
+  const shown = collection.value;
+  if (shown?.recipes.length === 0 && shown.total > 0) {
+    await router.replace(pageLink(shown.totalPages));
   }
   headingElement.value?.focus();
 }
@@ -227,12 +269,18 @@ async function removeRecipe(recipeId: string, title: string) {
       {{ failure }}
     </p>
 
-    <p class="mt-6 text-sm font-medium">
-      {{ recipeCountText(collection.recipes.length) }}
+    <!-- Focused after going to another page. -->
+    <p
+      ref="count"
+      tabindex="-1"
+      class="mt-6 w-fit rounded-md text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {{ recipeCountText(collection.total) }}
     </p>
     <ol
       v-if="collection.recipes.length > 0"
       aria-label="Recipes in this collection"
+      :aria-busy="query.isPlaceholderData.value || undefined"
       class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
     >
       <li
@@ -252,8 +300,8 @@ async function removeRecipe(recipeId: string, title: string) {
             variant="ghost"
             size="xs"
             class="aria-disabled:opacity-50"
-            :aria-disabled="index === 0 ? true : undefined"
-            @click="move(index, -1)"
+            :aria-disabled="atEnd(index, 'earlier') || undefined"
+            @click="moveRecipe(index, 'earlier')"
           >
             <ArrowLeftIcon aria-hidden="true" />
             Move earlier<span class="sr-only">: {{ recipe.title }}</span>
@@ -263,8 +311,8 @@ async function removeRecipe(recipeId: string, title: string) {
             variant="ghost"
             size="xs"
             class="aria-disabled:opacity-50"
-            :aria-disabled="index === collection.recipes.length - 1 ? true : undefined"
-            @click="move(index, 1)"
+            :aria-disabled="atEnd(index, 'later') || undefined"
+            @click="moveRecipe(index, 'later')"
           >
             <ArrowRightIcon aria-hidden="true" />
             Move later<span class="sr-only">: {{ recipe.title }}</span>
@@ -281,11 +329,30 @@ async function removeRecipe(recipeId: string, title: string) {
       </li>
     </ol>
     <p
+      v-else-if="collection.total > 0"
+      class="mt-4 text-sm"
+    >
+      There are no recipes on this page.
+      <RouterLink
+        :to="pageLink(1)"
+        class="font-medium underline underline-offset-4"
+      >
+        Go to the first page
+      </RouterLink>
+    </p>
+    <p
       v-else
       class="mt-4 text-sm text-muted-foreground"
     >
       Choose Collections on a recipe’s page to add it here.
     </p>
+
+    <PageLinks
+      :page="collection.page"
+      :total-pages="collection.totalPages"
+      :link="pageLink"
+      @go="paged"
+    />
   </template>
 
   <p

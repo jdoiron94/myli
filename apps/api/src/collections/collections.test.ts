@@ -1,8 +1,8 @@
 import {
-  COLLECTION_MAX_RECIPES,
   collectionListSchema,
   collectionSchema,
   collectionSummarySchema,
+  RECIPES_PER_PAGE,
   recipeCollectionsSchema,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
@@ -35,11 +35,28 @@ async function listed(t: TestApp, cookie: string) {
     .collections.map(({ name, recipeCount }) => `${name} (${String(recipeCount)})`);
 }
 
-/** The titles of the recipes a collection shows, in its order. */
-async function shown(t: TestApp, cookie: string, id: string) {
-  const res = await send(t, cookie, 'GET', `/collections/${id}`);
+/** One page of a collection, as whoever has `cookie` sees it. */
+async function pageOf(t: TestApp, cookie: string, id: string, page = 1) {
+  const res = await send(t, cookie, 'GET', `/collections/${id}?page=${String(page)}`);
   expect(res.status).toBe(200);
-  return collectionSchema.parse(await res.json()).recipes.map(({ title }) => title);
+  return collectionSchema.parse(await res.json());
+}
+
+/** The titles of the recipes on a page of a collection, in its order. */
+async function shown(t: TestApp, cookie: string, id: string, page = 1) {
+  return (await pageOf(t, cookie, id, page)).recipes.map(({ title }) => title);
+}
+
+/** Moves a recipe one place in a collection, as whoever has `cookie`: the status. */
+async function move(
+  t: TestApp,
+  cookie: string,
+  id: string,
+  recipeId: string,
+  direction: 'earlier' | 'later',
+) {
+  const path = `/collections/${id}/recipes/${recipeId}/move`;
+  return (await send(t, cookie, 'POST', path, { direction })).status;
 }
 
 /** A shared recipe of `ownerId`'s, with this title. */
@@ -81,17 +98,15 @@ describe('collections', () => {
     await send(t, cookie, 'PUT', `/collections/${other}/recipes/${bread}`);
     expect(await shown(t, cookie, id)).toEqual(['Bread', 'Curry', 'Tacos']);
 
-    const order = (recipeIds: string[]) =>
-      send(t, cookie, 'PUT', `/collections/${id}/order`, { recipeIds });
-    expect((await order([tacos, bread, curry])).status).toBe(204);
-    expect(await shown(t, cookie, id)).toEqual(['Tacos', 'Bread', 'Curry']);
-    // Not exactly what it holds, as when it changed since it was loaded.
-    const refused = {
-      missing: (await order([tacos, bread])).status,
-      twice: (await order([tacos, bread, bread])).status,
-      extra: (await order([tacos, bread, curry, insertRecipe(t.db, user.id)])).status,
+    const moved = {
+      tacosEarlier: await move(t, cookie, id, tacos, 'earlier'),
+      // Already at that end.
+      breadEarlier: await move(t, cookie, id, bread, 'earlier'),
+      curryLater: await move(t, cookie, id, curry, 'later'),
+      notInIt: await move(t, cookie, id, insertRecipe(t.db, user.id), 'later'),
     };
-    expect(refused).toEqual({ missing: 409, twice: 409, extra: 409 });
+    expect(moved).toEqual({ tacosEarlier: 204, breadEarlier: 204, curryLater: 204, notInIt: 404 });
+    expect(await shown(t, cookie, id)).toEqual(['Bread', 'Tacos', 'Curry']);
 
     expect((await send(t, cookie, 'DELETE', `/collections/${id}/recipes/${bread}`)).status).toBe(
       204,
@@ -112,9 +127,7 @@ describe('collections', () => {
     const statuses = {
       get: (await send(t, admin.cookie, 'GET', `/collections/${id}`)).status,
       rename: (await send(t, admin.cookie, 'PUT', `/collections/${id}`, { name: 'Mine' })).status,
-      order: (
-        await send(t, admin.cookie, 'PUT', `/collections/${id}/order`, { recipeIds: [recipeId] })
-      ).status,
+      move: await move(t, admin.cookie, id, recipeId, 'later'),
       add: (await send(t, admin.cookie, 'PUT', `/collections/${id}/recipes/${recipeId}`)).status,
       remove: (await send(t, admin.cookie, 'DELETE', `/collections/${id}/recipes/${recipeId}`))
         .status,
@@ -123,7 +136,7 @@ describe('collections', () => {
     expect(statuses).toEqual({
       get: 404,
       rename: 404,
-      order: 404,
+      move: 404,
       add: 404,
       remove: 404,
       delete: 404,
@@ -148,13 +161,14 @@ describe('collections', () => {
       t.db.update(recipe).set(values).where(eq(recipe.id, theirs)).run();
 
     setTheirs({ visibility: 'private' });
-    expect(await shown(t, reader.cookie, id)).toEqual(['Bread', 'Curry']);
-    expect(await listed(t, reader.cookie)).toEqual(['Weeknight (2)']);
-    // In order, the two it shows take the places they had, around the one it doesn't.
-    const order = await send(t, reader.cookie, 'PUT', `/collections/${id}/order`, {
-      recipeIds: [curry, bread],
+    const hidden = await pageOf(t, reader.cookie, id);
+    expect({ titles: hidden.recipes.map(({ title }) => title), total: hidden.total }).toEqual({
+      titles: ['Bread', 'Curry'],
+      total: 2,
     });
-    expect(order.status).toBe(204);
+    expect(await listed(t, reader.cookie)).toEqual(['Weeknight (2)']);
+    // Past the one it shows before it, swapping places with it, around the one it doesn't.
+    expect(await move(t, reader.cookie, id, curry, 'earlier')).toBe(204);
     setTheirs({ visibility: 'shared', deletedAt: new Date() });
     expect(await shown(t, reader.cookie, id)).toEqual(['Curry', 'Bread']);
 
@@ -162,17 +176,17 @@ describe('collections', () => {
     expect(await shown(t, reader.cookie, id)).toEqual(['Curry', 'Their Stew', 'Bread']);
   });
 
-  it('refuse a recipe once full', async () => {
+  it('page their recipes, with no limit on how many, moved from page to page', async () => {
     const t = createTestApp();
     const { user, cookie } = await signedInAs(t, 'editor');
     const id = await create(t, cookie, 'Everything');
     const held = t.db
       .insert(recipe)
       .values(
-        Array.from({ length: COLLECTION_MAX_RECIPES }, (_, index) => ({
+        Array.from({ length: RECIPES_PER_PAGE + 1 }, (_, index) => ({
           ownerId: user.id,
           visibility: 'shared' as const,
-          title: `Recipe ${String(index)}`,
+          title: `Recipe ${String(index + 1)}`,
           servings: 2,
         })),
       )
@@ -182,16 +196,21 @@ describe('collections', () => {
       .insert(collectionItem)
       .values(held.map((row, index) => ({ collectionId: id, recipeId: row.id, position: index })))
       .run();
+    const last = `Recipe ${String(RECIPES_PER_PAGE + 1)}`;
 
-    const res = await send(
-      t,
-      cookie,
-      'PUT',
-      `/collections/${id}/recipes/${insertRecipe(t.db, user.id)}`,
-    );
-    expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({
-      detail: `The collection is full. A collection holds at most ${String(COLLECTION_MAX_RECIPES)} recipes.`,
+    const first = await pageOf(t, cookie, id);
+    expect({ shown: first.recipes.length, total: first.total, pages: first.totalPages }).toEqual({
+      shown: RECIPES_PER_PAGE,
+      total: RECIPES_PER_PAGE + 1,
+      pages: 2,
     });
+    expect(await shown(t, cookie, id, 2)).toEqual([last]);
+
+    const lastId = held.at(-1)?.id ?? '';
+    expect(await move(t, cookie, id, lastId, 'earlier')).toBe(204);
+    expect({
+      endOfFirst: (await shown(t, cookie, id)).at(-1),
+      second: await shown(t, cookie, id, 2),
+    }).toEqual({ endOfFirst: last, second: [`Recipe ${String(RECIPES_PER_PAGE)}`] });
   });
 });
