@@ -28,6 +28,12 @@ export function dockerClientEnvironment(): Record<string, string> {
   );
 }
 
+/**
+ * What start-compose.ts prints once its stack can be tested, which Playwright waits for
+ * (playwright.containers.config.ts).
+ */
+export const STACK_READY = 'Stack ready: its services are healthy and the host network has settled';
+
 /** The Compose project of one browser's stack in the run against the images. */
 export const composeProject = (browserName: string) => `myli-e2e-${browserName}`;
 

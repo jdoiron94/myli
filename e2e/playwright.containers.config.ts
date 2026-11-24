@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 import { BROWSERS, COMMON_CONFIG, type WebServer } from './browsers.ts';
-import { composeProject, redirectPortFor } from './images.ts';
+import { composeProject, redirectPortFor, STACK_READY } from './images.ts';
 import type { Options } from './tests/fixtures.ts';
 
 /**
@@ -46,8 +46,9 @@ export default defineConfig<Options>({
         HTTP_PORT: String(redirectPortFor(webUrl)),
         PROXY_SUBNET: proxySubnet,
       },
-      url: webUrl,
-      ignoreHTTPSErrors: true,
+      // Not `url`: Caddy answers before the host's network has settled (start-compose.ts), and
+      // Playwright would start the tests on whichever came first.
+      wait: { stdout: new RegExp(STACK_READY) },
       reuseExistingServer: false,
       // The launcher removes its stack when it's told to stop.
       gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
