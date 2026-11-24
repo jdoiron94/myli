@@ -20,6 +20,7 @@ export const AUDIT_ACTIONS = [
   'recipe.restored',
   'recipe.purged',
   'revision.restored',
+  'comment.deleted',
   'public_link.created',
   'public_link.revoked',
   'tag.renamed',
@@ -31,8 +32,8 @@ export const AUDIT_ACTIONS = [
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 /**
- * What an audit event can be about. A restored revision or a public link targets its recipe; a
- * merged tag targets the tag that's gone, and names the one it went into.
+ * What an audit event can be about. A restored revision, a public link or a deleted comment targets
+ * its recipe; a merged tag targets the tag that's gone, and names the one it went into.
  */
 export const AUDIT_TARGET_TYPES = ['invitation', 'user', 'recipe', 'tag'] as const;
 

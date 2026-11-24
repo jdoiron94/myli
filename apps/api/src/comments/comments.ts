@@ -1,7 +1,9 @@
 import type { Comment, PolicyComment } from '@myli/shared';
 import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
+import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db } from '../db/database.ts';
 import { comment, recipe, user } from '../db/schema.ts';
+import { auditedRecipe } from '../recipes/recipes.ts';
 
 const columns = {
   id: comment.id,
@@ -87,6 +89,34 @@ export function editComment(db: Db, id: string, body: string): Comment {
   return loadComment(db, id);
 }
 
-export function deleteComment(db: Db, id: string): void {
-  db.delete(comment).where(eq(comment.id, id)).run();
+/**
+ * Deletes a comment for good, and records it in the audit log, in one transaction: who wrote it and
+ * on which recipe, named by its title only while it's shared. Not what it said, since it's gone.
+ */
+export function deleteComment(db: Db, origin: AuditOrigin, id: string): void {
+  db.transaction((tx) => {
+    const deleted = tx
+      .select({
+        recipeId: comment.recipeId,
+        authorId: comment.authorId,
+        authorName: user.name,
+        title: recipe.title,
+        visibility: recipe.visibility,
+      })
+      .from(comment)
+      .innerJoin(user, eq(user.id, comment.authorId))
+      .innerJoin(recipe, eq(recipe.id, comment.recipeId))
+      .where(eq(comment.id, id))
+      .get();
+    if (!deleted) return;
+    tx.delete(comment).where(eq(comment.id, id)).run();
+    recordAuditEvent(tx, origin, {
+      action: 'comment.deleted',
+      target: { type: 'recipe', id: deleted.recipeId },
+      metadata: {
+        ...auditedRecipe(deleted),
+        comment: { id, author: { id: deleted.authorId, name: deleted.authorName } },
+      },
+    });
+  });
 }
