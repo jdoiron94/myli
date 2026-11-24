@@ -25,6 +25,7 @@ import { recipe, recipeIngredient } from '../db/schema.ts';
 import { coversOf } from '../images/images.ts';
 import type { Logger } from '../logger.ts';
 import { HttpProblem } from '../problems.ts';
+import { ratingSummaries, summaryOf } from '../ratings/ratings.ts';
 import type { RecipeSearchDocument } from './document.ts';
 import { RECIPES_INDEX, synonymGroup } from './settings.ts';
 import { isMeilisearchError } from './setup.ts';
@@ -253,10 +254,9 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSu
     )
     .all();
   const current = new Map(rows.map((row) => [row.id, row]));
-  const covers = coversOf(
-    db,
-    rows.map(({ id }) => id),
-  );
+  const ids = rows.map(({ id }) => id);
+  const covers = coversOf(db, ids);
+  const ratings = ratingSummaries(db, ids);
   return hits.flatMap((hit) => {
     const row = current.get(hit.id);
     if (!row || !can(user, 'recipe.read', row)) return [];
@@ -273,6 +273,7 @@ function visibleHits(db: Db, user: PolicyUser, hits: SearchedRecipe[]): RecipeSu
         allergens: hit.allergens as RecipeSummary['allergens'],
         visibility: row.visibility,
         cover: covers.get(hit.id) ?? null,
+        rating: summaryOf(ratings, hit.id),
       },
     ];
   });

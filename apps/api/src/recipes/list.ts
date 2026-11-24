@@ -11,6 +11,7 @@ import { and, asc, count, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Db } from '../db/database.ts';
 import { recipe, recipeTag, tag } from '../db/schema.ts';
 import { coversOf } from '../images/images.ts';
+import { ratingSummaries, summaryOf } from '../ratings/ratings.ts';
 
 /**
  * `recipe.read` (policy.ts) restated in SQL, so lists can be paged in the database: shared
@@ -78,6 +79,7 @@ export function recipeListPage(
           .orderBy(asc(tag.nameKey))
           .all();
   const covers = coversOf(db, ids);
+  const ratings = ratingSummaries(db, ids);
   const named = (recipeId: string, type: TagType) =>
     tags.filter((t) => t.recipeId === recipeId && t.type === type).map((t) => t.name);
 
@@ -100,6 +102,7 @@ export function recipeListPage(
         allergens: named(row.id, 'allergen') as RecipeSummary['allergens'],
         visibility: row.visibility,
         cover: covers.get(row.id) ?? null,
+        rating: summaryOf(ratings, row.id),
       }),
     ),
     total,

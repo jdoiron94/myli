@@ -1348,6 +1348,9 @@
               }
             ],
             "description": "Its cover photo, if it has photos."
+          },
+          "rating": {
+            "$ref": "#/components/schemas/RatingSummary"
           }
         },
         "required": [
@@ -1361,7 +1364,28 @@
           "tags",
           "allergens",
           "visibility",
-          "cover"
+          "cover",
+          "rating"
+        ]
+      },
+      "RatingSummary": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The mean of its ratings, in stars, unrounded. `null` while it has none."
+          },
+          "count": {
+            "type": "integer",
+            "description": "How many ratings it has."
+          }
+        },
+        "required": [
+          "average",
+          "count"
         ]
       },
       "StaleRecipeProblem": {
@@ -2749,6 +2773,49 @@
         },
         "required": [
           "favorite"
+        ]
+      },
+      "RecipeRating": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The mean of its ratings, in stars, unrounded. `null` while it has none."
+          },
+          "count": {
+            "type": "integer",
+            "description": "How many ratings it has."
+          },
+          "mine": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 5,
+            "description": "The caller's own rating. `null` if they haven't rated it, as viewers can't."
+          }
+        },
+        "required": [
+          "average",
+          "count",
+          "mine"
+        ]
+      },
+      "RatingRequest": {
+        "type": "object",
+        "properties": {
+          "stars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "stars"
         ]
       },
       "RecipeSearchResult": {
@@ -5492,6 +5559,221 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecipeList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/rating": {
+      "get": {
+        "tags": [
+          "Ratings"
+        ],
+        "summary": "Get a recipe's ratings",
+        "description": "Anyone who can see the recipe: how many ratings it has and their average, and the caller's own rating.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Its ratings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeRating"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Ratings"
+        ],
+        "summary": "Rate a recipe",
+        "description": "Editors and admins, for any recipe they can see: one rating each, from 1 to 5 stars, which this sets or changes. Sorting search by rating takes it in once the recipe is indexed again.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Its ratings now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeRating"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not rate it: viewers are read-only.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Ratings"
+        ],
+        "summary": "Take back your rating of a recipe",
+        "description": "Editors and admins. With no rating of theirs, it changes nothing.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Its ratings now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeRating"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not rate it: viewers are read-only.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

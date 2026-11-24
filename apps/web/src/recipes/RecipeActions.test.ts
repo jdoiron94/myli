@@ -302,6 +302,7 @@ describe('what a reader can do with a recipe', () => {
     allergens: [],
     visibility: 'shared',
     cover: null,
+    rating: { average: null, count: 0 },
   };
 
   /** Opens `page`, then the recipe from it, deletes it and goes back to the page. */

@@ -9,6 +9,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { recipe, tag } from '../db/schema.ts';
 import { insertRecipeImage } from '../images/testing.ts';
+import { setRating } from '../ratings/ratings.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { createRecipe } from './recipes.ts';
 import { sampleRecipeRequest } from './testing.ts';
@@ -114,6 +115,9 @@ describe('GET /recipes', () => {
         tagId('allergen', 'milk'),
       ],
     });
+    const { user: other } = await signedInAs(t, 'editor');
+    setRating(t.db, user.id, id, 5);
+    setRating(t.db, other.id, id, 4);
 
     expect((await list()).recipes).toEqual([
       {
@@ -128,6 +132,7 @@ describe('GET /recipes', () => {
         allergens: ['milk', 'wheat'],
         visibility: 'private',
         cover: null,
+        rating: { average: 4.5, count: 2 },
       },
     ]);
   });

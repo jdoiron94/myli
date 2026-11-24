@@ -276,7 +276,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Ratings and comments (editors and admins)**
 - **Ratings:**
   - one rating per user per recipe, 1–5 stars; users can change or remove theirs
-  - a recipe shows its average and number of ratings
+  - a recipe shows its average and number of ratings to everyone who can see it, viewers included, on its page and its card
   - sorting uses a Bayesian average (§3.4)
 - **Comments:**
   - markdown, sanitized when rendered
@@ -362,7 +362,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 | Sort | Basis |
 |---|---|
 | Relevance | Default when there's a search query |
-| Rating | Bayesian average, recomputed when a rating changes |
+| Rating | Bayesian average: a recipe's ratings plus three of 3 stars, `(sum + 9) / (count + 3)`, so a recipe nobody has rated scores 3. Recomputed when a rating changes. |
 | Recently added | Date first published |
 | Total time | Ascending or descending. Recipes without a total time come last either way. |
 
@@ -576,7 +576,7 @@ Before Phase 2, saving a recipe changed its published version directly. Deleting
 These need decisions before or during the phase that uses them:
 
 1. ~~**Trash retention period** before permanent purge (Phase 2).~~ Decided: 30 days by default, set with `TRASH_RETENTION_DAYS`.
-2. **Bayesian rating parameters** (Phase 2). Suggestion: prior = the instance-wide mean rating, weight = 3 ratings.
+2. ~~**Bayesian rating parameters** (Phase 2).~~ Decided: a fixed prior of 3 stars, weighted as 3 ratings. Unlike the instance-wide mean, a fixed prior means a rating changes only its own recipe's score.
 3. ~~**Image limits** (Phase 1).~~ Decided: uploads up to 10 MB. Variants are served as WebP, at sizes chosen from the layouts images appear in, so they look good where they're shown: 640, 1280 and 2048 pixels wide.
 4. ~~**Revision retention** (Phase 2).~~ Decided: keep every revision while its recipe exists; snapshots are small.
 5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided in Phase 0: record every one and keep them. Revisit pruning when the Phase 2 purge job exists.

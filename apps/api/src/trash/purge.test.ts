@@ -6,6 +6,7 @@ import {
   favorite,
   image,
   job,
+  rating,
   recipe,
   recipeDraft,
   recipeIngredient,
@@ -79,6 +80,7 @@ describe('purgeTrashJob', () => {
       .values({ recipeId: due, content: sampleRecipeContent(), revision: 1, authorId: 'owner' })
       .run();
     db.insert(favorite).values({ userId: 'owner', recipeId: due }).run();
+    db.insert(rating).values({ userId: 'owner', recipeId: due, stars: 4 }).run();
     const kept = [
       await insertRecipeImage({ db, blobs }, recent),
       await insertRecipeImage({ db, blobs }, live),
@@ -97,12 +99,19 @@ describe('purgeTrashJob', () => {
     ).toEqual([recent, live].sort());
     const purged = [due, duePrivate];
     const left = Object.fromEntries(
-      [recipeRevision, recipeDraft, recipeIngredient, recipeStep, recipeTag, favorite, image].map(
-        (table) => [
-          getTableName(table),
-          db.select().from(table).where(inArray(table.recipeId, purged)).all().length,
-        ],
-      ),
+      [
+        recipeRevision,
+        recipeDraft,
+        recipeIngredient,
+        recipeStep,
+        recipeTag,
+        favorite,
+        rating,
+        image,
+      ].map((table) => [
+        getTableName(table),
+        db.select().from(table).where(inArray(table.recipeId, purged)).all().length,
+      ]),
     );
     expect(left).toEqual({
       recipe_revision: 0,
@@ -111,6 +120,7 @@ describe('purgeTrashJob', () => {
       recipe_step: 0,
       recipe_tag: 0,
       favorite: 0,
+      rating: 0,
       image: 0,
     });
     expect(

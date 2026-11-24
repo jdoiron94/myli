@@ -551,3 +551,24 @@ export const favorite = sqliteTable(
     index('favorite_recipe_id_idx').on(table.recipeId),
   ],
 );
+
+/** Each user's rating of a recipe, from 1 to 5 stars: one each, which they change or remove. */
+export const rating = sqliteTable(
+  'rating',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    stars: integer('stars').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.recipeId] }),
+    index('rating_recipe_id_idx').on(table.recipeId),
+    check('rating_stars_check', sql`${table.stars} between 1 and 5`),
+  ],
+);

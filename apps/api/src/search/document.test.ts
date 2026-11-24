@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../db/database.ts';
 import { recipe, tag, user } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
+import { setRating } from '../ratings/ratings.ts';
 import { createRecipe, deleteRecipe } from '../recipes/recipes.ts';
 import { sampleRecipeRequest } from '../recipes/testing.ts';
 import { findOrCreateTag } from '../tags/tags.ts';
@@ -58,10 +59,45 @@ describe('buildRecipeDocument', () => {
       totalMinutes: 180,
       visibility: 'private',
       ownerId: 'owner',
-      ratingScore: 0,
+      // Nobody has rated it: it sits at the prior.
+      ratingScore: 3,
       publishedAt: createdAt?.getTime(),
       deleted: false,
     });
+  });
+
+  it('scores ratings with a Bayesian average: many 4-star ratings beat one 5-star rating', () => {
+    for (const n of [1, 2, 3, 4]) {
+      db.insert(user)
+        .values({
+          id: `rater-${String(n)}`,
+          name: 'Rater',
+          email: `rater-${String(n)}@example.com`,
+        })
+        .run();
+    }
+    const rated = (...stars: number[]) => {
+      const id = create();
+      stars.forEach((value, n) => {
+        setRating(db, `rater-${String(n + 1)}`, id, value);
+      });
+      return id;
+    };
+    const recipes = {
+      fourFours: rated(4, 4, 4, 4),
+      oneFive: rated(5),
+      unrated: rated(),
+      oneOne: rated(1),
+    };
+
+    expect(
+      Object.fromEntries(
+        Object.entries(recipes).map(([name, id]) => [
+          name,
+          buildRecipeDocument(db, id)?.ratingScore,
+        ]),
+      ),
+    ).toEqual({ fourFours: 25 / 7, oneFive: 3.5, unrated: 3, oneOne: 2.5 });
   });
 
   it('works out the total time from prep and cook when it isn’t set by hand', () => {
