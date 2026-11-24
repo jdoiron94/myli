@@ -277,6 +277,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Ratings:**
   - one rating per user per recipe, 1–5 stars; users can change or remove theirs
   - a recipe shows its average and number of ratings to everyone who can see it, viewers included, on its page and its card
+  - on the recipe's page, whoever may rate it presses one of five stars, and can remove their rating
   - sorting uses a Bayesian average (§3.4)
 - **Comments:**
   - markdown, sanitized when rendered
@@ -372,7 +373,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - The filters are beside the results, behind a Filters button on a phone. Each value shows how many results it would give, most common first; a long list shows the six most common, and every one chosen, until asked for all. A tag value can be checked to include it, or left out with the button beside it.
 - Ingredients are picked in the filters, from suggestions as they're typed (Autocomplete, above), each with how many recipes use it. Each one chosen shows below, with a button to take it off.
 - Total time is offered as a few ranges: 15 minutes or less, 30, an hour, two hours, or over two hours. A link can hold any range, which is then shown with them.
-- Sorting by rating is offered once there are ratings (Phase 2). The best match is offered only for a search with words; without them, the newest come first.
+- The sorts are offered as best match, newest, top rated (by rating), quickest and longest. The best match is offered only for a search with words; without them, the newest come first.
 - Results are paginated, 24 to a page, and show a count for each filter value. A filter that takes any of its values (cuisine, meal type, difficulty) is counted without its own choices, so each of its other values shows what adding it would give.
 - Results include only recipes the caller may see (§2). Drafts are never searchable.
 - Each result is checked against the database before it's shown, since the index can be behind: a recipe made private or deleted since never shows to anyone it no longer should. Nor is it counted, so the count matches what's shown.

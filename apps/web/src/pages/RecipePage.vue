@@ -9,6 +9,7 @@ import { useRetry } from '@/api/retry.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import RecipeActions from '@/recipes/RecipeActions.vue';
 import RecipeBody from '@/recipes/RecipeBody.vue';
+import RecipeRating from '@/recipes/RecipeRating.vue';
 import { recipeQuery } from '@/recipes/recipe.ts';
 import { useServings } from '@/recipes/servings.ts';
 import { documentTitle } from '@/router.ts';
@@ -78,6 +79,10 @@ const updatedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }
             </span>
           </template>
         </p>
+        <RecipeRating
+          v-if="recipe"
+          :recipe="recipe"
+        />
       </div>
       <RecipeActions
         v-if="recipe"

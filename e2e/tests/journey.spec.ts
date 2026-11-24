@@ -526,7 +526,14 @@ test('the recipe is found from home and search, kept, cooked from and printed', 
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
   });
 
-  await test.step('it’s kept as a favorite, which the Favorites page lists', async () => {
+  await test.step('it’s rated and kept as a favorite, which the Favorites page lists, rated', async () => {
+    const fiveStars = page.getByRole('button', { name: '5 stars' });
+    await fiveStars.click();
+    await expect(fiveStars).toHaveAttribute('aria-pressed', 'true');
+    // The browser's locale decides the decimal separator.
+    const rating = /5.0 stars from 1 rating/;
+    await expect(page.getByText(rating)).toBeVisible();
+
     const favorite = page.getByRole('button', { name: 'Favorite' });
     await favorite.click();
     await expect(favorite).toHaveAttribute('aria-pressed', 'true');
@@ -540,6 +547,7 @@ test('the recipe is found from home and search, kept, cooked from and printed', 
       .getByRole('list', { name: 'Favorites' })
       .getByRole('link', { name: 'Weeknight Bread' });
     await expect(kept).toBeVisible();
+    await expect(page.getByRole('article').getByText(rating)).toBeVisible();
     await checkPage(page);
     await kept.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
