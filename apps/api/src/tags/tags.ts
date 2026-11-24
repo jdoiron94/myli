@@ -53,16 +53,20 @@ export function findOrCreateTag(
   name: string,
 ): { tag: Tag; created: boolean } {
   const nameKey = tagNameKey(name);
-  return db.transaction((tx) => {
-    const existing = tx
-      .select(TAG_COLUMNS)
-      .from(tag)
-      .where(and(eq(tag.type, type), eq(tag.nameKey, nameKey)))
-      .get();
-    if (existing) return { tag: existing, created: false };
-    const created = tx.insert(tag).values({ type, name, nameKey }).returning(TAG_COLUMNS).get();
-    return { tag: created, created: true };
-  });
+  return db.transaction(
+    (tx) => {
+      const existing = tx
+        .select(TAG_COLUMNS)
+        .from(tag)
+        .where(and(eq(tag.type, type), eq(tag.nameKey, nameKey)))
+        .get();
+      if (existing) return { tag: existing, created: false };
+      const created = tx.insert(tag).values({ type, name, nameKey }).returning(TAG_COLUMNS).get();
+      return { tag: created, created: true };
+    },
+    // Reads, then writes, and the seed runs it beside the API.
+    { behavior: 'immediate' },
+  );
 }
 
 /**

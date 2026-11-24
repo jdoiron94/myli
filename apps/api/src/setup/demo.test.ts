@@ -2,6 +2,7 @@ import { AUTH_BASE_PATH, passwordSchema, recipeListSchema } from '@myli/shared';
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { auditEvent, invitation, job, user } from '../db/schema.ts';
+import { besideTheApi } from '../db/testing.ts';
 import { createLogger } from '../logger.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { DEMO_ACCOUNTS, type DemoAccount, demoPassword, seedDemoAccounts } from './demo.ts';
@@ -208,5 +209,25 @@ describe('seedDemoRecipes', () => {
         .all()
         .filter(({ type }) => type === 'search.index-recipe'),
     ).toHaveLength(DEMO_RECIPES.length);
+  });
+
+  // Regression: `docker compose exec api node src/seed-demo.ts` could fail with
+  // SQLITE_BUSY_SNAPSHOT when the API's worker committed while a tag or a recipe was being saved.
+  it('saves them while the API writes to the database, which waits for it', () => {
+    const { result, apiWrites } = besideTheApi(
+      ['insert into "tag"', 'insert into "recipe"'],
+      (script, api) => {
+        for (const role of ['admin', 'editor'] as const) {
+          api
+            .insert(user)
+            .values({ id: role, name: role, email: `${role}@example.com`, role })
+            .run();
+        }
+        return seedDemoRecipes(script, { admin: 'admin', editor: 'editor' });
+      },
+    );
+
+    expect(result).toBe(DEMO_RECIPES.length);
+    expect(apiWrites).toEqual({ 'insert into "tag"': false, 'insert into "recipe"': false });
   });
 });
