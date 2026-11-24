@@ -80,7 +80,7 @@ describe('search', () => {
       },
       {
         title: 'Cardamom Buns',
-        facts: 'Hard 4.5 stars from 2 ratings Private',
+        facts: 'Hard 4.5 stars Private',
         tags: ['Contains milk, wheat', 'Swedish'],
       },
     ]);

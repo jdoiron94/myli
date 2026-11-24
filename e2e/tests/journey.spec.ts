@@ -552,7 +552,8 @@ test('the recipe is found from home and search, rated, kept, commented on, cooke
       .getByRole('list', { name: 'Favorites' })
       .getByRole('link', { name: 'Weeknight Bread' });
     await expect(kept).toBeVisible();
-    await expect(page.getByRole('article').getByText(rating)).toBeVisible();
+    // Its card shows the average alone.
+    await expect(page.getByRole('article').getByText(/5.0 stars/)).toBeVisible();
     await checkPage(page);
     await kept.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
@@ -592,7 +593,7 @@ test('the recipe is found from home and search, rated, kept, commented on, cooke
     await expect(page.getByRole('link', { name: 'Cook mode' })).toBeVisible();
   });
 
-  await test.step('it prints without the page’s controls, in the light theme whatever the screen’s', async () => {
+  await test.step('it prints without the page’s controls or its rating, in the light theme whatever the screen’s', async () => {
     await page.evaluate(() => {
       window.print = () => {
         document.documentElement.dataset.printed = 'yes';
@@ -600,6 +601,8 @@ test('the recipe is found from home and search, rated, kept, commented on, cooke
     });
     await page.getByRole('button', { name: 'Print' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-printed', 'yes');
+    const rating = page.getByText(/5.0 stars from 1 rating/);
+    await expect(rating).toBeVisible();
 
     const colors = () =>
       page.evaluate(() => {
@@ -627,6 +630,7 @@ test('the recipe is found from home and search, rated, kept, commented on, cooke
     for (const role of ['navigation', 'button', 'textbox', 'radio'] as const) {
       await expect(page.getByRole(role), `no ${role} on paper`).toHaveCount(0);
     }
+    await expect(rating, 'no rating on paper').toBeHidden();
     await page.emulateMedia({ media: 'screen' });
     await theme('dark', 'light');
   });

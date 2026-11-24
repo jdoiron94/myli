@@ -12,7 +12,7 @@ import type { Recipe } from './recipe.ts';
 /**
  * A recipe's ratings (spec §3.2), which everyone who sees it sees, and the buttons that rate it, for
  * whoever may. Five buttons, not radios: moving through radios with the arrow keys checks each in
- * turn, which would rate the recipe at every step.
+ * turn, which would rate the recipe at every step. None of it is printed.
  */
 const props = defineProps<{ recipe: Pick<Recipe, 'id' | 'owner' | 'visibility'> }>();
 
@@ -50,7 +50,7 @@ async function choose(value: number | null) {
 <template>
   <div
     v-if="rating.data.value"
-    class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2"
+    class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 print:hidden"
   >
     <p class="inline-flex items-center gap-1.5 text-sm">
       <StarIcon
@@ -61,7 +61,7 @@ async function choose(value: number | null) {
     </p>
     <div
       v-if="canRate"
-      class="flex flex-wrap items-center gap-2 print:hidden"
+      class="flex flex-wrap items-center gap-2"
     >
       <div
         ref="stars"
