@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/jdoiron94/myli/compare/v0.9.0...v0.10.0) (2026-11-24)
+
+
+### Features
+
+* **api:** comment on recipes ([e663f6d](https://github.com/jdoiron94/myli/commit/e663f6d4fa0ae1e9997da87ba4a3098ddb5806c4))
+* **api:** rate recipes, and sort search by the Bayesian average ([a3b94b6](https://github.com/jdoiron94/myli/commit/a3b94b672054eee34931d4cb42233d0bad8064ad))
+* **api:** record deleted comments in the audit log ([5a5fbf6](https://github.com/jdoiron94/myli/commit/5a5fbf6bda8c7b4b9fd493dd8eb42c7100c2f3e2))
+* **web:** comment on recipes, loading the editor only for those who do ([cfc4b72](https://github.com/jdoiron94/myli/commit/cfc4b729517a099e9b22e0408ce213162a0e76c9))
+* **web:** rate recipes with stars, show their ratings, and sort search by them ([2bd4041](https://github.com/jdoiron94/myli/commit/2bd4041668a4a85849ea00ad16ef66b83ced2f4c))
+* **web:** show only the average on recipe cards, and print no ratings ([5b614ee](https://github.com/jdoiron94/myli/commit/5b614ee631753d4f8dda54f38396cea17c79020f))
+
 ## [0.9.0](https://github.com/jdoiron94/myli/compare/v0.8.0...v0.9.0) (2026-11-24)
 
 
