@@ -1,7 +1,8 @@
-import type { PolicyRecipe, RecipeAction } from '@myli/shared';
+import type { CommentAction, PolicyComment, PolicyRecipe, RecipeAction } from '@myli/shared';
 import { describe, expect, it } from 'vitest';
 import { authorize, authorizeTrashed, notFound, requirePermission } from './auth/authorize.ts';
 import { requireSession } from './auth/session.ts';
+import { findCommentAccess } from './comments/comments.ts';
 import { renderOpenApiDocument } from './openapi-document.ts';
 import { type Access, ENDPOINTS, type EndpointCase, findMismatches } from './permission-matrix.ts';
 import { findRecipeAccess, findTrashedAccess } from './recipes/recipes.ts';
@@ -76,6 +77,23 @@ describe('the harness itself', () => {
     trashRoute('trash-leaky', (c, recipe) => {
       authorize(c, 'recipe.trash', recipe);
     });
+    // Comments: one route checks the action on the comment, one only that the caller may comment.
+    const commentRoute = (
+      path: string,
+      check: (c: Parameters<typeof authorize>[0], comment: PolicyComment) => void,
+    ) =>
+      t.app.get(`/api/v1/test/${path}/:id`, requireSession, (c) => {
+        const comment = findCommentAccess(t.db, c.req.param('id'));
+        if (!comment) throw notFound('Comment');
+        check(c, comment);
+        return c.json({});
+      });
+    commentRoute('comment-edit', (c, comment) => {
+      authorize(c, 'comment.edit', comment);
+    });
+    commentRoute('comment-recipe-check', (c, comment) => {
+      authorize(c, 'recipe.interact', comment.recipe);
+    });
     return t;
   }
 
@@ -89,6 +107,14 @@ describe('the harness itself', () => {
     access: trashed ? { trashedRecipe: action } : { recipe: action },
     send: (t, cookie, recipeId) =>
       t.app.request(`/api/v1/test/${path}/${recipeId}`, { headers: cookie ? { cookie } : {} }),
+  });
+
+  const commentEndpoint = (path: string, action: CommentAction): EndpointCase => ({
+    method: 'get',
+    path: `/${path}/{id}`,
+    access: { comment: action },
+    send: (t, cookie, _recipeId, commentId) =>
+      t.app.request(`/api/v1/test/${path}/${commentId}`, { headers: cookie ? { cookie } : {} }),
   });
 
   const endpoint = (path: string, access: Access): EndpointCase => ({
@@ -116,6 +142,9 @@ describe('the harness itself', () => {
         appWithTestRoutes,
       ),
     ).toEqual([]);
+    expect(
+      await findMismatches(commentEndpoint('comment-edit', 'comment.edit'), appWithTestRoutes),
+    ).toEqual([]);
   });
 
   it('reports each way an endpoint can let in or turn away the wrong callers', async () => {
@@ -127,6 +156,7 @@ describe('the harness itself', () => {
         recipeEndpoint('leaky', 'recipe.read'),
         recipeEndpoint('read-only-check', 'recipe.edit'),
         recipeEndpoint('trash-leaky', 'recipe.trash', { trashed: true }),
+        commentEndpoint('comment-recipe-check', 'comment.edit'),
         // A crash doesn't count as getting through.
         endpoint('/crashes', 'signed-in'),
       ].map((wrong) => findMismatches(wrong, appWithTestRoutes)),
@@ -155,6 +185,13 @@ describe('the harness itself', () => {
         'viewer GET /trash-leaky/{id} on their own shared recipe: expected 404, got 403',
         "viewer GET /trash-leaky/{id} on someone else's shared recipe: expected 404, got 403",
       ],
+      // Editing someone else's comment, as anyone who may comment on its recipe.
+      (['admin', 'editor'] as const).flatMap((role) =>
+        ['their own private', 'their own shared', "someone else's shared"].map(
+          (recipe) =>
+            `${role} GET /comment-recipe-check/{id} on someone else's comment on ${recipe} recipe: expected 403, got 200`,
+        ),
+      ),
       [
         'admin GET /crashes: expected allowed, got 500',
         'editor GET /crashes: expected allowed, got 500',

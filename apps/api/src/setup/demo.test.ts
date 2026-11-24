@@ -1,7 +1,7 @@
 import { AUTH_BASE_PATH, passwordSchema, recipeListSchema } from '@myli/shared';
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { auditEvent, invitation, job, rating, user } from '../db/schema.ts';
+import { auditEvent, comment, invitation, job, rating, user } from '../db/schema.ts';
 import { besideTheApi } from '../db/testing.ts';
 import { createLogger } from '../logger.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
@@ -201,10 +201,14 @@ describe('seedDemoRecipes', () => {
       editor: shared + privateOf('editor'),
       viewer: shared,
     });
-    // With the ratings the demo accounts gave them.
-    expect(t.db.select().from(rating).all()).toHaveLength(
-      DEMO_RECIPES.flatMap((recipe) => Object.keys(recipe.ratings ?? {})).length,
-    );
+    // With the ratings and comments the demo accounts gave them.
+    expect({
+      ratings: t.db.select().from(rating).all().length,
+      comments: t.db.select().from(comment).all().length,
+    }).toEqual({
+      ratings: DEMO_RECIPES.flatMap((recipe) => Object.keys(recipe.ratings ?? {})).length,
+      comments: DEMO_RECIPES.flatMap((recipe) => recipe.comments ?? []).length,
+    });
     // Each queued its search update, for the API's worker to send.
     const updated = t.db
       .select()

@@ -18,6 +18,16 @@ export {
   auditEventSchema,
 } from './audit.ts';
 export {
+  COMMENT_MAX_LENGTH,
+  type Comment,
+  type CommentList,
+  type CommentRequest,
+  commentIdParamsSchema,
+  commentListSchema,
+  commentRequestSchema,
+  commentSchema,
+} from './comments.ts';
+export {
   compareRecipes,
   diffList,
   diffText,
