@@ -58,7 +58,7 @@ export function listRecipes(db: Db, user: PolicyUser, page: number): RecipeList 
 
 /**
  * A page of a list, from its rows (`SUMMARY_COLUMNS`, already filtered with `readableBy`) and the
- * number of rows on every page together. Each row is checked with `can()` once more.
+ * number of rows on every page together.
  */
 export function recipeListPage(
   db: Db,
@@ -66,6 +66,19 @@ export function recipeListPage(
   rows: SummaryRow[],
   { total, page }: { total: number; page: number },
 ): RecipeList {
+  return {
+    recipes: recipeSummaries(db, user, rows),
+    total,
+    page,
+    totalPages: Math.ceil(total / RECIPES_PER_PAGE),
+  };
+}
+
+/**
+ * Each recipe's card, from its row (`SUMMARY_COLUMNS`, already filtered with `readableBy`), in the
+ * rows' order. Each row is checked with `can()` once more.
+ */
+export function recipeSummaries(db: Db, user: PolicyUser, rows: SummaryRow[]): RecipeSummary[] {
   const readable = rows.filter((row) => can(user, 'recipe.read', row));
   const ids = readable.map(({ id }) => id);
   const tags =
@@ -83,30 +96,25 @@ export function recipeListPage(
   const named = (recipeId: string, type: TagType) =>
     tags.filter((t) => t.recipeId === recipeId && t.type === type).map((t) => t.name);
 
-  return {
-    recipes: readable.map(
-      (row): RecipeSummary => ({
-        id: row.id,
-        title: row.title,
-        difficulty: row.difficulty,
-        totalMinutes: recipeTotalMinutes({
-          prepMinutes: row.prepMin,
-          cookMinutes: row.cookMin,
-          totalMinutes: row.totalMin,
-        }),
-        cuisine: named(row.id, 'cuisine'),
-        mealType: named(row.id, 'meal_type'),
-        diet: named(row.id, 'diet'),
-        tags: named(row.id, 'custom'),
-        // The allergen tags are seeded from ALLERGENS, and never edited (spec §3.2).
-        allergens: named(row.id, 'allergen') as RecipeSummary['allergens'],
-        visibility: row.visibility,
-        cover: covers.get(row.id) ?? null,
-        rating: summaryOf(ratings, row.id),
+  return readable.map(
+    (row): RecipeSummary => ({
+      id: row.id,
+      title: row.title,
+      difficulty: row.difficulty,
+      totalMinutes: recipeTotalMinutes({
+        prepMinutes: row.prepMin,
+        cookMinutes: row.cookMin,
+        totalMinutes: row.totalMin,
       }),
-    ),
-    total,
-    page,
-    totalPages: Math.ceil(total / RECIPES_PER_PAGE),
-  };
+      cuisine: named(row.id, 'cuisine'),
+      mealType: named(row.id, 'meal_type'),
+      diet: named(row.id, 'diet'),
+      tags: named(row.id, 'custom'),
+      // The allergen tags are seeded from ALLERGENS, and never edited (spec §3.2).
+      allergens: named(row.id, 'allergen') as RecipeSummary['allergens'],
+      visibility: row.visibility,
+      cover: covers.get(row.id) ?? null,
+      rating: summaryOf(ratings, row.id),
+    }),
+  );
 }

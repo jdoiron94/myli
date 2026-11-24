@@ -112,6 +112,15 @@ function request(
   });
 }
 
+/**
+ * A collection of the caller's, made through the API, for an endpoint on one: its ID. Callers who
+ * may keep none get an ID no collection has, which their refusal comes before.
+ */
+async function ownCollection(t: TestApp, cookie: string | undefined): Promise<string> {
+  const res = await request(t, 'POST', '/collections', cookie, { name: 'Weeknight' });
+  return res.status === 201 ? ((await res.json()) as { id: string }).id : randomUUID();
+}
+
 /** A new, open invitation, made by a new admin directly in the database: its ID and token. */
 async function openInvitation(t: TestApp): Promise<{ id: string; token: string }> {
   const admin = await createUserWithPassword(t.auth, {
@@ -492,6 +501,80 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     access: { comment: 'comment.delete' },
     send: (t, cookie, _recipeId, commentId) =>
       request(t, 'DELETE', `/comments/${commentId}`, cookie),
+  },
+  {
+    method: 'get',
+    path: '/collections',
+    access: 'personal.write',
+    send: (t, cookie) => request(t, 'GET', '/collections', cookie),
+  },
+  {
+    method: 'post',
+    path: '/collections',
+    access: 'personal.write',
+    send: (t, cookie) => request(t, 'POST', '/collections', cookie, { name: 'Weeknight' }),
+  },
+  {
+    method: 'get',
+    path: '/collections/{id}',
+    access: 'personal.write',
+    send: async (t, cookie) =>
+      request(t, 'GET', `/collections/${await ownCollection(t, cookie)}`, cookie),
+  },
+  {
+    method: 'put',
+    path: '/collections/{id}',
+    access: 'personal.write',
+    send: async (t, cookie) =>
+      request(t, 'PUT', `/collections/${await ownCollection(t, cookie)}`, cookie, {
+        name: 'Weekend',
+      }),
+  },
+  {
+    method: 'delete',
+    path: '/collections/{id}',
+    access: 'personal.write',
+    send: async (t, cookie) =>
+      request(t, 'DELETE', `/collections/${await ownCollection(t, cookie)}`, cookie),
+  },
+  {
+    method: 'put',
+    path: '/collections/{id}/order',
+    access: 'personal.write',
+    send: async (t, cookie) =>
+      request(t, 'PUT', `/collections/${await ownCollection(t, cookie)}/order`, cookie, {
+        recipeIds: [],
+      }),
+  },
+  {
+    method: 'put',
+    path: '/collections/{id}/recipes/{recipeId}',
+    access: { recipe: 'recipe.interact' },
+    send: async (t, cookie, recipeId) =>
+      request(
+        t,
+        'PUT',
+        `/collections/${await ownCollection(t, cookie)}/recipes/${recipeId}`,
+        cookie,
+      ),
+  },
+  {
+    method: 'delete',
+    path: '/collections/{id}/recipes/{recipeId}',
+    access: { recipe: 'recipe.interact' },
+    send: async (t, cookie, recipeId) =>
+      request(
+        t,
+        'DELETE',
+        `/collections/${await ownCollection(t, cookie)}/recipes/${recipeId}`,
+        cookie,
+      ),
+  },
+  {
+    method: 'get',
+    path: '/recipes/{id}/collections',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/collections`, cookie),
   },
   {
     method: 'get',

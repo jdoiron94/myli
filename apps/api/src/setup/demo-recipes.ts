@@ -9,6 +9,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { and, eq } from 'drizzle-orm';
+import { addToCollection, createCollection } from '../collections/collections.ts';
 import { addComment } from '../comments/comments.ts';
 import type { Db } from '../db/database.ts';
 import { tag } from '../db/schema.ts';
@@ -65,6 +66,29 @@ export interface DemoRecipe {
   /** Each demo account's personal note on it, in markdown. */
   notes?: Partial<Record<DemoRecipe['owner'], string>>;
 }
+
+/** The demo accounts' collections, each of recipes its owner can see, by their titles. */
+export const DEMO_COLLECTIONS: readonly {
+  owner: DemoRecipe['owner'];
+  name: string;
+  recipes: string[];
+}[] = [
+  {
+    owner: 'editor',
+    name: 'Weeknight dinners',
+    recipes: [
+      'Weeknight Chickpea Curry',
+      'Spaghetti Aglio e Olio',
+      'Black Bean Tacos',
+      'Miso-Glazed Salmon',
+    ],
+  },
+  {
+    owner: 'admin',
+    name: 'Baking',
+    recipes: ['Grandma’s Apple Pie', 'Banana Bread', 'Chocolate Chip Cookies'],
+  },
+];
 
 export const DEMO_RECIPES: readonly DemoRecipe[] = [
   {
@@ -854,21 +878,27 @@ function allergenId(db: Db, name: (typeof ALLERGENS)[number]): number {
 
 /**
  * Saves the demo recipes for their owners, the demo admin and editor, the way the API saves any
- * recipe: each queues its search update, which the API's worker sends. Returns how many it saved.
+ * recipe: each queues its search update, which the API's worker sends. Then their collections.
+ * Returns how many recipes it saved.
  */
 export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], string>): number {
+  /** Each saved recipe, by title: the demo account with `role`, who must be allowed to keep it. */
+  const keepers = new Map<string, (role: DemoRecipe['owner']) => string>();
+  const savedIds = new Map<string, string>();
   for (const recipe of DEMO_RECIPES) {
     const saved = createRecipe(db, owners[recipe.owner], requestFor(db, recipe));
     if (!saved.ok) throw new Error(`could not save the demo recipe “${recipe.title}”`);
     const access = { ownerId: owners[recipe.owner], visibility: recipe.visibility ?? 'shared' };
-    /** The demo account with `role`, who must be allowed to rate, comment on and note the recipe. */
+    /** The demo account with `role`, who must be allowed to rate, comment on and keep the recipe. */
     const reader = (role: DemoRecipe['owner']) => {
       const user = { id: owners[role], role };
       if (!can(user, 'recipe.interact', access)) {
-        throw new Error(`the demo ${role} may not rate, comment on or note “${recipe.title}”`);
+        throw new Error(`the demo ${role} may not rate, comment on or keep “${recipe.title}”`);
       }
       return user.id;
     };
+    keepers.set(recipe.title, reader);
+    savedIds.set(recipe.title, saved.id);
     for (const [role, stars] of Object.entries(recipe.ratings ?? {}) as [
       DemoRecipe['owner'],
       number,
@@ -883,6 +913,17 @@ export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], stri
       string,
     ][]) {
       saveNote(db, reader(role), saved.id, body);
+    }
+  }
+  for (const { owner, name, recipes } of DEMO_COLLECTIONS) {
+    const created = createCollection(db, owners[owner], name);
+    if (!created.ok) throw new Error(`could not create the demo collection “${name}”`);
+    for (const title of recipes) {
+      const keeper = keepers.get(title);
+      const id = savedIds.get(title);
+      if (!keeper || !id) throw new Error(`the demo collection “${name}” names “${title}”`);
+      keeper(owner);
+      addToCollection(db, created.collection.id, id);
     }
   }
   return DEMO_RECIPES.length;

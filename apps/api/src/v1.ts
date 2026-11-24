@@ -3,6 +3,7 @@ import { API_BASE_PATH } from '@myli/shared';
 import { registerAuditRoutes } from './audit/routes.ts';
 import type { Auth } from './auth/auth.ts';
 import type { BlobStore } from './blobs/store.ts';
+import { registerCollectionRoutes } from './collections/routes.ts';
 import { registerCommentRoutes } from './comments/routes.ts';
 import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
@@ -75,6 +76,7 @@ export function createV1Router(deps: V1Deps) {
   registerRatingRoutes(v1, { db: deps.db });
   registerCommentRoutes(v1, { db: deps.db });
   registerNoteRoutes(v1, { db: deps.db });
+  registerCollectionRoutes(v1, { db: deps.db });
   registerSearchRoutes(v1, { db: deps.db, search: deps.search });
   registerInvitationRoutes(v1, {
     db: deps.db,
