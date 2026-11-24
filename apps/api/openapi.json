@@ -3017,31 +3017,42 @@
             "items": {
               "$ref": "#/components/schemas/RecipeSummary"
             },
-            "description": "In the order the caller put them, only those they may see now. One they may no longer see stays in the collection, and shows again if it comes back."
+            "description": "One page of them, in the order the caller put them, only those they may see now. One they may no longer see stays in the collection, and shows again if it comes back."
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many recipes the list holds, across every page: only ones the caller may see."
+          },
+          "page": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "name",
-          "recipes"
+          "recipes",
+          "total",
+          "page",
+          "totalPages"
         ]
       },
-      "CollectionOrder": {
+      "CollectionMove": {
         "type": "object",
         "properties": {
-          "recipeIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            },
-            "maxItems": 500,
-            "description": "Every recipe the collection shows, each once, in their new order."
+          "direction": {
+            "type": "string",
+            "enum": [
+              "earlier",
+              "later"
+            ],
+            "description": "Past the recipe before it or after it among those the caller sees, which may be on another page."
           }
         },
         "required": [
-          "recipeIds"
+          "direction"
         ]
       },
       "RecipeCollections": {
@@ -6647,7 +6658,7 @@
           "Collections"
         ],
         "summary": "Get a collection and its recipes",
-        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Its recipes in the order they put them, only those they may see now. One they may no longer see stays in it, and shows again if it comes back.",
+        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Its recipes in the order they put them, one page at a time, only those they may see now. One they may no longer see stays in it, and shows again if it comes back.",
         "parameters": [
           {
             "schema": {
@@ -6658,6 +6669,16 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
           }
         ],
         "responses": {
@@ -6822,89 +6843,13 @@
         }
       }
     },
-    "/collections/{id}/order": {
-      "put": {
-        "tags": [
-          "Collections"
-        ],
-        "summary": "Put the recipes in a collection in order",
-        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Given every recipe the collection shows them, each once. They take the places those recipes had, so one the caller may not see now keeps its own.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CollectionOrder"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "In their new order."
-          },
-          "404": {
-            "description": "The caller has no collection with this ID.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The recipes given aren’t exactly those the collection shows now.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The request failed validation.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationProblem"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Any other error, as RFC 9457 problem details.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/collections/{id}/recipes/{recipeId}": {
       "put": {
         "tags": [
           "Collections"
         ],
         "summary": "Add a recipe to a collection",
-        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Any recipe they can see, put at the end. One already in it keeps its place. A collection holds at most 500 recipes.",
+        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Any recipe they can see, put at the end. One already in it keeps its place.",
         "parameters": [
           {
             "schema": {
@@ -6943,16 +6888,6 @@
           },
           "404": {
             "description": "The caller has no collection with this ID, or no recipe has this ID that they may see.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The collection is full. A collection holds at most 500 recipes.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7027,6 +6962,92 @@
           },
           "404": {
             "description": "The caller has no collection with this ID, or no recipe has this ID that they may see.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/collections/{id}/recipes/{recipeId}/move": {
+      "post": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Move a recipe one place in a collection",
+        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Earlier or later among the recipes they see in it, swapping places with that one, which may be on another page: one they can’t see now keeps its own. One already at that end stays.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "recipeId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectionMove"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Moved, or already at that end."
+          },
+          "403": {
+            "description": "The caller may see the recipe but keeps no collections: viewers are read-only.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The caller has no collection with this ID, no recipe has this ID that they may see, or the recipe isn’t in the collection.",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -1,11 +1,8 @@
 import { z } from 'zod';
-import { recipeSummarySchema } from './recipe-list.ts';
+import { recipeListSchema, recipeSummarySchema } from './recipe-list.ts';
 
 /** The longest a collection's name may be, in characters. */
 export const COLLECTION_NAME_MAX_LENGTH = 80;
-
-/** The most recipes one collection may hold. */
-export const COLLECTION_MAX_RECIPES = 500;
 
 /** What creating or renaming a collection sets. */
 export const collectionRequestSchema = z
@@ -45,33 +42,38 @@ export const collectionListSchema = z
 
 export type CollectionList = z.infer<typeof collectionListSchema>;
 
-/** A collection and its recipes, in its order. */
+/** A collection and one page of its recipes, in its order. */
 export const collectionSchema = z
   .object({
     id: z.string(),
     name: z.string(),
+    ...recipeListSchema.shape,
     recipes: z
       .array(recipeSummarySchema)
       .describe(
-        'In the order the caller put them, only those they may see now. One they may no longer ' +
-          'see stays in the collection, and shows again if it comes back.',
+        'One page of them, in the order the caller put them, only those they may see now. One ' +
+          'they may no longer see stays in the collection, and shows again if it comes back.',
       ),
   })
   .meta({ id: 'Collection' });
 
 export type Collection = z.infer<typeof collectionSchema>;
 
-/** What `PUT /collections/{id}/order` sets: the order of the recipes the caller sees in it. */
-export const collectionOrderSchema = z
-  .object({
-    recipeIds: z
-      .array(z.string().min(1).max(100))
-      .max(COLLECTION_MAX_RECIPES)
-      .describe('Every recipe the collection shows, each once, in their new order.'),
-  })
-  .meta({ id: 'CollectionOrder' });
+/** Which way `POST /collections/{id}/recipes/{recipeId}/move` moves a recipe: one place. */
+export const MOVE_DIRECTIONS = ['earlier', 'later'] as const;
 
-export type CollectionOrder = z.infer<typeof collectionOrderSchema>;
+export const collectionMoveSchema = z
+  .object({
+    direction: z
+      .enum(MOVE_DIRECTIONS)
+      .describe(
+        'Past the recipe before it or after it among those the caller sees, which may be on ' +
+          'another page.',
+      ),
+  })
+  .meta({ id: 'CollectionMove' });
+
+export type CollectionMove = z.infer<typeof collectionMoveSchema>;
 
 /** Which of the caller's collections hold a recipe. */
 export const recipeCollectionsSchema = z

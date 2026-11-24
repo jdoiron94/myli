@@ -1,20 +1,21 @@
 import {
-  COLLECTION_MAX_RECIPES,
   type Collection,
   type CollectionSummary,
+  type MOVE_DIRECTIONS,
   type PolicyUser,
+  RECIPES_PER_PAGE,
   tagNameKey,
 } from '@myli/shared';
 import { and, asc, count, eq, max } from 'drizzle-orm';
-import type { Db, Tx } from '../db/database.ts';
+import type { Db } from '../db/database.ts';
 import { collection, collectionItem, recipe } from '../db/schema.ts';
-import { readableBy, recipeSummaries, SUMMARY_COLUMNS } from '../recipes/list.ts';
+import { pageOffset, readableBy, recipeListPage, SUMMARY_COLUMNS } from '../recipes/list.ts';
 
 const owned = (ownerId: string, id: string) =>
   and(eq(collection.id, id), eq(collection.ownerId, ownerId));
 
 /** Whether `ownerId` has a collection with this ID. No one else's is ever found, admins' included. */
-export function ownsCollection(db: Db | Tx, ownerId: string, id: string): boolean {
+export function ownsCollection(db: Db, ownerId: string, id: string): boolean {
   return db.select().from(collection).where(owned(ownerId, id)).get() !== undefined;
 }
 
@@ -61,52 +62,63 @@ export function deleteCollection(db: Db, ownerId: string, id: string): boolean {
   return db.delete(collection).where(owned(ownerId, id)).run().changes > 0;
 }
 
-/** The recipes in a collection the user may see now, in its order. */
-function visibleItems(db: Db | Tx, user: PolicyUser, id: string) {
-  return db
-    .select(SUMMARY_COLUMNS)
-    .from(collectionItem)
-    .innerJoin(recipe, eq(recipe.id, collectionItem.recipeId))
-    .where(and(eq(collectionItem.collectionId, id), readableBy(user)))
-    .orderBy(asc(collectionItem.position), asc(recipe.id))
-    .all();
-}
+/** The recipes in a collection that the user may see now. */
+const visibleIn = (user: PolicyUser, id: string) =>
+  and(eq(collectionItem.collectionId, id), readableBy(user));
 
-/** One of the user's collections, with the recipes in it they may see now, `null` if none. */
-export function loadCollection(db: Db, user: PolicyUser, id: string): Collection | null {
+/**
+ * One of the user's collections, with one page of the recipes in it they may see now, in its order,
+ * `null` if they have none with this ID.
+ */
+export function loadCollection(
+  db: Db,
+  user: PolicyUser,
+  id: string,
+  page: number,
+): Collection | null {
   const row = db
     .select({ id: collection.id, name: collection.name })
     .from(collection)
     .where(owned(user.id, id))
     .get();
   if (!row) return null;
-  return { ...row, recipes: recipeSummaries(db, user, visibleItems(db, user, id)) };
+  const where = visibleIn(user, id);
+  const total =
+    db
+      .select({ value: count() })
+      .from(collectionItem)
+      .innerJoin(recipe, eq(recipe.id, collectionItem.recipeId))
+      .where(where)
+      .get()?.value ?? 0;
+  const rows = db
+    .select(SUMMARY_COLUMNS)
+    .from(collectionItem)
+    .innerJoin(recipe, eq(recipe.id, collectionItem.recipeId))
+    .where(where)
+    .orderBy(asc(collectionItem.position), asc(recipe.id))
+    .limit(RECIPES_PER_PAGE)
+    .offset(pageOffset(page))
+    .all();
+  return { ...row, ...recipeListPage(db, user, rows, { total, page }) };
 }
 
 /**
  * Puts a recipe at the end of a collection, which the caller has checked they own and may add it
  * to. One already in it keeps its place.
  */
-export function addToCollection(
-  db: Db,
-  id: string,
-  recipeId: string,
-): { ok: true } | { ok: false; reason: 'full' } {
-  return db.transaction(
+export function addToCollection(db: Db, id: string, recipeId: string): void {
+  db.transaction(
     (tx) => {
       const item = and(eq(collectionItem.collectionId, id), eq(collectionItem.recipeId, recipeId));
-      if (tx.select().from(collectionItem).where(item).get()) return { ok: true };
-      const { held, last } = tx
-        .select({ held: count(), last: max(collectionItem.position) })
+      if (tx.select().from(collectionItem).where(item).get()) return;
+      const last = tx
+        .select({ value: max(collectionItem.position) })
         .from(collectionItem)
         .where(eq(collectionItem.collectionId, id))
-        .get() ?? { held: 0, last: null };
-      // Recipes the owner can't see now count too: they're still in it.
-      if (held >= COLLECTION_MAX_RECIPES) return { ok: false, reason: 'full' };
+        .get()?.value;
       tx.insert(collectionItem)
         .values({ collectionId: id, recipeId, position: (last ?? 0) + 1 })
         .run();
-      return { ok: true };
     },
     // Reads, then writes, and the seed runs it beside the API.
     { behavior: 'immediate' },
@@ -121,41 +133,39 @@ export function removeFromCollection(db: Db, id: string, recipeId: string): void
 }
 
 /**
- * Puts the recipes the user sees in one of their collections in a new order, given as every one of
- * them, each once. They take the places those recipes had, so one the user can't see now keeps its
- * own. Refused when the IDs aren't exactly those recipes, as when it changed since it was loaded.
+ * Moves a recipe in one of the user's collections one place earlier or later among those they see
+ * now, swapping places with that one: one they can't see keeps its own. One already at that end
+ * stays. Whether the recipe is in it, for them to see.
  */
-export function reorderCollection(
+export function moveInCollection(
   db: Db,
   user: PolicyUser,
   id: string,
-  recipeIds: readonly string[],
-): { ok: true } | { ok: false; reason: 'mismatch' } {
+  recipeId: string,
+  direction: (typeof MOVE_DIRECTIONS)[number],
+): boolean {
   return db.transaction((tx) => {
-    const visible = new Set(visibleItems(tx, user, id).map((row) => row.id));
-    const given = new Set(recipeIds);
-    if (
-      given.size !== recipeIds.length ||
-      given.size !== visible.size ||
-      recipeIds.some((recipeId) => !visible.has(recipeId))
-    ) {
-      return { ok: false, reason: 'mismatch' };
-    }
-    const places = tx
+    const items = tx
       .select({ recipeId: collectionItem.recipeId, position: collectionItem.position })
       .from(collectionItem)
-      .where(eq(collectionItem.collectionId, id))
-      .orderBy(asc(collectionItem.position), asc(collectionItem.recipeId))
-      .all()
-      .filter((item) => visible.has(item.recipeId))
-      .map((item) => item.position);
-    recipeIds.forEach((recipeId, index) => {
-      tx.update(collectionItem)
-        .set({ position: places[index] })
-        .where(and(eq(collectionItem.collectionId, id), eq(collectionItem.recipeId, recipeId)))
+      .innerJoin(recipe, eq(recipe.id, collectionItem.recipeId))
+      .where(visibleIn(user, id))
+      .orderBy(asc(collectionItem.position), asc(recipe.id))
+      .all();
+    const index = items.findIndex((item) => item.recipeId === recipeId);
+    if (index < 0) return false;
+    const moving = items[index];
+    const passed = items[direction === 'earlier' ? index - 1 : index + 1];
+    if (!moving || !passed) return true;
+    const place = (item: (typeof items)[number], position: number) =>
+      tx
+        .update(collectionItem)
+        .set({ position })
+        .where(and(eq(collectionItem.collectionId, id), eq(collectionItem.recipeId, item.recipeId)))
         .run();
-    });
-    return { ok: true };
+    place(moving, passed.position);
+    place(passed, moving.position);
+    return true;
   });
 }
 
