@@ -2806,6 +2806,207 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/{id}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get your note on a recipe
+         * @description Editors and admins, for any recipe they can see. Notes are personal: no one else ever sees them, admins included.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Their note, if they have one. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeNote"];
+                    };
+                };
+                /** @description The caller may see the recipe but keeps no notes: viewers are read-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        /**
+         * Write your note on a recipe
+         * @description Editors and admins, for any recipe they can see: one note each, which this writes or replaces.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Their note now. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedNote"];
+                    };
+                };
+                /** @description The caller may see the recipe but keeps no notes: viewers are read-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete your note on a recipe
+         * @description Editors and admins. With no note of theirs, it changes nothing.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted, or there was none. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The caller may see the recipe but keeps no notes: viewers are read-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search/recipes": {
         parameters: {
             query?: never;
@@ -4166,6 +4367,23 @@ export interface components {
             editedAt: string | null;
         };
         CommentRequest: {
+            /** @description Markdown (ADR 0006). */
+            body: string;
+        };
+        RecipeNote: {
+            /** @description `null` when there is none. */
+            note: components["schemas"]["Note"] | null;
+        };
+        Note: {
+            /** @description Markdown (ADR 0006). */
+            body: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SavedNote: {
+            note: components["schemas"]["Note"];
+        };
+        NoteRequest: {
             /** @description Markdown (ADR 0006). */
             body: string;
         };

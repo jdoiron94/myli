@@ -12,6 +12,7 @@ import { and, eq } from 'drizzle-orm';
 import { addComment } from '../comments/comments.ts';
 import type { Db } from '../db/database.ts';
 import { tag } from '../db/schema.ts';
+import { saveNote } from '../notes/notes.ts';
 import { setRating } from '../ratings/ratings.ts';
 import { createRecipe } from '../recipes/recipes.ts';
 import { findOrCreateTag } from '../tags/tags.ts';
@@ -61,6 +62,8 @@ export interface DemoRecipe {
   ratings?: Partial<Record<DemoRecipe['owner'], number>>;
   /** Comments from the demo accounts, oldest first, in markdown. */
   comments?: { by: DemoRecipe['owner']; body: string }[];
+  /** Each demo account's personal note on it, in markdown. */
+  notes?: Partial<Record<DemoRecipe['owner'], string>>;
 }
 
 export const DEMO_RECIPES: readonly DemoRecipe[] = [
@@ -233,6 +236,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       custom: ['Weeknight'],
     },
     ratings: { admin: 4, editor: 5 },
+    notes: { editor: 'Double the spinach. Good with **naan** instead of rice.' },
   },
   {
     title: 'Spaghetti Aglio e Olio',
@@ -632,6 +636,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       custom: ['Make-ahead'],
     },
     ratings: { admin: 4, editor: 3 },
+    notes: { admin: 'Our oven runs hot: check it at 50 minutes.' },
   },
   {
     title: 'Greek Salad',
@@ -856,11 +861,11 @@ export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], stri
     const saved = createRecipe(db, owners[recipe.owner], requestFor(db, recipe));
     if (!saved.ok) throw new Error(`could not save the demo recipe “${recipe.title}”`);
     const access = { ownerId: owners[recipe.owner], visibility: recipe.visibility ?? 'shared' };
-    /** The demo account with `role`, who must be allowed to comment on and rate the recipe. */
+    /** The demo account with `role`, who must be allowed to rate, comment on and note the recipe. */
     const reader = (role: DemoRecipe['owner']) => {
       const user = { id: owners[role], role };
       if (!can(user, 'recipe.interact', access)) {
-        throw new Error(`the demo ${role} may not rate or comment on “${recipe.title}”`);
+        throw new Error(`the demo ${role} may not rate, comment on or note “${recipe.title}”`);
       }
       return user.id;
     };
@@ -872,6 +877,12 @@ export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], stri
     }
     for (const { by, body } of recipe.comments ?? []) {
       addComment(db, saved.id, reader(by), body);
+    }
+    for (const [role, body] of Object.entries(recipe.notes ?? {}) as [
+      DemoRecipe['owner'],
+      string,
+    ][]) {
+      saveNote(db, reader(role), saved.id, body);
     }
   }
   return DEMO_RECIPES.length;

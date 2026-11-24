@@ -449,6 +449,25 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/recipes/{id}/note',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/note`, cookie),
+  },
+  {
+    method: 'put',
+    path: '/recipes/{id}/note',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) =>
+      request(t, 'PUT', `/recipes/${recipeId}/note`, cookie, { body: 'Less salt.' }),
+  },
+  {
+    method: 'delete',
+    path: '/recipes/{id}/note',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) => request(t, 'DELETE', `/recipes/${recipeId}/note`, cookie),
+  },
+  {
+    method: 'get',
     path: '/recipes/{id}/comments',
     access: { recipe: 'recipe.read' },
     send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/comments`, cookie),

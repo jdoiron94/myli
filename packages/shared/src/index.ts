@@ -79,6 +79,17 @@ export {
   invitationWithLinkSchema,
 } from './invitation.ts';
 export {
+  NOTE_MAX_LENGTH,
+  type Note,
+  type NoteRequest,
+  noteRequestSchema,
+  noteSchema,
+  type RecipeNote,
+  recipeNoteSchema,
+  type SavedNote,
+  savedNoteSchema,
+} from './notes.ts';
+export {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   passwordChecklist,

@@ -15,6 +15,7 @@ import {
   recipeStep,
   recipeTag,
   user,
+  userNote,
 } from '../db/schema.ts';
 import { createTestDatabase } from '../db/testing.ts';
 import { insertRecipeImage } from '../images/testing.ts';
@@ -83,6 +84,7 @@ describe('purgeTrashJob', () => {
     db.insert(favorite).values({ userId: 'owner', recipeId: due }).run();
     db.insert(rating).values({ userId: 'owner', recipeId: due, stars: 4 }).run();
     db.insert(comment).values({ recipeId: due, authorId: 'owner', bodyMd: 'Lovely.' }).run();
+    db.insert(userNote).values({ userId: 'owner', recipeId: due, bodyMd: 'Less salt.' }).run();
     const kept = [
       await insertRecipeImage({ db, blobs }, recent),
       await insertRecipeImage({ db, blobs }, live),
@@ -110,6 +112,7 @@ describe('purgeTrashJob', () => {
         favorite,
         rating,
         comment,
+        userNote,
         image,
       ].map((table) => [
         getTableName(table),
@@ -125,6 +128,7 @@ describe('purgeTrashJob', () => {
       favorite: 0,
       rating: 0,
       comment: 0,
+      user_note: 0,
       image: 0,
     });
     expect(
