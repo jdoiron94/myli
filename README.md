@@ -4,9 +4,11 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 0 (foundation) in progress.** The app isn't usable yet.
+> **Status: Phase 2 (collaboration) in progress.** Recipes, search, scaling, favorites and cook mode work today. The [roadmap](#roadmap) shows what's done and what's next.
 
 ## Features
+
+What myli does once the [roadmap](#roadmap) is done:
 
 - **Structured recipes:** ingredient groups, parsed quantities and units, ordered steps with markdown and photos, prep, cook and total times, difficulty, and nutrition entered by hand.
 - **Scaling:** any serving size, shown as readable fractions, in metric or imperial.
@@ -54,12 +56,12 @@ flowchart LR
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query, VeeValidate, shadcn-vue, Tailwind, Milkdown, Scalar (API docs) |
+| Frontend | Vue 3, TypeScript, Vite, Vue Router, TanStack Query, VeeValidate, shadcn-vue, Tailwind, Milkdown, Scalar (API docs) |
 | API | Node, TypeScript, Hono, Zod, OpenAPI 3.1 |
 | Data | SQLite, Drizzle ORM |
 | Search | Meilisearch |
 | Auth | Better Auth |
-| Infrastructure | Docker Compose, Caddy, Garage (optional S3 storage), Mailpit (development) |
+| Infrastructure | Docker Compose, Caddy, Mailpit (development), Garage (optional S3 storage, planned) |
 | Testing | Vitest, Testing Library, fast-check, Testcontainers, Playwright, axe |
 
 ### Design decisions
@@ -79,6 +81,8 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 11. [The API docs are a separate page of the web app](docs/adr/0011-api-docs-as-a-separate-page.md)
 12. [A strict Content Security Policy, with inline styles allowed on the API docs page](docs/adr/0012-content-security-policy.md)
 13. [HTTPS with Caddy's local certificate authority](docs/adr/0013-https-with-caddys-local-ca.md)
+14. [Markdown is edited with Milkdown's kit, held to the subset, not with Crepe](docs/adr/0014-milkdown-kit-held-to-the-markdown-subset.md)
+15. [The markdown editor reads markdown with the renderer's parser](docs/adr/0015-editor-reads-markdown-with-the-renderers-parser.md)
 
 ## Getting started
 
@@ -161,7 +165,7 @@ Compose keeps myli's data in volumes, named after the project (`myli` unless you
 
 | Volume | Contents |
 |---|---|
-| `myli_api-data` | The database: all of myli's data. |
+| `myli_api-data` | The database and the photos: all of myli's data. |
 | `myli_caddy-data` | The certificate authority. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
 | `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up: an empty index is rebuilt when the API starts. |
 
@@ -194,7 +198,7 @@ cp .env.example .env   # then set PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTE
 pnpm dev         # web app on http://localhost:5173, API on :3000 behind it; both reload on change
 pnpm test        # Vitest, across every workspace package
 pnpm test:e2e    # Playwright + axe, in Chromium and Firefox (first: pnpm --filter @myli/e2e exec playwright install chromium firefox)
-pnpm test:containers   # the API against real Meilisearch, then Playwright against the Compose stack (needs Docker)
+pnpm test:containers   # the API against real Meilisearch and its built image, then Playwright against the Compose stack (needs Docker)
 pnpm typecheck   # tsc and vue-tsc, for every workspace package
 pnpm lint        # ESLint; --fix also formats Vue templates
 pnpm format      # Biome
@@ -210,9 +214,9 @@ In development, set `PUBLIC_URL=http://localhost:5173` in `.env`. Docker Compose
 
 The first time you open the web app, it asks you to create the first admin, then to sign in. Instead, you can set `ADMIN_NAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before starting the API, which creates that admin on startup.
 
-The pre-commit hook formats staged files, lints them, and typechecks the workspace. [CI](.github/workflows/ci.yml) runs every check above on each push to a branch, with `pnpm audit`, whose findings it reports without failing. [Renovate](renovate.json) opens dependency PRs on Mondays, only for releases at least a week old, and each waits for review. pnpm refuses to install anything younger, dependencies of dependencies included.
+The pre-commit hook formats staged files, lints them, and typechecks the workspace. [CI](.github/workflows/ci.yml) runs every check above on each pull request to `main`, with `pnpm audit`, whose findings it reports without failing. [Renovate](renovate.json) opens dependency PRs on Mondays, only for releases at least a week old, and each waits for review. pnpm refuses to install anything younger, dependencies of dependencies included.
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/), which decide each release's version: `feat` bumps the minor version and `fix` the patch, and before 1.0 a breaking change bumps the minor too. On every push to `main`, [release-please](release-please-config.json) keeps a release PR open with the next version and its changelog. Merging it tags the release, creates the GitHub release, then [tests both images and publishes them](.github/workflows/release.yml).
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/), which decide each release's version: `feat` bumps the minor version and `fix` the patch, and before 1.0 a breaking change bumps the minor too. On every push to `main`, [release-please](release-please-config.json) keeps a release PR open with the next version and its changelog. Merging it tags the release, creates the GitHub release, then [builds both images and publishes them](.github/workflows/release.yml). They aren't tested again: the pull requests merged since the last release ran the container tests on the same build.
 
 Search needs [Meilisearch](https://www.meilisearch.com/), started with the master key from your `.env`. Without it, everything else works, and the API logs once that search is unavailable and keeps trying in the background.
 
@@ -242,16 +246,17 @@ SMTP_FROM=myli <myli@example.com>
 | `apps/api` | Hono API |
 | `apps/web` | Vue SPA |
 | `packages/shared` | Zod schemas, types and logic used by both |
+| `e2e` | Playwright end-to-end tests, against the dev servers or the Compose stack |
 
 ## Roadmap
 
-| Phase | Scope |
-|---|---|
-| 0. Foundation | Monorepo, Compose stack, API skeleton with OpenAPI docs, database and migrations, authentication, roles, invitations, job worker, audit log, CI |
-| 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view |
-| 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash |
-| 3. Shopping lists | Aggregation, unit normalization, merging duplicates, manual items |
-| 4. Polish | URL import, exports, backup and restore tooling |
+| Phase | Scope | Status |
+|---|---|---|
+| 0. Foundation | Monorepo, Compose stack, API skeleton with OpenAPI docs, database and migrations, authentication, roles, invitations, job worker, audit log, CI | Done |
+| 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view | Done |
+| 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | In progress: drafts, revisions, protection against overwritten edits and the trash are done |
+| 3. Shopping lists | Aggregation, unit normalization, merging duplicates, manual items | Planned |
+| 4. Polish | URL import, exports, backup and restore tooling | Planned |
 
 ## License
 

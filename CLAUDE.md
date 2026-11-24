@@ -390,3 +390,4 @@ Run these from the repo root:
 
 - `docs/spec.md` is the product spec. Update it in the same increment whenever behavior changes.
 - `docs/adr/` holds architecture decisions in MADR format. When a decision changes, add a new ADR that supersedes the old one. Don't rewrite history.
+- `README.md` lists the ADRs and shows how far the roadmap has got. A new ADR goes in its list as well as in `docs/adr/README.md`'s table, and a group that finishes part of a phase updates the roadmap's status and the status line at the top.
