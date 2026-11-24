@@ -112,6 +112,15 @@ export {
   scaleFactor,
 } from './quantities.ts';
 export {
+  type RatingRequest,
+  type RatingSummary,
+  type RecipeRating,
+  ratingRequestSchema,
+  ratingSummarySchema,
+  recipeRatingSchema,
+  starsSchema,
+} from './ratings.ts';
+export {
   type CreateRecipeRequest,
   changeVisibilityRequestSchema,
   createRecipeRequestSchema,

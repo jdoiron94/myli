@@ -242,6 +242,7 @@ export const sampleSummary = (overrides: Partial<RecipeSummary> = {}): RecipeSum
   allergens: [],
   visibility: 'shared',
   cover: null,
+  rating: { average: null, count: 0 },
   ...overrides,
 });
 

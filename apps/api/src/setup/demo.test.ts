@@ -1,7 +1,7 @@
 import { AUTH_BASE_PATH, passwordSchema, recipeListSchema } from '@myli/shared';
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { auditEvent, invitation, job, user } from '../db/schema.ts';
+import { auditEvent, invitation, job, rating, user } from '../db/schema.ts';
 import { besideTheApi } from '../db/testing.ts';
 import { createLogger } from '../logger.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
@@ -201,14 +201,18 @@ describe('seedDemoRecipes', () => {
       editor: shared + privateOf('editor'),
       viewer: shared,
     });
+    // With the ratings the demo accounts gave them.
+    expect(t.db.select().from(rating).all()).toHaveLength(
+      DEMO_RECIPES.flatMap((recipe) => Object.keys(recipe.ratings ?? {})).length,
+    );
     // Each queued its search update, for the API's worker to send.
-    expect(
-      t.db
-        .select()
-        .from(job)
-        .all()
-        .filter(({ type }) => type === 'search.index-recipe'),
-    ).toHaveLength(DEMO_RECIPES.length);
+    const updated = t.db
+      .select()
+      .from(job)
+      .all()
+      .filter(({ type }) => type === 'search.index-recipe')
+      .map(({ payload }) => (payload as { recipeId: string }).recipeId);
+    expect(new Set(updated).size).toBe(DEMO_RECIPES.length);
   });
 
   // Regression: `docker compose exec api node src/seed-demo.ts` could fail with

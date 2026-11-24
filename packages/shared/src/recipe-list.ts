@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { optionalImageSchema } from './image.ts';
+import { ratingSummarySchema } from './ratings.ts';
 import { DIFFICULTIES } from './recipe.ts';
 import { ALLERGENS } from './tags.ts';
 import { VISIBILITIES } from './visibility.ts';
@@ -21,6 +22,7 @@ export const recipeSummarySchema = z
     allergens: z.array(z.enum(ALLERGENS)),
     visibility: z.enum(VISIBILITIES),
     cover: optionalImageSchema.describe('Its cover photo, if it has photos.'),
+    rating: ratingSummarySchema,
   })
   .meta({ id: 'RecipeSummary' });
 

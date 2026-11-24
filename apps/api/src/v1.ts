@@ -13,6 +13,7 @@ import { registerInvitationRoutes } from './invitations/routes.ts';
 import { jsonOnly } from './json-only.ts';
 import { registerPreferenceRoutes } from './preferences/routes.ts';
 import { validationHook } from './problems.ts';
+import { registerRatingRoutes } from './ratings/routes.ts';
 import { registerRecipeRoutes } from './recipes/routes.ts';
 import { registerRevisionRoutes } from './revisions/routes.ts';
 import { registerSearchRoutes } from './search/routes.ts';
@@ -69,6 +70,7 @@ export function createV1Router(deps: V1Deps) {
   registerTagRoutes(v1, { db: deps.db });
   registerPreferenceRoutes(v1, { db: deps.db });
   registerFavoriteRoutes(v1, { db: deps.db });
+  registerRatingRoutes(v1, { db: deps.db });
   registerSearchRoutes(v1, { db: deps.db, search: deps.search });
   registerInvitationRoutes(v1, {
     db: deps.db,

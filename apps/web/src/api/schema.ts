@@ -2339,6 +2339,200 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/{id}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a recipe's ratings
+         * @description Anyone who can see the recipe: how many ratings it has and their average, and the caller's own rating.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Its ratings. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeRating"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        /**
+         * Rate a recipe
+         * @description Editors and admins, for any recipe they can see: one rating each, from 1 to 5 stars, which this sets or changes. Sorting search by rating takes it in once the recipe is indexed again.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RatingRequest"];
+                };
+            };
+            responses: {
+                /** @description Its ratings now. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeRating"];
+                    };
+                };
+                /** @description The caller may see the recipe but not rate it: viewers are read-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take back your rating of a recipe
+         * @description Editors and admins. With no rating of theirs, it changes nothing.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Its ratings now. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeRating"];
+                    };
+                };
+                /** @description The caller may see the recipe but not rate it: viewers are read-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search/recipes": {
         parameters: {
             query?: never;
@@ -3337,6 +3531,13 @@ export interface components {
             visibility: "private" | "shared";
             /** @description Its cover photo, if it has photos. */
             cover: components["schemas"]["Image"] | null;
+            rating: components["schemas"]["RatingSummary"];
+        };
+        RatingSummary: {
+            /** @description The mean of its ratings, in stars, unrounded. `null` while it has none. */
+            average: number | null;
+            /** @description How many ratings it has. */
+            count: number;
         };
         /** @description The recipe changed since it was loaded. */
         StaleRecipeProblem: {
@@ -3659,6 +3860,17 @@ export interface components {
         };
         Favorite: {
             favorite: boolean;
+        };
+        RecipeRating: {
+            /** @description The mean of its ratings, in stars, unrounded. `null` while it has none. */
+            average: number | null;
+            /** @description How many ratings it has. */
+            count: number;
+            /** @description The caller's own rating. `null` if they haven't rated it, as viewers can't. */
+            mine: number | null;
+        };
+        RatingRequest: {
+            stars: number;
         };
         RecipeSearchResult: {
             hits: components["schemas"]["RecipeSummary"][];

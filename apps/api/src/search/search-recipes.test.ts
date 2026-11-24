@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { recipe, recipeIngredient } from '../db/schema.ts';
 import { insertRecipeImage } from '../images/testing.ts';
 import { createLogger } from '../logger.ts';
+import { setRating } from '../ratings/ratings.ts';
 import { insertRecipe } from '../recipes/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { fakeSearchClient } from './fake-client.ts';
@@ -176,7 +177,7 @@ describe('GET /search/recipes', () => {
     expect({ totalHits, totalPages }).toEqual({ totalHits: 2, totalPages: 1 });
   });
 
-  it('shows each hit’s cover photo, which the index doesn’t hold, from SQLite', async () => {
+  it('shows each hit’s cover photo and ratings, which the index doesn’t hold, from SQLite', async () => {
     const hitsFor: string[] = [];
     const { client } = fakeSearchClient({
       search: (query) => ({
@@ -206,13 +207,14 @@ describe('GET /search/recipes', () => {
     const without = insertRecipe(t.db, user.id, 'shared');
     const cover = await insertRecipeImage(t, withCover);
     t.db.update(recipe).set({ coverImageId: cover }).where(eq(recipe.id, withCover)).run();
+    setRating(t.db, user.id, withCover, 4);
     hitsFor.push(withCover, without);
 
     const { hits } = recipeSearchResultSchema.parse(await (await search('')).json());
 
-    expect(hits.map(({ id, cover }) => [id, cover?.id ?? null])).toEqual([
-      [withCover, cover],
-      [without, null],
+    expect(hits.map(({ id, cover, rating }) => [id, cover?.id ?? null, rating])).toEqual([
+      [withCover, cover, { average: 4, count: 1 }],
+      [without, null, { average: null, count: 0 }],
     ]);
   });
 

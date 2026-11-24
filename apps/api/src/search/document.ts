@@ -1,7 +1,7 @@
 import { recipeTotalMinutes, type TagType, type Visibility } from '@myli/shared';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../db/database.ts';
-import { recipe, recipeIngredient, recipeStep, recipeTag, tag } from '../db/schema.ts';
+import { rating, recipe, recipeIngredient, recipeStep, recipeTag, tag } from '../db/schema.ts';
 
 /**
  * One recipe in the search index, built from its published version (spec §4). The index settings
@@ -26,19 +26,29 @@ export interface RecipeSearchDocument {
   totalMinutes: number | null;
   visibility: Visibility;
   ownerId: string;
-  /** Bayesian average of the ratings, for sorting by rating. */
+  /** The Bayesian average of its ratings, for sorting by rating (`RATING_PRIOR`). */
   ratingScore: number;
   /** When it was first published, in milliseconds since the epoch, for sorting by newest. */
   publishedAt: number;
   deleted: boolean;
 }
 
+/**
+ * Sorting by rating uses a Bayesian average (spec §3.4): a recipe's ratings, plus `RATING_WEIGHT`
+ * ratings of `RATING_PRIOR` stars that every recipe starts with. So one 5-star rating doesn't
+ * outrank many 4-star ones, and a recipe nobody has rated sits at 3 stars. The prior is fixed, not
+ * the instance's mean, so a rating changes only its own recipe's score, and only that recipe is
+ * indexed again.
+ */
+export const RATING_PRIOR = 3;
+export const RATING_WEIGHT = 3;
+
 const unique = (values: readonly string[]) => [...new Set(values.filter((value) => value !== ''))];
 
 /**
  * A recipe's search document, from what SQLite holds now. `undefined` if it doesn't exist or was
- * deleted, so it's taken out of the index. Until Phase 2 adds drafts, the recipe as saved is its
- * published version.
+ * deleted, so it's taken out of the index. The recipe's tables hold its published version; drafts
+ * are kept apart.
  */
 export function buildRecipeDocument(db: Db, id: string): RecipeSearchDocument | undefined {
   const row = db
@@ -68,6 +78,11 @@ export function buildRecipeDocument(db: Db, id: string): RecipeSearchDocument | 
     .orderBy(asc(tag.nameKey))
     .all();
   const named = (type: TagType) => tags.filter((t) => t.type === type).map((t) => t.name);
+  const ratings = db
+    .select({ stars: sql<number>`coalesce(sum(${rating.stars}), 0)`, count: count() })
+    .from(rating)
+    .where(eq(rating.recipeId, id))
+    .get() ?? { stars: 0, count: 0 };
 
   return {
     id: row.id,
@@ -89,8 +104,7 @@ export function buildRecipeDocument(db: Db, id: string): RecipeSearchDocument | 
     }),
     visibility: row.visibility,
     ownerId: row.ownerId,
-    // Ratings come in Phase 2; until then every recipe ranks the same.
-    ratingScore: 0,
+    ratingScore: (ratings.stars + RATING_PRIOR * RATING_WEIGHT) / (ratings.count + RATING_WEIGHT),
     publishedAt: row.createdAt.getTime(),
     deleted: false,
   };

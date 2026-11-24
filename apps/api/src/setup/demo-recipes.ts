@@ -1,6 +1,7 @@
 import {
   ALLERGENS,
   type CreateRecipeRequest,
+  can,
   type Difficulty,
   parseIngredient,
   type TagType,
@@ -10,6 +11,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/database.ts';
 import { tag } from '../db/schema.ts';
+import { setRating } from '../ratings/ratings.ts';
 import { createRecipe } from '../recipes/recipes.ts';
 import { findOrCreateTag } from '../tags/tags.ts';
 
@@ -54,6 +56,8 @@ export interface DemoRecipe {
   tags: Partial<Record<Exclude<TagType, 'allergen'>, string[]>> & {
     allergen?: (typeof ALLERGENS)[number][];
   };
+  /** The stars each demo account gave it. */
+  ratings?: Partial<Record<DemoRecipe['owner'], number>>;
 }
 
 export const DEMO_RECIPES: readonly DemoRecipe[] = [
@@ -183,6 +187,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       allergen: ['milk', 'eggs', 'wheat'],
       custom: ['Kid-friendly'],
     },
+    ratings: { admin: 5, editor: 4 },
   },
   {
     title: 'Weeknight Chickpea Curry',
@@ -220,6 +225,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       diet: ['Vegan', 'Gluten-free'],
       custom: ['Weeknight'],
     },
+    ratings: { admin: 4, editor: 5 },
   },
   {
     title: 'Spaghetti Aglio e Olio',
@@ -252,6 +258,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       allergen: ['wheat', 'milk'],
       custom: ['Weeknight'],
     },
+    ratings: { admin: 4 },
   },
   {
     title: 'Black Bean Tacos',
@@ -359,6 +366,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       allergen: ['milk'],
       custom: ['Make-ahead'],
     },
+    ratings: { editor: 2 },
   },
   {
     title: 'Thai Peanut Noodles',
@@ -439,6 +447,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       diet: ['Vegetarian', 'Gluten-free'],
       allergen: ['eggs', 'milk'],
     },
+    ratings: { admin: 3, editor: 4 },
   },
   {
     title: 'Miso-Glazed Salmon',
@@ -508,6 +517,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       allergen: ['milk', 'eggs', 'wheat'],
       custom: ['Kid-friendly', 'Holiday'],
     },
+    ratings: { admin: 5, editor: 5 },
   },
   {
     title: 'Minestrone',
@@ -572,6 +582,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       meal_type: ['Snack'],
       diet: ['Vegan', 'Gluten-free'],
     },
+    ratings: { admin: 5 },
   },
   {
     title: 'Banana Bread',
@@ -607,6 +618,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       allergen: ['eggs', 'wheat', 'milk', 'tree nuts'],
       custom: ['Make-ahead'],
     },
+    ratings: { admin: 4, editor: 3 },
   },
   {
     title: 'Greek Salad',
@@ -830,6 +842,17 @@ export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], stri
   for (const recipe of DEMO_RECIPES) {
     const saved = createRecipe(db, owners[recipe.owner], requestFor(db, recipe));
     if (!saved.ok) throw new Error(`could not save the demo recipe “${recipe.title}”`);
+    const access = { ownerId: owners[recipe.owner], visibility: recipe.visibility ?? 'shared' };
+    for (const [role, stars] of Object.entries(recipe.ratings ?? {}) as [
+      DemoRecipe['owner'],
+      number,
+    ][]) {
+      const rater = { id: owners[role], role };
+      if (!can(rater, 'recipe.interact', access)) {
+        throw new Error(`the demo ${role} may not rate “${recipe.title}”`);
+      }
+      setRating(db, rater.id, saved.id, stars);
+    }
   }
   return DEMO_RECIPES.length;
 }
