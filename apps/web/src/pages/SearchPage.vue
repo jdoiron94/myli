@@ -31,18 +31,18 @@ const { data: user } = useQuery(sessionQuery);
 const canCreate = computed(() => can(user.value ?? null, 'recipe.create'));
 
 type SortOption = keyof typeof SORT_LABELS;
-const SORT_LABELS: Readonly<Record<Exclude<SearchSort, 'rating'>, string>> = {
+const SORT_LABELS: Readonly<Record<SearchSort, string>> = {
   relevance: 'Best match',
+  rating: 'Top rated',
   newest: 'Newest',
   quickest: 'Quickest',
   slowest: 'Longest',
 };
-/**
- * The orders offered, the API's default for the search first. Sorting by rating waits for ratings
- * (Phase 2), and the best match needs words to match.
- */
+/** The orders offered, the API's default for the search first. The best match needs words to match. */
 const sortsFor = (q: string | undefined): SortOption[] =>
-  q ? ['relevance', 'newest', 'quickest', 'slowest'] : ['newest', 'quickest', 'slowest'];
+  q
+    ? ['relevance', 'newest', 'rating', 'quickest', 'slowest']
+    : ['newest', 'rating', 'quickest', 'slowest'];
 
 /** The search the address describes, without an order the page doesn't offer: it shows what it asks for. */
 const search = computed((): RecipeSearchQuery => {

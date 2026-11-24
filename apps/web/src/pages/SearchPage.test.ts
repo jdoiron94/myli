@@ -64,6 +64,7 @@ describe('search', () => {
           tags: [],
           allergens: ['milk', 'wheat'],
           visibility: 'private',
+          rating: { average: 4.5, count: 2 },
         }),
       ]),
     );
@@ -77,7 +78,11 @@ describe('search', () => {
         facts: '40 min · Medium',
         tags: ['Thai', 'Dinner', 'Vegan', 'Weeknight'],
       },
-      { title: 'Cardamom Buns', facts: 'Hard Private', tags: ['Contains milk, wheat', 'Swedish'] },
+      {
+        title: 'Cardamom Buns',
+        facts: 'Hard 4.5 stars from 2 ratings Private',
+        tags: ['Contains milk, wheat', 'Swedish'],
+      },
     ]);
     const link = within(cards[0] ?? document.body).getByRole('link', { name: 'Green Curry' });
     expect(link.getAttribute('href')).toBe('/recipes/curry');
@@ -96,6 +101,7 @@ describe('search', () => {
         ['cuisine', 'Thai'],
         ['cuisine', 'Italian'],
         ['page', '2'],
+        ['sort', 'rating'],
       ],
     ]);
     expect(screen.getByRole('searchbox', { name: 'Search recipes' })).toHaveProperty(
@@ -142,17 +148,17 @@ describe('search', () => {
         .getAllByRole('option')
         .map((option) => option.textContent.trim());
 
-    expect(options()).toEqual(['Newest', 'Quickest', 'Longest']);
-    await user.selectOptions(sortBy(), 'Quickest');
+    expect(options()).toEqual(['Newest', 'Top rated', 'Quickest', 'Longest']);
+    await user.selectOptions(sortBy(), 'Top rated');
     await waitFor(() => {
-      expect(router.currentRoute.value.query).toEqual({ sort: 'quickest' });
+      expect(router.currentRoute.value.query).toEqual({ sort: 'rating' });
     });
 
     await router.push('/search?q=curry');
     await waitFor(() => {
       expect(asked.at(-1)?.get('q')).toBe('curry');
     });
-    expect(options()).toEqual(['Best match', 'Newest', 'Quickest', 'Longest']);
+    expect(options()).toEqual(['Best match', 'Newest', 'Top rated', 'Quickest', 'Longest']);
     expect(sortBy()).toHaveProperty('value', 'relevance');
 
     // Without words, there's nothing to match: the newest come first, as the API sorts them.
