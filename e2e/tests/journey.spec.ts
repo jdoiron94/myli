@@ -444,7 +444,7 @@ test('an admin writes a recipe, with a formatted description, steps and tags, an
   recipePath = new URL(page.url()).pathname;
 });
 
-test('the recipe is found from home and search, rated, kept, commented on, cooked from and printed', async ({
+test('the recipe is found from home and search, rated, kept, commented on and noted, cooked from and printed', async ({
   page,
   searchAvailable,
 }) => {
@@ -574,6 +574,19 @@ test('the recipe is found from home and search, rated, kept, commented on, cooke
     const posted = comments.getByRole('listitem').filter({ hasText: 'Crusty, as promised.' });
     await expect(posted).toBeFocused();
     await expect(posted).toContainText(ADMIN.name);
+    await checkPage(page);
+  });
+
+  await test.step('a note of their own is kept on it, there when they come back', async () => {
+    const note = page.getByRole('region', { name: 'Your note' });
+    await note.getByRole('textbox', { name: 'Note' }).click();
+    await expect(note.locator('[contenteditable="true"]')).toBeFocused();
+    await page.keyboard.type('Less salt next time.');
+    await note.getByRole('button', { name: 'Save note' }).click();
+    await expect(note.getByRole('status')).toHaveText('Note saved.');
+
+    await page.reload();
+    await expect(note.getByRole('textbox', { name: 'Note' })).toHaveText('Less salt next time.');
     await checkPage(page);
   });
 

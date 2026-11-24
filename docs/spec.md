@@ -274,6 +274,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Favorites:** a per-user flag on a recipe, for any recipe its user can see, set with the Favorite button on the recipe's page. The Favorites page, linked from the header, lists them most recently chosen first, from the database, 24 to a page. One they can no longer see, because it was deleted or made private by its owner, is left out and not counted, and shows again if the recipe comes back.
 - **Collections:** named, per-user, ordered groups of recipes. Other users never see them.
 - **Personal notes:** one private markdown note per user per recipe, for any recipe its user can see. No one else ever sees it, admins included. It's kept while the recipe is out of its writer's sight (made private by its owner, or in the trash) and shows again if it comes back. Like ratings and comments, it isn't part of the recipe: no revision, no search, no audit event.
+  - written on the recipe's page, under its steps, and saved with Save note; Delete note asks first. Not printed
 
 **Ratings and comments (editors and admins)**
 - **Ratings:**
