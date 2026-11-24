@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createMemoryBlobStore } from '../blobs/memory.ts';
 import {
   auditEvent,
+  collection,
+  collectionItem,
   comment,
   favorite,
   image,
@@ -85,6 +87,10 @@ describe('purgeTrashJob', () => {
     db.insert(rating).values({ userId: 'owner', recipeId: due, stars: 4 }).run();
     db.insert(comment).values({ recipeId: due, authorId: 'owner', bodyMd: 'Lovely.' }).run();
     db.insert(userNote).values({ userId: 'owner', recipeId: due, bodyMd: 'Less salt.' }).run();
+    db.insert(collection)
+      .values({ id: 'kept', ownerId: 'owner', name: 'Kept', nameKey: 'kept' })
+      .run();
+    db.insert(collectionItem).values({ collectionId: 'kept', recipeId: due, position: 1 }).run();
     const kept = [
       await insertRecipeImage({ db, blobs }, recent),
       await insertRecipeImage({ db, blobs }, live),
@@ -113,6 +119,7 @@ describe('purgeTrashJob', () => {
         rating,
         comment,
         userNote,
+        collectionItem,
         image,
       ].map((table) => [
         getTableName(table),
@@ -129,6 +136,7 @@ describe('purgeTrashJob', () => {
       rating: 0,
       comment: 0,
       user_note: 0,
+      collection_item: 0,
       image: 0,
     });
     expect(

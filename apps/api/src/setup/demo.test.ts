@@ -1,12 +1,21 @@
 import { AUTH_BASE_PATH, passwordSchema, recipeListSchema } from '@myli/shared';
 import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { auditEvent, comment, invitation, job, rating, user, userNote } from '../db/schema.ts';
+import {
+  auditEvent,
+  collectionItem,
+  comment,
+  invitation,
+  job,
+  rating,
+  user,
+  userNote,
+} from '../db/schema.ts';
 import { besideTheApi } from '../db/testing.ts';
 import { createLogger } from '../logger.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 import { DEMO_ACCOUNTS, type DemoAccount, demoPassword, seedDemoAccounts } from './demo.ts';
-import { DEMO_RECIPES, seedDemoRecipes } from './demo-recipes.ts';
+import { DEMO_COLLECTIONS, DEMO_RECIPES, seedDemoRecipes } from './demo-recipes.ts';
 import { runSetup } from './setup.ts';
 
 function setUp() {
@@ -201,15 +210,17 @@ describe('seedDemoRecipes', () => {
       editor: shared + privateOf('editor'),
       viewer: shared,
     });
-    // With the ratings, comments and notes the demo accounts gave them.
+    // With the ratings, comments, notes and collections the demo accounts gave them.
     expect({
       ratings: t.db.select().from(rating).all().length,
       comments: t.db.select().from(comment).all().length,
       notes: t.db.select().from(userNote).all().length,
+      collected: t.db.select().from(collectionItem).all().length,
     }).toEqual({
       ratings: DEMO_RECIPES.flatMap((recipe) => Object.keys(recipe.ratings ?? {})).length,
       comments: DEMO_RECIPES.flatMap((recipe) => recipe.comments ?? []).length,
       notes: DEMO_RECIPES.flatMap((recipe) => Object.keys(recipe.notes ?? {})).length,
+      collected: DEMO_COLLECTIONS.flatMap((collection) => collection.recipes).length,
     });
     // Each queued its search update, for the API's worker to send.
     const updated = t.db
@@ -225,7 +236,12 @@ describe('seedDemoRecipes', () => {
   // SQLITE_BUSY_SNAPSHOT when the API's worker committed while a tag or a recipe was being saved.
   it('saves them while the API writes to the database, which waits for it', () => {
     const { result, apiWrites } = besideTheApi(
-      ['insert into "tag"', 'insert into "recipe"'],
+      [
+        'insert into "tag"',
+        'insert into "recipe"',
+        'insert into "collection"',
+        'insert into "collection_item"',
+      ],
       (script, api) => {
         for (const role of ['admin', 'editor'] as const) {
           api
@@ -238,6 +254,11 @@ describe('seedDemoRecipes', () => {
     );
 
     expect(result).toBe(DEMO_RECIPES.length);
-    expect(apiWrites).toEqual({ 'insert into "tag"': false, 'insert into "recipe"': false });
+    expect(apiWrites).toEqual({
+      'insert into "tag"': false,
+      'insert into "recipe"': false,
+      'insert into "collection"': false,
+      'insert into "collection_item"': false,
+    });
   });
 });

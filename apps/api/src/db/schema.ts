@@ -578,6 +578,50 @@ export const comment = sqliteTable(
 );
 
 /**
+ * Each user's collections of recipes (spec §3.3), which no one else ever sees, admins included.
+ * Names are unique to their owner, compared as tag names are (`tagNameKey`).
+ */
+export const collection = sqliteTable(
+  'collection',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex('collection_owner_name_key_idx').on(table.ownerId, table.nameKey)],
+);
+
+/**
+ * The recipes in each collection, in their owner's order. One its owner can no longer see stays,
+ * hidden, and keeps its place.
+ */
+export const collectionItem = sqliteTable(
+  'collection_item',
+  {
+    collectionId: text('collection_id')
+      .notNull()
+      .references(() => collection.id, { onDelete: 'cascade' }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    addedAt: integer('added_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    primaryKey({ columns: [table.collectionId, table.recipeId] }),
+    index('collection_item_recipe_id_idx').on(table.recipeId),
+  ],
+);
+
+/**
  * Each user's private note on a recipe (spec §3.3): one each, which no one else ever sees, admins
  * included. It stays while the recipe is out of their sight, and shows again if it comes back.
  */
