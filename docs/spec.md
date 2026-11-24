@@ -151,11 +151,13 @@ There are three roles: **admin**, **editor** and **viewer**.
   - successful and failed logins, and sign-outs
   - recipe deleted, restored or purged
   - revision restored
+  - comment deleted, by its author or an admin
   - public link created or revoked
   - tag renamed, merged or deleted
   - full-instance export
 - Each event stores actor, action, target, timestamp, IP address and user agent.
 - **Recipe events** name the recipe by its title only while it's shared. Admins may not see private recipes (§2), so a private recipe's title never enters the log.
+- **Comment events** target the comment's recipe, named as recipe events name it, and keep the comment's author, never what it said: a deleted comment is gone for good.
 - **Tag events** keep the tag's type and name (and a rename's new name, a merge's other tag), and how many recipes had it, counting only those the admin may see.
 - **Sign-ins:**
   - Only email-and-password sign-ins whose credentials were checked are recorded. Requests refused for coming from another origin, being malformed or being rate limited are not.
@@ -285,7 +287,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - authors can edit or delete their own, while they may comment; an edited comment says so
   - admins can delete anyone's
   - they're below the recipe on its page, where whoever may comment writes one, and they aren't printed
-  - a deleted comment is gone for good. Comments aren't part of the recipe: they aren't searched, kept in its revisions, or recorded in the audit log
+  - a deleted comment is gone for good, and the audit log records who deleted it (§3.1). Comments aren't part of the recipe: they aren't searched or kept in its revisions
 
 **Trash**
 - Deleting a recipe moves it to the trash. It disappears from search and lists immediately.

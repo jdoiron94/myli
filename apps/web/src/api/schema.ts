@@ -130,7 +130,7 @@ export interface paths {
                     before?: number;
                     limit?: number;
                     /** @description Only events of this kind. */
-                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
+                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
                 };
                 header?: never;
                 path?: never;
@@ -2743,7 +2743,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a comment
-         * @description Its author, while they may comment, or an admin. It’s gone for good.
+         * @description Its author, while they may comment, or an admin. It’s gone for good, and the audit log records who deleted whose comment, on which recipe.
          */
         delete: {
             parameters: {
@@ -3567,7 +3567,7 @@ export interface components {
         AuditEvent: {
             id: number;
             /** @enum {string} */
-            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
+            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
             /** @description Who did it. `null` when nobody was signed in, as for a failed sign-in. */
             actor: {
                 id: string;

@@ -8,6 +8,7 @@ import {
   problemDetailsSchema,
   recipeIdParamsSchema,
 } from '@myli/shared';
+import { auditOrigin } from '../audit/audit.ts';
 import { authorize, notFound } from '../auth/authorize.ts';
 import { requireSession } from '../auth/session.ts';
 import type { AppEnv } from '../context.ts';
@@ -98,7 +99,9 @@ const removeComment = createRoute({
   path: '/comments/{id}',
   tags: ['Comments'],
   summary: 'Delete a comment',
-  description: 'Its author, while they may comment, or an admin. It’s gone for good.',
+  description:
+    'Its author, while they may comment, or an admin. It’s gone for good, and the audit log ' +
+    'records who deleted whose comment, on which recipe.',
   middleware: [requireSession] as const,
   request: { params: commentIdParamsSchema },
   responses: {
@@ -144,7 +147,7 @@ export function registerCommentRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db })
   v1.openapi(removeComment, (c) => {
     const { id } = c.req.valid('param');
     authorizeOnComment(c, 'comment.delete', id);
-    deleteComment(deps.db, id);
+    deleteComment(deps.db, auditOrigin(c), id);
     return c.body(null, 204);
   });
 }

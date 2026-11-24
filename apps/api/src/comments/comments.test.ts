@@ -1,7 +1,9 @@
 import { commentListSchema, commentSchema, problemDetailsSchema } from '@myli/shared';
+import { asc, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { auditEvent } from '../db/schema.ts';
 import { deleteRecipe } from '../recipes/recipes.ts';
-import { insertRecipe } from '../recipes/testing.ts';
+import { insertRecipe, sampleRecipeRequest } from '../recipes/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 
 function send(t: TestApp, cookie: string, method: string, path: string, body?: string) {
@@ -11,6 +13,8 @@ function send(t: TestApp, cookie: string, method: string, path: string, body?: s
     ...(body !== undefined && { body: JSON.stringify({ body }) }),
   });
 }
+
+const TITLE = sampleRecipeRequest().title;
 
 async function setUp() {
   const t = createTestApp();
@@ -63,20 +67,61 @@ describe('a recipe’s comments', () => {
     expect((await list())[0]).toEqual(edited);
   });
 
-  it('are deleted by their author, or by an admin', async () => {
-    const { t, editor, admin, post, list } = await setUp();
+  it('are deleted by their author, or by an admin, as the audit log records', async () => {
+    const { t, editor, admin, recipeId, post, list } = await setUp();
     const own = await post(editor.cookie, 'Mine.');
     const editors = await post(editor.cookie, 'Also mine.');
     const admins = await post(admin.cookie, 'The admin’s.');
+    const privateId = insertRecipe(t.db, editor.user.id, 'private');
+    const onPrivate = commentSchema.parse(
+      await (
+        await send(t, editor.cookie, 'POST', `/recipes/${privateId}/comments`, 'Note.')
+      ).json(),
+    );
 
     for (const [cookie, { id }] of [
       [editor.cookie, own],
       [admin.cookie, editors],
+      [editor.cookie, onPrivate],
     ] as const) {
       expect((await send(t, cookie, 'DELETE', `/comments/${id}`)).status).toBe(204);
     }
 
     expect((await list()).map(({ id }) => id)).toEqual([admins.id]);
+    const author = { id: editor.user.id, name: editor.user.name };
+    expect(
+      t.db
+        .select({
+          actorId: auditEvent.actorId,
+          targetType: auditEvent.targetType,
+          targetId: auditEvent.targetId,
+          metadata: auditEvent.metadata,
+        })
+        .from(auditEvent)
+        .where(eq(auditEvent.action, 'comment.deleted'))
+        .orderBy(asc(auditEvent.id))
+        .all(),
+    ).toEqual([
+      {
+        actorId: editor.user.id,
+        targetType: 'recipe',
+        targetId: recipeId,
+        metadata: { title: TITLE, visibility: 'shared', comment: { id: own.id, author } },
+      },
+      {
+        actorId: admin.user.id,
+        targetType: 'recipe',
+        targetId: recipeId,
+        metadata: { title: TITLE, visibility: 'shared', comment: { id: editors.id, author } },
+      },
+      // A private recipe's title stays out of the log, as for every recipe event.
+      {
+        actorId: editor.user.id,
+        targetType: 'recipe',
+        targetId: privateId,
+        metadata: { visibility: 'private', comment: { id: onPrivate.id, author } },
+      },
+    ]);
   });
 
   it('are hidden with their recipe in the trash, as if they didn’t exist', async () => {

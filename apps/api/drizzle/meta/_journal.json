@@ -134,6 +134,13 @@
       "when": 1795543192517,
       "tag": "0018_comment",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1795544485968,
+      "tag": "0019_audit_comment_deleted",
+      "breakpoints": true
     }
   ]
 }

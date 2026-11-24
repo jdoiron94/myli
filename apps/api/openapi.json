@@ -248,6 +248,7 @@
               "recipe.restored",
               "recipe.purged",
               "revision.restored",
+              "comment.deleted",
               "public_link.created",
               "public_link.revoked",
               "tag.renamed",
@@ -3356,6 +3357,7 @@
                 "recipe.restored",
                 "recipe.purged",
                 "revision.restored",
+                "comment.deleted",
                 "public_link.created",
                 "public_link.revoked",
                 "tag.renamed",
@@ -6107,7 +6109,7 @@
           "Comments"
         ],
         "summary": "Delete a comment",
-        "description": "Its author, while they may comment, or an admin. It’s gone for good.",
+        "description": "Its author, while they may comment, or an admin. It’s gone for good, and the audit log records who deleted whose comment, on which recipe.",
         "parameters": [
           {
             "schema": {
