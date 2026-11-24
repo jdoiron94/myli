@@ -108,6 +108,7 @@ describe('the recipe page', () => {
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent.trim())).toEqual([
       'Ingredients',
       'Steps',
+      'Comments',
     ]);
     expect(screen.getByText('No ingredients yet.')).toBeDefined();
     expect(screen.getByText('No steps yet.')).toBeDefined();

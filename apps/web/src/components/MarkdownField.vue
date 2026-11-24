@@ -34,13 +34,18 @@ const props = defineProps<{
   label: string;
   /** A hint under the label. */
   description?: string;
+  /**
+   * Loads the editor only once the field is focused, on a page that's mostly for reading, like a
+   * recipe's with its comments. Otherwise it's loaded as the page opens.
+   */
+  lazy?: boolean;
 }>();
 
 const loadEditor = () => import('./MarkdownEditor.vue');
 const MarkdownEditor = defineAsyncComponent(loadEditor);
 // Loaded as the page opens, so it's there by the time a field is focused.
 onMounted(() => {
-  void loadEditor();
+  if (!props.lazy) void loadEditor();
 });
 
 // Checked on submit, then as it's typed in until it's right, like the form's other fields.
