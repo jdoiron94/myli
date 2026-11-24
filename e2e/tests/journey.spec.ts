@@ -444,10 +444,15 @@ test('an admin writes a recipe, with a formatted description, steps and tags, an
   recipePath = new URL(page.url()).pathname;
 });
 
-test('the recipe is found from home and search, kept, cooked from and printed', async ({
+test('the recipe is found from home and search, rated, kept, commented on, cooked from and printed', async ({
   page,
   searchAvailable,
 }) => {
+  // The markdown editor's module, which only someone who comments should load on this page.
+  const editorRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('MarkdownEditor')) editorRequests.push(request.url());
+  });
   await signInAsAdmin(page);
   const listed = listedRecipe(page);
 
@@ -551,6 +556,24 @@ test('the recipe is found from home and search, kept, cooked from and printed', 
     await checkPage(page);
     await kept.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+  });
+
+  await test.step('a comment is written on it, the editor loading only once it’s focused', async () => {
+    expect(editorRequests).toEqual([]);
+    const comments = page.getByRole('region', { name: 'Comments' });
+    await expect(comments.getByText('No comments yet.')).toBeVisible();
+
+    await comments.getByRole('textbox', { name: 'Add a comment' }).click();
+    const editor = comments.locator('[contenteditable="true"]');
+    await expect(editor).toBeFocused();
+    expect(editorRequests).not.toEqual([]);
+    await page.keyboard.type('Crusty, as promised.');
+    await comments.getByRole('button', { name: 'Post comment' }).click();
+
+    const posted = comments.getByRole('listitem').filter({ hasText: 'Crusty, as promised.' });
+    await expect(posted).toBeFocused();
+    await expect(posted).toContainText(ADMIN.name);
+    await checkPage(page);
   });
 
   await test.step('cook mode shows its ingredients and every step, and goes back', async () => {

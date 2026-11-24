@@ -127,12 +127,15 @@ describe('the build', () => {
       return [...seen].map((key) => chunks[key]?.file ?? key);
     }
 
-    // Cook mode joins these once it exists.
+    // A recipe's page asks for it too, but only once someone focuses its comment field.
     it('is left out of what the app and the pages that only show recipes load', () => {
       const chunks = manifest();
-      const loaded = ['index.html', 'src/pages/HomePage.vue', 'src/pages/RecipePage.vue'].map(
-        (entry) => filesLoadedWith(entry, chunks),
-      );
+      const loaded = [
+        'index.html',
+        'src/pages/HomePage.vue',
+        'src/pages/RecipePage.vue',
+        'src/pages/CookPage.vue',
+      ].map((entry) => filesLoadedWith(entry, chunks));
 
       expect(loaded.every((files) => files.length > 0)).toBe(true);
       expect(loaded.flat().filter((file) => /prosemirror/i.test(read(file)))).toEqual([]);

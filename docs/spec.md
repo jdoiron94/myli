@@ -284,6 +284,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - everyone who can see the recipe reads them, viewers included, oldest first, each with its author and when it was written
   - authors can edit or delete their own, while they may comment; an edited comment says so
   - admins can delete anyone's
+  - they're below the recipe on its page, where whoever may comment writes one, and they aren't printed
   - a deleted comment is gone for good. Comments aren't part of the recipe: they aren't searched, kept in its revisions, or recorded in the audit log
 
 **Trash**
