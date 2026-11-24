@@ -9,6 +9,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { and, eq } from 'drizzle-orm';
+import { addComment } from '../comments/comments.ts';
 import type { Db } from '../db/database.ts';
 import { tag } from '../db/schema.ts';
 import { setRating } from '../ratings/ratings.ts';
@@ -58,6 +59,8 @@ export interface DemoRecipe {
   };
   /** The stars each demo account gave it. */
   ratings?: Partial<Record<DemoRecipe['owner'], number>>;
+  /** Comments from the demo accounts, oldest first, in markdown. */
+  comments?: { by: DemoRecipe['owner']; body: string }[];
 }
 
 export const DEMO_RECIPES: readonly DemoRecipe[] = [
@@ -188,6 +191,10 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       custom: ['Kid-friendly'],
     },
     ratings: { admin: 5, editor: 4 },
+    comments: [
+      { by: 'admin', body: 'Let the batter rest for **10 minutes**: they rise higher.' },
+      { by: 'editor', body: 'Made these with half whole-wheat flour. Still fluffy.' },
+    ],
   },
   {
     title: 'Weeknight Chickpea Curry',
@@ -367,6 +374,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       custom: ['Make-ahead'],
     },
     ratings: { editor: 2 },
+    comments: [{ by: 'editor', body: 'Too runny with the milk listed; I use a splash less.' }],
   },
   {
     title: 'Thai Peanut Noodles',
@@ -448,6 +456,7 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       allergen: ['eggs', 'milk'],
     },
     ratings: { admin: 3, editor: 4 },
+    comments: [{ by: 'admin', body: 'Smoky! Next time I’ll try *half* the paprika for the kids.' }],
   },
   {
     title: 'Miso-Glazed Salmon',
@@ -518,6 +527,10 @@ export const DEMO_RECIPES: readonly DemoRecipe[] = [
       custom: ['Kid-friendly', 'Holiday'],
     },
     ratings: { admin: 5, editor: 5 },
+    comments: [
+      { by: 'editor', body: 'Chilling the dough overnight makes them chewier.' },
+      { by: 'admin', body: 'Agreed. Brown the butter too, if you have time.' },
+    ],
   },
   {
     title: 'Minestrone',
@@ -843,15 +856,22 @@ export function seedDemoRecipes(db: Db, owners: Record<DemoRecipe['owner'], stri
     const saved = createRecipe(db, owners[recipe.owner], requestFor(db, recipe));
     if (!saved.ok) throw new Error(`could not save the demo recipe “${recipe.title}”`);
     const access = { ownerId: owners[recipe.owner], visibility: recipe.visibility ?? 'shared' };
+    /** The demo account with `role`, who must be allowed to comment on and rate the recipe. */
+    const reader = (role: DemoRecipe['owner']) => {
+      const user = { id: owners[role], role };
+      if (!can(user, 'recipe.interact', access)) {
+        throw new Error(`the demo ${role} may not rate or comment on “${recipe.title}”`);
+      }
+      return user.id;
+    };
     for (const [role, stars] of Object.entries(recipe.ratings ?? {}) as [
       DemoRecipe['owner'],
       number,
     ][]) {
-      const rater = { id: owners[role], role };
-      if (!can(rater, 'recipe.interact', access)) {
-        throw new Error(`the demo ${role} may not rate “${recipe.title}”`);
-      }
-      setRating(db, rater.id, saved.id, stars);
+      setRating(db, reader(role), saved.id, stars);
+    }
+    for (const { by, body } of recipe.comments ?? []) {
+      addComment(db, saved.id, reader(by), body);
     }
   }
   return DEMO_RECIPES.length;

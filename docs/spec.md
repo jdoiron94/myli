@@ -54,7 +54,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - The matrix is implemented once, as a policy module in `packages/shared`. The UI uses it to hide controls; the API uses it to enforce. Neither has inline role checks.
 - Pages a role can't use, like the admin pages, aren't linked for it. Opening one anyway says the user doesn't have access, at the same address.
 - The header links to search for everyone, to their favorites for those who keep them, and to a new recipe for those who can write one. It gathers the admin pages in one Admin menu, which shows only for a role that can open one of them.
-- **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, favorites, revisions, public links and their photos.
+- **Private recipes are visible only to their owner,** admins included, on every read path: direct ID, search, favorites, ratings, comments, revisions, public links and their photos.
 - No one can act on a recipe they can't see. An admin's "any" in the table means any recipe they can see: shared recipes and their own private ones.
 - A request for a resource the caller may not see returns `404`, so its existence isn't revealed. A request the caller may see but not act on returns `403`.
 
@@ -281,16 +281,18 @@ There are three roles: **admin**, **editor** and **viewer**.
   - sorting uses a Bayesian average (§3.4)
 - **Comments:**
   - markdown, sanitized when rendered
-  - authors can edit or delete their own
+  - everyone who can see the recipe reads them, viewers included, oldest first, each with its author and when it was written
+  - authors can edit or delete their own, while they may comment; an edited comment says so
   - admins can delete anyone's
+  - a deleted comment is gone for good. Comments aren't part of the recipe: they aren't searched, kept in its revisions, or recorded in the audit log
 
 **Trash**
 - Deleting a recipe moves it to the trash. It disappears from search and lists immediately.
 - It's deleted from its page, after a confirmation that says it can be restored from the trash. The page then goes home, which says it's deleted, and the recipe's address shows it as not found.
 - The trash lists the deleted recipes each person may restore, most recently deleted first: their own, and for admins, shared ones too. To everyone else a deleted recipe doesn't exist, even to someone who could read it before; an admin never sees someone else's private one.
 - The Trash page is linked from the account menu for whoever may delete recipes. It shows each recipe's owner, when it was deleted and when it goes for good. Restoring needs no confirmation, since it takes nothing away; the page then says it's restored, with a link to it.
-- Restoring brings it back as it was: who sees it, its draft, history, photos and favorites, and when it was last changed. Like deleting, it's recorded in the audit log, with the title only if the recipe is shared.
-- A recipe stays in the trash for `TRASH_RETENTION_DAYS` (30 by default), and the trash shows when each is due to go. A scheduled job then deletes it for good, with its revisions, draft and photos, and records `recipe.purged` in the audit log, by no one. It runs daily at 03:30 server time, and when the API starts, so a recipe may stay up to a day longer, and lowering the retention purges what's now past it straight away.
+- Restoring brings it back as it was: who sees it, its draft, history, photos, favorites, ratings and comments, and when it was last changed. Like deleting, it's recorded in the audit log, with the title only if the recipe is shared.
+- A recipe stays in the trash for `TRASH_RETENTION_DAYS` (30 by default), and the trash shows when each is due to go. A scheduled job then deletes it for good, with its revisions, draft, photos, ratings and comments, and records `recipe.purged` in the audit log, by no one. It runs daily at 03:30 server time, and when the API starts, so a recipe may stay up to a day longer, and lowering the retention purges what's now past it straight away.
 
 ### 3.3 Drafts, revisions and history
 

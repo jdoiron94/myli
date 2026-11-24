@@ -552,6 +552,31 @@ export const favorite = sqliteTable(
   ],
 );
 
+/**
+ * Comments on a recipe, in markdown. Their authors change or delete them; admins delete anyone's.
+ * They go with their recipe when it's purged.
+ */
+export const comment = sqliteTable(
+  'comment',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    /** Users are never deleted, so a comment keeps its author. */
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id),
+    bodyMd: text('body_md').notNull(),
+    createdAt: createdAt(),
+    /** When its author last changed it, `null` if never. */
+    editedAt: integer('edited_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [index('comment_recipe_id_created_at_idx').on(table.recipeId, table.createdAt)],
+);
+
 /** Each user's rating of a recipe, from 1 to 5 stars: one each, which they change or remove. */
 export const rating = sqliteTable(
   'rating',

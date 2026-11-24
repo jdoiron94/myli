@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   API_BASE_PATH,
+  type CommentAction,
   can,
   type RecipeAction,
   ROLES,
@@ -16,7 +17,7 @@ import {
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import { createUserWithPassword } from './auth/users.ts';
-import { recipe as recipeTable } from './db/schema.ts';
+import { comment as commentTable, recipe as recipeTable } from './db/schema.ts';
 import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
 import {
@@ -33,7 +34,7 @@ export type Caller = 'anonymous' | Role;
 
 /**
  * Who may call an endpoint: anyone, any signed-in user, users whose role allows an action, or, for
- * an endpoint on one recipe, users the policy lets do an action to that recipe. An endpoint on a
+ * an endpoint on one recipe or comment, users the policy lets do an action to it. An endpoint on a
  * recipe in the trash is tried against one that was deleted, which is hidden from everyone the
  * policy doesn't let do the action: they get 404, never 403.
  */
@@ -42,7 +43,8 @@ export type Access =
   | 'signed-in'
   | RoleAction
   | { recipe: RecipeAction }
-  | { trashedRecipe: RecipeAction };
+  | { trashedRecipe: RecipeAction }
+  | { comment: CommentAction };
 
 /**
  * The recipes an endpoint on one recipe is tried against, as in `policy.test.ts`: whose it is,
@@ -58,6 +60,15 @@ export const RECIPE_CASES = [
 
 export type RecipeCase = (typeof RECIPE_CASES)[number];
 
+/**
+ * Whose comment an endpoint on one comment is tried against, on each of `RECIPE_CASES`. Someone's
+ * comment on a recipe they can't see now was written while it was shared, and a viewer's while
+ * they were an editor. Anonymous callers wrote none.
+ */
+export const COMMENT_AUTHORS = ['caller', 'someone else'] as const;
+
+export type CommentAuthor = (typeof COMMENT_AUTHORS)[number];
+
 export interface EndpointCase {
   /** Lower case, as in the OpenAPI document. */
   method: 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -67,9 +78,15 @@ export interface EndpointCase {
   /**
    * Sends a valid request to the endpoint, with `cookie` as the `Cookie` header when it's set.
    * Each caller gets a fresh app, so this can create whatever the request needs first. Endpoints
-   * on one recipe get the ID of the recipe to send it about.
+   * on one recipe get the ID of the recipe to send it about, and those on one comment the ID of
+   * that comment, on that recipe.
    */
-  send: (t: TestApp, cookie: string | undefined, recipeId: string) => Response | Promise<Response>;
+  send: (
+    t: TestApp,
+    cookie: string | undefined,
+    recipeId: string,
+    commentId: string,
+  ) => Response | Promise<Response>;
 }
 
 /**
@@ -432,6 +449,33 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/recipes/{id}/comments',
+    access: { recipe: 'recipe.read' },
+    send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/comments`, cookie),
+  },
+  {
+    method: 'post',
+    path: '/recipes/{id}/comments',
+    access: { recipe: 'recipe.interact' },
+    send: (t, cookie, recipeId) =>
+      request(t, 'POST', `/recipes/${recipeId}/comments`, cookie, { body: 'Lovely.' }),
+  },
+  {
+    method: 'put',
+    path: '/comments/{id}',
+    access: { comment: 'comment.edit' },
+    send: (t, cookie, _recipeId, commentId) =>
+      request(t, 'PUT', `/comments/${commentId}`, cookie, { body: 'Lovelier.' }),
+  },
+  {
+    method: 'delete',
+    path: '/comments/{id}',
+    access: { comment: 'comment.delete' },
+    send: (t, cookie, _recipeId, commentId) =>
+      request(t, 'DELETE', `/comments/${commentId}`, cookie),
+  },
+  {
+    method: 'get',
     path: '/me/favorites',
     access: 'personal.write',
     send: (t, cookie) => request(t, 'GET', '/me/favorites?page=1', cookie),
@@ -494,9 +538,15 @@ export type Outcome = 'allowed' | 401 | 403 | 404;
 
 /**
  * What the policy says should happen: the request goes through, or exactly this status. For an
- * endpoint on one recipe, a recipe the caller may not see answers 404, before any other check.
+ * endpoint on one recipe or comment, a recipe the caller may not see answers 404, before any other
+ * check.
  */
-export function expectedOutcome(access: Access, caller: Caller, recipeCase?: RecipeCase): Outcome {
+export function expectedOutcome(
+  access: Access,
+  caller: Caller,
+  recipeCase?: RecipeCase,
+  commentAuthor?: CommentAuthor,
+): Outcome {
   if (access === 'public') return 'allowed';
   if (caller === 'anonymous') return 401;
   if (access === 'signed-in') return 'allowed';
@@ -509,18 +559,43 @@ export function expectedOutcome(access: Access, caller: Caller, recipeCase?: Rec
   };
   if ('trashedRecipe' in access) return can(user, access.trashedRecipe, recipe) ? 'allowed' : 404;
   if (!can(user, 'recipe.read', recipe)) return 404;
+  if ('comment' in access) {
+    if (!commentAuthor)
+      throw new Error('an endpoint on one comment needs a comment to be tried against');
+    const authorId = commentAuthor === 'caller' ? user.id : 'someone else';
+    return can(user, access.comment, { authorId, recipe }) ? 'allowed' : 403;
+  }
   return can(user, access.recipe, recipe) ? 'allowed' : 403;
 }
 
-/** The users and recipes `endpoint` is tried with: one run per caller, or per caller and recipe. */
-function runsOf(endpoint: EndpointCase): { caller: Caller; recipeCase: RecipeCase | undefined }[] {
-  return CALLERS.flatMap((caller): { caller: Caller; recipeCase: RecipeCase | undefined }[] =>
-    typeof endpoint.access === 'object'
-      ? RECIPE_CASES.filter(({ owner }) => caller !== 'anonymous' || owner !== 'caller').map(
-          (recipeCase) => ({ caller, recipeCase }),
-        )
-      : [{ caller, recipeCase: undefined }],
-  );
+interface Run {
+  caller: Caller;
+  recipeCase: RecipeCase | undefined;
+  commentAuthor: CommentAuthor | undefined;
+}
+
+/**
+ * The users, recipes and comments `endpoint` is tried with: one run per caller, or per caller and
+ * recipe, or per caller, recipe and comment.
+ */
+function runsOf(endpoint: EndpointCase): Run[] {
+  const { access } = endpoint;
+  const mine = (caller: Caller, whose: 'caller' | 'someone else') =>
+    caller !== 'anonymous' || whose !== 'caller';
+  return CALLERS.flatMap((caller): Run[] => {
+    if (typeof access !== 'object')
+      return [{ caller, recipeCase: undefined, commentAuthor: undefined }];
+    const recipeCases = RECIPE_CASES.filter(({ owner }) => mine(caller, owner));
+    return recipeCases.flatMap((recipeCase): Run[] =>
+      'comment' in access
+        ? COMMENT_AUTHORS.filter((author) => mine(caller, author)).map((commentAuthor) => ({
+            caller,
+            recipeCase,
+            commentAuthor,
+          }))
+        : [{ caller, recipeCase, commentAuthor: undefined }],
+    );
+  });
 }
 
 /** Someone other than the caller, to own the recipes that aren't theirs. */
@@ -545,14 +620,23 @@ export async function findMismatches(
   createApp: () => TestApp,
 ): Promise<string[]> {
   const mismatches: string[] = [];
-  for (const { caller, recipeCase } of runsOf(endpoint)) {
+  for (const { caller, recipeCase, commentAuthor } of runsOf(endpoint)) {
     const t = createApp();
     const signedIn = caller === 'anonymous' ? undefined : await signedInAs(t, caller);
     let recipeId = '';
+    let commentId = '';
     if (recipeCase) {
-      const ownerId =
-        recipeCase.owner === 'caller' && signedIn ? signedIn.user.id : await someoneElse(t);
+      const other = await someoneElse(t);
+      const ownerId = recipeCase.owner === 'caller' && signedIn ? signedIn.user.id : other;
       recipeId = insertRecipe(t.db, ownerId, recipeCase.visibility);
+      if (commentAuthor) {
+        const authorId = commentAuthor === 'caller' && signedIn ? signedIn.user.id : other;
+        commentId = t.db
+          .insert(commentTable)
+          .values({ recipeId, authorId, bodyMd: 'Lovely.' })
+          .returning({ id: commentTable.id })
+          .get().id;
+      }
       if (typeof endpoint.access === 'object' && 'trashedRecipe' in endpoint.access) {
         t.db
           .update(recipeTable)
@@ -561,15 +645,17 @@ export async function findMismatches(
           .run();
       }
     }
-    const { status } = await endpoint.send(t, signedIn?.cookie, recipeId);
-    const expected = expectedOutcome(endpoint.access, caller, recipeCase);
+    const { status } = await endpoint.send(t, signedIn?.cookie, recipeId, commentId);
+    const expected = expectedOutcome(endpoint.access, caller, recipeCase, commentAuthor);
     const refusals = recipeCase ? [401, 403, 404] : [401, 403];
     const matches =
       expected === 'allowed' ? !refusals.includes(status) && status < 500 : status === expected;
     if (!matches) {
-      const about = recipeCase
-        ? ` on ${recipeCase.owner === 'caller' ? 'their own' : "someone else's"} ${recipeCase.visibility} recipe`
-        : '';
+      const whose = (owner: 'caller' | 'someone else') =>
+        owner === 'caller' ? 'their own' : "someone else's";
+      const about =
+        (commentAuthor ? ` on ${whose(commentAuthor)} comment` : '') +
+        (recipeCase ? ` on ${whose(recipeCase.owner)} ${recipeCase.visibility} recipe` : '');
       mismatches.push(
         `${caller} ${endpoint.method.toUpperCase()} ${endpoint.path}${about}: expected ${String(expected)}, got ${String(status)}`,
       );
