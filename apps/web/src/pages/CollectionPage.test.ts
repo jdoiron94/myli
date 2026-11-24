@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/vue';
 import { describe, expect, it } from 'vitest';
 import { storeCollections } from '@/collections/testing.ts';
 import { cardParts, sampleSummary } from '@/recipes/testing.ts';
-import { describedBy, renderApp } from '@/testing.ts';
+import { renderApp } from '@/testing.ts';
 
 const bread = sampleSummary({ id: 'bread', title: 'Bread' });
 const curry = sampleSummary({ id: 'curry', title: 'Curry' });
@@ -55,7 +55,7 @@ describe('a collection’s page', () => {
     ]);
   });
 
-  it('is renamed, saying at the field when the name is taken, and deleted once confirmed', async () => {
+  it('is renamed, and deleted once confirmed', async () => {
     storeCollections([
       { id: 'weeknight', name: 'Weeknight', recipes: [] },
       { id: 'baking', name: 'Baking', recipes: [] },
@@ -65,13 +65,6 @@ describe('a collection’s page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Rename' }));
     const field = screen.getByRole('textbox', { name: 'Name' });
-    await user.clear(field);
-    await user.type(field, 'baking');
-    await user.click(screen.getByRole('button', { name: 'Save name' }));
-    await new Promise((r) => setTimeout(r, 300));
-    await waitFor(() => {
-      expect(describedBy(field)).toEqual(['You already have a collection called “Baking”.']);
-    });
     await user.clear(field);
     await user.type(field, 'Weeknight dinners');
     await user.click(screen.getByRole('button', { name: 'Save name' }));

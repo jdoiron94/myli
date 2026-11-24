@@ -3059,7 +3059,7 @@ export interface paths {
         put?: never;
         /**
          * Create a collection
-         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Each of theirs has a name of its own, whatever its case.
+         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. Its name needn't differ from their others'.
          */
         post: {
             parameters: {

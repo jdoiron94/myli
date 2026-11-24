@@ -236,12 +236,7 @@ describe('seedDemoRecipes', () => {
   // SQLITE_BUSY_SNAPSHOT when the API's worker committed while a tag or a recipe was being saved.
   it('saves them while the API writes to the database, which waits for it', () => {
     const { result, apiWrites } = besideTheApi(
-      [
-        'insert into "tag"',
-        'insert into "recipe"',
-        'insert into "collection"',
-        'insert into "collection_item"',
-      ],
+      ['insert into "tag"', 'insert into "recipe"', 'insert into "collection_item"'],
       (script, api) => {
         for (const role of ['admin', 'editor'] as const) {
           api
@@ -257,7 +252,6 @@ describe('seedDemoRecipes', () => {
     expect(apiWrites).toEqual({
       'insert into "tag"': false,
       'insert into "recipe"': false,
-      'insert into "collection"': false,
       'insert into "collection_item"': false,
     });
   });

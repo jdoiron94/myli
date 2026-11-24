@@ -50,31 +50,19 @@ function titled(t: TestApp, ownerId: string, title: string) {
 }
 
 describe('collections', () => {
-  it('are named, by name, renamed and deleted by their owner, each with a name of its own', async () => {
+  it('are created, listed by name, renamed and deleted by their owner, names shared or not', async () => {
     const t = createTestApp();
     const { cookie } = await signedInAs(t, 'editor');
     const weeknight = await create(t, cookie, 'Weeknight');
     const baking = await create(t, cookie, 'baking');
-    expect(await listed(t, cookie)).toEqual(['baking (0)', 'Weeknight (0)']);
+    await create(t, cookie, 'Weeknight');
+    expect(await listed(t, cookie)).toEqual(['baking (0)', 'Weeknight (0)', 'Weeknight (0)']);
 
-    const taken = {
-      create: await send(t, cookie, 'POST', '/collections', { name: ' weeknight ' }),
-      rename: await send(t, cookie, 'PUT', `/collections/${baking}`, { name: 'WEEKNIGHT' }),
-    };
-    for (const res of Object.values(taken)) {
-      expect(res.status).toBe(422);
-      expect(await res.json()).toMatchObject({
-        errors: [
-          { pointer: '#/name', detail: 'You already have a collection called “Weeknight”.' },
-        ],
-      });
-    }
-    // Its own name, another way.
     expect(
-      (await send(t, cookie, 'PUT', `/collections/${baking}`, { name: 'Baking' })).status,
+      (await send(t, cookie, 'PUT', `/collections/${baking}`, { name: 'Weeknight' })).status,
     ).toBe(204);
     expect((await send(t, cookie, 'DELETE', `/collections/${weeknight}`)).status).toBe(204);
-    expect(await listed(t, cookie)).toEqual(['Baking (0)']);
+    expect(await listed(t, cookie)).toEqual(['Weeknight (0)', 'Weeknight (0)']);
   });
 
   it('hold recipes, each once, in the order their owner puts them', async () => {

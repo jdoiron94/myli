@@ -273,7 +273,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Personal organization (editors and admins)**
 - **Favorites:** a per-user flag on a recipe, for any recipe its user can see, set with the Favorite button on the recipe's page. The Favorites page, linked from the header, lists them most recently chosen first, from the database, 24 to a page. One they can no longer see, because it was deleted or made private by its owner, is left out and not counted, and shows again if the recipe comes back.
 - **Collections:** named, per-user, ordered groups of recipes. Other users never see them, admins included.
-  - each of a user's collections has a name of its own, whatever its case; renaming or deleting one leaves its recipes as they are
+  - listed by name; two can have the same name. Renaming or deleting one leaves its recipes as they are
   - any recipe its user can see can go in, once, at the end; its user puts them in the order they like, and takes them out
   - one they can no longer see, because it was deleted or made private by its owner, is left out and not counted, keeps its place, and shows again if it comes back
   - a collection holds at most 500 recipes, shown on one page

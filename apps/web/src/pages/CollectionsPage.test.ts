@@ -5,7 +5,7 @@ import { sampleSummary } from '@/recipes/testing.ts';
 import { describedBy, renderApp } from '@/testing.ts';
 
 describe('the collections page', () => {
-  it('creates one named, saying at the field what’s wrong first, and focuses it in the list', async () => {
+  it('creates one once named, saying so first, and focuses it in the list', async () => {
     const sent = storeCollections([
       { id: 'weeknight', name: 'Weeknight', recipes: [sampleSummary()] },
     ]);
@@ -24,14 +24,6 @@ describe('the collections page', () => {
     });
     expect(describedBy(field)).toEqual(['Name the collection.']);
 
-    await user.type(field, 'weeknight');
-    await user.click(create);
-    await waitFor(() => {
-      expect(describedBy(field)).toEqual(['You already have a collection called “Weeknight”.']);
-    });
-    expect(document.activeElement).toBe(field);
-
-    await user.clear(field);
     await user.type(field, 'Baking');
     await user.click(create);
     const created = await screen.findByRole('link', { name: 'Baking' });
@@ -40,6 +32,6 @@ describe('the collections page', () => {
     });
     expect(screen.getByText('Created “Baking”.')).toBeDefined();
     expect((field as HTMLInputElement).value).toBe('');
-    expect(sent.map(({ body }) => body)).toEqual([{ name: 'weeknight' }, { name: 'Baking' }]);
+    expect(sent.map(({ body }) => body)).toEqual([{ name: 'Baking' }]);
   });
 });
