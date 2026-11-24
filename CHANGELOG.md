@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0](https://github.com/jdoiron94/myli/compare/v0.8.0...v0.9.0) (2026-11-24)
+
+
+### Features
+
+* **api:** delete photos nothing shows any more, daily ([eebaa73](https://github.com/jdoiron94/myli/commit/eebaa73cd6a3f486ba49e43d1b6a52f1dda74f48))
+* **api:** list the trash and restore a recipe from it ([1135fd0](https://github.com/jdoiron94/myli/commit/1135fd007b60492788c77aa4e3df714228b92487))
+* **api:** purge recipes from the trash once their retention has passed ([1ef9c97](https://github.com/jdoiron94/myli/commit/1ef9c972b6052b1ec8938eb65c4362a2056b41b3))
+* **web:** restore deleted recipes from the Trash page ([ebb83fb](https://github.com/jdoiron94/myli/commit/ebb83fb393cc4428e9c5f5b3f523e096097af86c))
+
+
+### Bug Fixes
+
+* **api:** let the seed save recipes while the API writes to the database ([1a8fdfe](https://github.com/jdoiron94/myli/commit/1a8fdfee954610dfa0049dcf060fde6bf081a96a))
+
 ## [0.8.0](https://github.com/jdoiron94/myli/compare/v0.7.0...v0.8.0) (2026-11-20)
 
 
