@@ -21,6 +21,7 @@ interface Service {
 }
 
 interface ComposeConfig {
+  name: string;
   services: Record<string, Service>;
   networks: Record<string, { ipam: { config?: { subnet: string }[] } }>;
   secrets: Record<string, { environment: string }>;
@@ -34,13 +35,24 @@ const REQUIRED = {
 };
 
 /**
- * compose.yaml as Compose resolves it, with the dev profile, given only `variables`: not the
- * shell's, nor the repo's .env.
+ * compose.yaml as Compose resolves it, with the dev profile and any `overrides` on top, given only
+ * `variables`: not the shell's, nor the repo's .env.
  */
-function composeConfig(variables: Record<string, string> = {}) {
+function composeConfig(variables: Record<string, string> = {}, overrides: string[] = []) {
+  const files = ['compose.yaml', ...overrides].flatMap((file) => ['--file', file]);
   const json = execFileSync(
     'docker',
-    ['compose', '--env-file', '/dev/null', '--profile', 'dev', 'config', '--format', 'json'],
+    [
+      'compose',
+      ...files,
+      '--env-file',
+      '/dev/null',
+      '--profile',
+      'dev',
+      'config',
+      '--format',
+      'json',
+    ],
     {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -147,7 +159,7 @@ describe('the services', () => {
     expect(service(registry, 'caddy').image).toBe('registry.example.com/myli/myli-web:1.2.3');
   });
 
-  it("publish only Caddy's ports, and Mailpit's on this machine alone", () => {
+  it("publish only Caddy's ports, and Mailpit's and pnpm dev:all's Meilisearch on this machine alone", () => {
     const ports = (config: ComposeConfig, name: string) =>
       (service(config, name).ports ?? []).map(
         ({ host_ip, published, target, protocol }) =>
@@ -166,6 +178,14 @@ describe('the services', () => {
     // PUBLIC_URL's port, which Caddy listens on inside the container too.
     const custom = composeConfig({ MYLI_HTTP_PORT: '8080', MYLI_HTTPS_PORT: '8443' });
     expect(ports(custom, 'caddy')).toEqual(['8080:80/tcp', '8443:8443/tcp', '8443:8443/udp']);
+
+    // In a project of its own, so it never takes over the Meilisearch of a stack run from here.
+    const dev = composeConfig({}, ['compose.dev.yaml']);
+    expect({ name: dev.name, meilisearch: ports(dev, 'meilisearch') }).toEqual({
+      name: 'myli-dev',
+      meilisearch: ['127.0.0.1:7700:7700/tcp'],
+    });
+    expect(defaults.name).toBe('myli');
   });
 
   it('run without Linux capabilities, unable to gain any', () => {
