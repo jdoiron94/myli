@@ -251,21 +251,25 @@ export const liveAt = (id: string, version: number) => and(live(id), eq(recipe.v
  * that isn't one of their uploads no recipe was saved with.
  */
 export function createRecipe(db: Db, ownerId: string, request: CreateRecipeRequest): CreateResult {
-  return db.transaction((tx): CreateResult => {
-    const refused = refusedContent(tx, null, ownerId, request);
-    if (refused) return refused;
+  return db.transaction(
+    (tx): CreateResult => {
+      const refused = refusedContent(tx, null, ownerId, request);
+      if (refused) return refused;
 
-    const { id } = tx
-      .insert(recipe)
-      .values({ ownerId, visibility: request.visibility, ...contentColumns(request) })
-      .returning({ id: recipe.id })
-      .get();
-    writeParts(tx, id, request);
-    writePhotos(tx, id, photoUses(request));
-    recordPublished(tx, id, ownerId);
-    enqueueJob(tx, indexRecipeJob, { recipeId: id });
-    return { ok: true, id };
-  });
+      const { id } = tx
+        .insert(recipe)
+        .values({ ownerId, visibility: request.visibility, ...contentColumns(request) })
+        .returning({ id: recipe.id })
+        .get();
+      writeParts(tx, id, request);
+      writePhotos(tx, id, photoUses(request));
+      recordPublished(tx, id, ownerId);
+      enqueueJob(tx, indexRecipeJob, { recipeId: id });
+      return { ok: true, id };
+    },
+    // Reads, then writes, and the seed runs it beside the API.
+    { behavior: 'immediate' },
+  );
 }
 
 /**
