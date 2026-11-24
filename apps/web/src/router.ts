@@ -51,6 +51,19 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Favorites', permission: 'personal.write' },
   },
   {
+    path: '/collections',
+    name: 'collections',
+    component: () => import('./pages/CollectionsPage.vue'),
+    meta: { title: 'Collections', permission: 'personal.write' },
+  },
+  {
+    path: '/collections/:id',
+    name: 'collection',
+    component: () => import('./pages/CollectionPage.vue'),
+    props: true,
+    meta: { title: 'Collection', permission: 'personal.write' },
+  },
+  {
     path: '/trash',
     name: 'trash',
     component: () => import('./pages/TrashPage.vue'),

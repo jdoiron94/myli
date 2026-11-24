@@ -36,6 +36,7 @@ export const useRestoreFromTrash = () => {
       queryClient.setQueryData(recipeQuery(recipe.id).queryKey, recipe);
       queryClient.removeQueries({ queryKey: ['recipe-list'] });
       queryClient.removeQueries({ queryKey: ['search'] });
+      queryClient.removeQueries({ queryKey: ['collections'] });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: trashQuery.queryKey }),
   });

@@ -127,7 +127,7 @@ describe('the build', () => {
       return [...seen].map((key) => chunks[key]?.file ?? key);
     }
 
-    // A recipe's page asks for it too, but only once someone focuses its comment field.
+    // A recipe's page asks for it too, but only once someone focuses its note or comment field.
     it('is left out of what the app and the pages that only show recipes load', () => {
       const chunks = manifest();
       const loaded = [
