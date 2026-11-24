@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router';
 import { DIFFICULTY_LABELS, formatMinutes } from '@/recipes/format.ts';
 import { CARD_SIZES } from './photos.ts';
 import RecipePhoto from './RecipePhoto.vue';
-import { ratingText } from './ratings.ts';
+import { averageText } from './ratings.ts';
 import type { RecipeSummary } from './recipe.ts';
 
 /**
@@ -20,7 +20,6 @@ const facts = computed(() =>
     props.recipe.difficulty === null ? undefined : DIFFICULTY_LABELS[props.recipe.difficulty],
   ].filter((fact) => fact !== undefined),
 );
-const rated = computed(() => props.recipe.rating.count > 0);
 const tags = computed(() => [
   ...props.recipe.cuisine,
   ...props.recipe.mealType,
@@ -50,19 +49,19 @@ const tags = computed(() => [
         </RouterLink>
       </h2>
       <p
-        v-if="facts.length > 0 || rated || recipe.visibility === 'private'"
+        v-if="facts.length > 0 || recipe.rating.average !== null || recipe.visibility === 'private'"
         class="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
       >
         <span v-if="facts.length > 0">{{ facts.join(' · ') }}</span>
         <span
-          v-if="rated"
-          class="inline-flex items-center gap-1"
+          v-if="recipe.rating.average !== null"
+          class="inline-flex items-center gap-1 print:hidden"
         >
           <StarIcon
             class="size-3.5 fill-current"
             aria-hidden="true"
           />
-          {{ ratingText(recipe.rating) }}
+          {{ averageText(recipe.rating.average) }}
         </span>
         <span
           v-if="recipe.visibility === 'private'"

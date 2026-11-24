@@ -36,8 +36,11 @@ const averageFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-/** How a recipe's ratings read, on its page and its card: "4.5 stars from 2 ratings". */
+/** A recipe's average rating alone, as its card shows it: "4.5 stars". */
+export const averageText = (average: number) => `${averageFormat.format(average)} stars`;
+
+/** How a recipe's ratings read on its page, with how many there are: "4.5 stars from 2 ratings". */
 export function ratingText({ average, count }: RatingSummary): string {
   if (average === null) return 'No ratings yet';
-  return `${averageFormat.format(average)} stars from ${String(count)} ${count === 1 ? 'rating' : 'ratings'}`;
+  return `${averageText(average)} from ${String(count)} ${count === 1 ? 'rating' : 'ratings'}`;
 }

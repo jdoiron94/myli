@@ -278,7 +278,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Ratings and comments (editors and admins)**
 - **Ratings:**
   - one rating per user per recipe, 1–5 stars; users can change or remove theirs
-  - a recipe shows its average and number of ratings to everyone who can see it, viewers included, on its page and its card
+  - everyone who can see a recipe, viewers included, sees its average rating: on its page with how many ratings there are, and on its card alone. Neither is printed
   - on the recipe's page, whoever may rate it presses one of five stars, and can remove their rating
   - sorting uses a Bayesian average (§3.4)
 - **Comments:**
