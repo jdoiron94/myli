@@ -196,6 +196,7 @@ You need Node at the version in `.node-version`, and pnpm at the version in `pac
 pnpm install     # also installs the git hooks (lefthook)
 cp .env.example .env   # then set PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTER_KEY, as the comments explain
 pnpm dev         # web app on http://localhost:5173, API on :3000 behind it; both reload on change
+pnpm dev:all     # the same, with Meilisearch for search, started in Docker and stopped with them
 pnpm test        # Vitest, across every workspace package
 pnpm test:e2e    # Playwright + axe, in Chromium and Firefox (first: pnpm --filter @myli/e2e exec playwright install chromium firefox)
 pnpm test:containers   # the API against real Meilisearch and its built image, then Playwright against the Compose stack (needs Docker)
@@ -218,13 +219,7 @@ The pre-commit hook formats staged files, lints them, and typechecks the workspa
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/), which decide each release's version: `feat` bumps the minor version and `fix` the patch, and before 1.0 a breaking change bumps the minor too. On every push to `main`, [release-please](release-please-config.json) keeps a release PR open with the next version and its changelog. Merging it tags the release, creates the GitHub release, then [builds both images and publishes them](.github/workflows/release.yml). They aren't tested again: the pull requests merged since the last release ran the container tests on the same build.
 
-Search needs [Meilisearch](https://www.meilisearch.com/), started with the master key from your `.env`. Without it, everything else works, and the API logs once that search is unavailable and keeps trying in the background.
-
-```sh
-docker run --rm -p 127.0.0.1:7700:7700 -e MEILI_NO_ANALYTICS=true \
-  -e MEILI_MASTER_KEY="$(grep '^MEILI_MASTER_KEY=' .env | cut -d= -f2-)" \
-  getmeili/meilisearch:v1.56.1
-```
+Search needs [Meilisearch](https://www.meilisearch.com/), which `pnpm dev:all` starts with the master key from your `.env`: Compose's own Meilisearch, published on 127.0.0.1:7700 by `compose.dev.yaml`, in a project of its own (`myli-dev`), so a stack you run from `compose.yaml` keeps its own. It waits until Meilisearch is healthy before starting the dev servers, and stops it once you stop them, keeping its index for next time. With `pnpm dev` alone, everything else works, and the API logs once that search is unavailable and keeps trying in the background.
 
 To see the emails myli sends while developing, start [Mailpit](https://mailpit.axllent.org/) from the Compose file's `dev` profile, and open its inbox at http://localhost:8025:
 

@@ -66,6 +66,7 @@ function workflow(file: string) {
 /** Root scripts that aren't checks, so CI doesn't run them. Every other root script must run. */
 const NOT_CHECKS = {
   dev: 'starts the dev servers',
+  'dev:all': 'starts the dev servers and Meilisearch',
   'test:watch': 'reruns the tests on every change',
   format: 'rewrites files; CI runs format:check',
   'openapi:generate': 'rewrites files; pnpm test checks they match',

@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm --recursive --parallel dev",
+    "dev:all": "node scripts/dev-all.ts",
     "db:generate": "pnpm --filter @myli/api db:generate",
     "seed": "pnpm --filter @myli/api seed",
     "reindex": "pnpm --filter @myli/api reindex",

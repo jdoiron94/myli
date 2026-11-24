@@ -1,0 +1,10 @@
+# On top of compose.yaml, for `pnpm dev:all` only: Meilisearch for the API that `pnpm dev` runs on
+# this machine, published on the loopback address alone. It's a project of its own, so it never
+# touches the containers or the index of a stack run from compose.yaml itself.
+
+name: myli-dev
+
+services:
+  meilisearch:
+    ports:
+      - 127.0.0.1:7700:7700
