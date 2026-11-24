@@ -577,6 +577,29 @@ export const comment = sqliteTable(
   (table) => [index('comment_recipe_id_created_at_idx').on(table.recipeId, table.createdAt)],
 );
 
+/**
+ * Each user's private note on a recipe (spec §3.3): one each, which no one else ever sees, admins
+ * included. It stays while the recipe is out of their sight, and shows again if it comes back.
+ */
+export const userNote = sqliteTable(
+  'user_note',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    bodyMd: text('body_md').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.recipeId] }),
+    index('user_note_recipe_id_idx').on(table.recipeId),
+  ],
+);
+
 /** Each user's rating of a recipe, from 1 to 5 stars: one each, which they change or remove. */
 export const rating = sqliteTable(
   'rating',
