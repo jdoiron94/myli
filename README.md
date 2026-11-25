@@ -4,7 +4,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 2 (collaboration) done; Phase 3 (grocery lists) next.** Recipes, search, scaling, favorites, collections, notes, cook mode, revisions, the trash, comments, ratings and public links work today. The [roadmap](#roadmap) shows what's done and what's next.
+> **Status: Phase 3 (grocery lists) done; Phase 4 (polish) next.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings and public links work today. The [roadmap](#roadmap) shows what's done and what's next.
 
 ## Features
 
@@ -255,7 +255,7 @@ SMTP_FROM=myli <myli@example.com>
 | 0. Foundation | Monorepo, Compose stack, API skeleton with OpenAPI docs, database and migrations, authentication, roles, invitations, job worker, audit log, CI | Done |
 | 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view | Done |
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
-| 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Planned |
+| 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Done |
 | 4. Polish | URL import, exports, backup and restore tooling | Planned |
 
 ## License
