@@ -1,4 +1,5 @@
 import {
+  collectionIngredientsSchema,
   collectionListSchema,
   collectionSchema,
   collectionSummarySchema,
@@ -45,6 +46,13 @@ async function pageOf(t: TestApp, cookie: string, id: string, page = 1) {
 /** The titles of the recipes on a page of a collection, in its order. */
 async function shown(t: TestApp, cookie: string, id: string, page = 1) {
   return (await pageOf(t, cookie, id, page)).recipes.map(({ title }) => title);
+}
+
+/** The titles of the recipes a collection's grocery list is added up from, in its order. */
+async function forGroceries(t: TestApp, cookie: string, id: string) {
+  const res = await send(t, cookie, 'GET', `/collections/${id}/ingredients`);
+  expect(res.status).toBe(200);
+  return collectionIngredientsSchema.parse(await res.json()).recipes.map(({ title }) => title);
 }
 
 /** Moves a recipe one place in a collection, as whoever has `cookie`: the status. */
@@ -126,6 +134,7 @@ describe('collections', () => {
 
     const statuses = {
       get: (await send(t, admin.cookie, 'GET', `/collections/${id}`)).status,
+      ingredients: (await send(t, admin.cookie, 'GET', `/collections/${id}/ingredients`)).status,
       rename: (await send(t, admin.cookie, 'PUT', `/collections/${id}`, { name: 'Mine' })).status,
       move: await move(t, admin.cookie, id, recipeId, 'later'),
       add: (await send(t, admin.cookie, 'PUT', `/collections/${id}/recipes/${recipeId}`)).status,
@@ -135,6 +144,7 @@ describe('collections', () => {
     };
     expect(statuses).toEqual({
       get: 404,
+      ingredients: 404,
       rename: 404,
       move: 404,
       add: 404,
@@ -167,6 +177,7 @@ describe('collections', () => {
       total: 2,
     });
     expect(await listed(t, reader.cookie)).toEqual(['Weeknight (2)']);
+    expect(await forGroceries(t, reader.cookie, id)).toEqual(['Bread', 'Curry']);
     // Past the one it shows before it, swapping places with it, around the one it doesn't.
     expect(await move(t, reader.cookie, id, curry, 'earlier')).toBe(204);
     setTheirs({ visibility: 'shared', deletedAt: new Date() });
@@ -212,5 +223,63 @@ describe('collections', () => {
       endOfFirst: (await shown(t, cookie, id)).at(-1),
       second: await shown(t, cookie, id, 2),
     }).toEqual({ endOfFirst: last, second: [`Recipe ${String(RECIPES_PER_PAGE)}`] });
+  });
+
+  it('give the ingredients of all their recipes at once, in their order, for the grocery list', async () => {
+    const t = createTestApp();
+    const { user, cookie } = await signedInAs(t, 'editor');
+    const id = await create(t, cookie, 'This week');
+    const bare = t.db
+      .insert(recipe)
+      .values(
+        Array.from({ length: RECIPES_PER_PAGE }, (_, index) => ({
+          ownerId: user.id,
+          visibility: 'shared' as const,
+          title: `Recipe ${String(index + 1)}`,
+          servings: 2,
+        })),
+      )
+      .returning({ id: recipe.id })
+      .all();
+    t.db
+      .insert(collectionItem)
+      .values(bare.map((row, index) => ({ collectionId: id, recipeId: row.id, position: index })))
+      .run();
+    const bread = insertRecipe(t.db, user.id);
+    await send(t, cookie, 'PUT', `/collections/${id}/recipes/${bread}`);
+
+    const res = await send(t, cookie, 'GET', `/collections/${id}/ingredients`);
+    expect(res.status).toBe(200);
+    const { name, recipes } = collectionIngredientsSchema.parse(await res.json());
+    expect({ name, count: recipes.length, first: recipes[0]?.title, last: recipes.at(-1) }).toEqual(
+      {
+        name: 'This week',
+        count: RECIPES_PER_PAGE + 1,
+        first: 'Recipe 1',
+        last: {
+          id: bread,
+          title: 'Weeknight Bread',
+          servings: 8,
+          ingredients: [
+            {
+              qty: 3,
+              qtyMax: null,
+              unit: 'cup',
+              name: 'all-purpose flour',
+              normalizedName: 'all purpose flour',
+              scalable: true,
+            },
+            {
+              qty: null,
+              qtyMax: null,
+              unit: null,
+              name: 'salt',
+              normalizedName: 'salt',
+              scalable: false,
+            },
+          ],
+        },
+      },
+    );
   });
 });

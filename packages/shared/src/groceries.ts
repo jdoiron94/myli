@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import { type Amount, scaleAmount, scaleFactor } from './quantities.ts';
+import { ingredientLineSchema } from './recipe.ts';
 import { convert, dimensionOf, resolveUnit, UNITS } from './units.ts';
 
 /**
@@ -7,20 +9,39 @@ import { convert, dimensionOf, resolveUnit, UNITS } from './units.ts';
  */
 
 /** What a grocery list takes from an ingredient line. */
-export interface GroceryIngredient extends Amount {
-  name: string;
-  normalizedName: string;
-  scalable: boolean;
-}
+export const groceryIngredientSchema = ingredientLineSchema
+  .pick({ qty: true, qtyMax: true, unit: true, name: true, normalizedName: true, scalable: true })
+  .meta({ id: 'GroceryIngredient' });
+
+export type GroceryIngredient = z.infer<typeof groceryIngredientSchema>;
 
 /** A recipe whose ingredients go on a grocery list. */
-export interface GroceryRecipe {
-  id: string;
-  title: string;
-  /** The servings its amounts are written for. */
-  servings: number;
-  ingredients: readonly GroceryIngredient[];
-}
+export const groceryRecipeSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    servings: z.number().int().describe('The servings its amounts are written for.'),
+    ingredients: z.array(groceryIngredientSchema).describe('In the order the recipe lists them.'),
+  })
+  .meta({ id: 'GroceryRecipe' });
+
+export type GroceryRecipe = z.infer<typeof groceryRecipeSchema>;
+
+/** What a collection's grocery list is worked out from: its recipes' ingredients. */
+export const collectionIngredientsSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    recipes: z
+      .array(groceryRecipeSchema)
+      .describe(
+        'Every recipe in it that the caller may see now, as published, in the order they put ' +
+          'them: all of them at once, not a page.',
+      ),
+  })
+  .meta({ id: 'CollectionIngredients' });
+
+export type CollectionIngredients = z.infer<typeof collectionIngredientsSchema>;
 
 /** A recipe on the list, and the servings to buy for. */
 export interface GroceryEntry {
