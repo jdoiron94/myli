@@ -34,6 +34,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - PWA or offline support
 - cook-mode timers, voice control, saved progress, one-step-at-a-time view (cook mode shows all steps on one page)
 - automatic nutrition lookup (nutrition is entered by hand)
+- saved shopping lists or items added to one by hand (a grocery list is worked out from a collection whenever it's opened, and saves nothing)
 
 ## Architecture at a glance
 
@@ -360,7 +361,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - The test app's search is ready, and answers as an empty index, unless the test passes `createTestApp({ search })`: `isReady` is what `/readyz` asks, and `client: undefined` makes search unavailable.
 - Job tests drive the worker one step at a time with `worker.runOnce()` and pass `now` to `createWorker`, so retries and scheduling are tested without real waiting (see `jobs/worker.test.ts`).
 - Jobs that send email get `createMemoryMailer()` from `apps/api/src/mail/testing.ts`, which records messages and can be told to fail. The SMTP code itself is tested against an in-process `smtp-server`, with a throwaway certificate that `openssl` makes on each run (`mail/smtp.test.ts`).
-- Scaling, unit conversion and shopping-list aggregation get property-based tests (fast-check).
+- Scaling, unit conversion and grocery-list aggregation get property-based tests (fast-check).
 - Meilisearch integration tests use Testcontainers, against the same image production uses (`MEILISEARCH_IMAGE` and `meilisearchContainer()` in `apps/api/src/search/testing.ts`). `image.container.test.ts` builds the API image, runs it next to Meilisearch, and checks the build context. `compose.container.test.ts` checks `compose.yaml` as `docker compose config` reads it. They're named `*.container.test.ts`, and `pnpm test:containers` runs them. `pnpm test` leaves them out, since they need Docker (`apps/api/vitest.config.ts`). The first run pulls the images; Testcontainers' reaper container (Ryuk) removes the containers when the run ends, even if it crashes.
 - User flows get Playwright E2E tests with axe accessibility checks, in the `e2e/` workspace package (outside `apps/*`, so Vitest's projects don't pick up its specs). `tests/journey.spec.ts` follows one journey: first-run setup, sign-in, inviting someone, accepting, deactivating and reactivating them, and a role change reaching a page they already have open, then a recipe from writing it to restoring it from the trash, and sharing it through a public link that a browser not signed in opens. `tests/api-docs.spec.ts` loads the API docs page and sends a request from it.
   - The journey's tests run in order, each on a page of its own, signed in afresh, and each needs the one before. Each takes Chromium (which runs axe) up to about 25 seconds here, against a limit of a minute, which slower machines like CI's runners need. A new step goes in the test it belongs with; a test that grows much past that is split, not given longer.

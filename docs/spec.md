@@ -8,14 +8,14 @@
 
 ## 1. Overview
 
-myli is a self-hosted recipe manager for one household, run with Docker Compose. It stores structured recipes with revision history and finds them through fast faceted search. It scales recipes to any serving size, builds shopping lists from selected recipes, and has a cook mode for use in the kitchen.
+myli is a self-hosted recipe manager for one household, run with Docker Compose. It stores structured recipes with revision history and finds them through fast faceted search. It scales recipes to any serving size, adds up a collection's recipes into one grocery list, and has a cook mode for use in the kitchen.
 
 **Principles**
 
 - **Self-hosted and free.** Every dependency is free, self-hostable, and runs in the Compose stack.
 - **One instance, one household.** There is no multi-tenancy. All users belong to the same instance and have instance-wide roles.
 - **SQLite is the source of truth.** Everything else, including the search index, is derived and can be rebuilt.
-- **Structured data over free text.** Ingredients and steps are records, not one markdown blob, so scaling, search and shopping lists work.
+- **Structured data over free text.** Ingredients and steps are records, not one markdown blob, so scaling, search and grocery lists work.
 
 ## 2. Roles and permissions
 
@@ -39,7 +39,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 | Restore a revision | ✓ | ✓ (recipes they can edit) | – |
 | Create or revoke public links | any | own | – |
 | Comment, rate | ✓ | ✓ | – |
-| Favorites, collections, personal notes, shopping lists | ✓ | ✓ | – |
+| Favorites, collections and their grocery lists, personal notes | ✓ | ✓ | – |
 | Create custom tags | ✓ | ✓ | – |
 | Rename, merge or delete tags | ✓ | – | – |
 | Delete others' comments | ✓ | – | – |
@@ -194,7 +194,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Each line stores:**
   - `raw_text`: exactly what the user typed
   - `qty`, `unit`, `name`, `note`: parsed by a rule-based ingredient parser and shown for the user to confirm or correct
-  - `normalized_name`: lowercase, singular, note removed. Used for search and shopping-list aggregation.
+  - `normalized_name`: lowercase, singular, note removed. Used for search and to add up grocery lists.
   - `scalable`: defaults to true; false for lines like "salt to taste"
 - **The parser** reads:
   - quantities written as whole numbers, decimals, fractions ("3/4", "¾"), mixed numbers ("1 1/2", "1-1/2", "1½"), number words up to twelve, and "a" or "an" meaning one
@@ -278,9 +278,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 - **Favorites:** a per-user flag on a recipe, for any recipe its user can see, set with the Favorite button on the recipe's page. The Favorites page, linked from the header, lists them most recently chosen first, from the database, 24 to a page. One they can no longer see, because it was deleted or made private by its owner, is left out and not counted, and shows again if the recipe comes back.
 - **Collections:** named, per-user, ordered groups of recipes. Other users never see them, admins included.
   - listed by name; two can have the same name. Renaming or deleting one leaves its recipes as they are
-  - any recipe its user can see can go in, once, at the end, with no limit on how many; its user moves each one place earlier or later, and takes them out
+  - any recipe its user can see can go in, once, at the end, with no limit on how many; its user moves each one place earlier or later, and takes them out, one at a time or all at once. All at once takes out those they can no longer see too, so none comes back later
   - one they can no longer see, because it was deleted or made private by its owner, is left out and not counted, keeps its place, and shows again if it comes back
-  - the Collections page, linked from the header, lists them with how many recipes each shows, and creates one. A collection's page shows its recipes' cards in order, 24 to a page, each moved earlier or later (onto the next page or the one before, from either end of one) or taken out, asking first, and renames the collection or deletes it, asking first. On a recipe's page, the Collections menu has a checked item for each collection that holds it, which asks before taking the recipe out, and links to the Collections page to create one
+  - the Collections page, linked from the header, lists them with how many recipes each shows, and creates one. A collection's page shows its recipes' cards in order, 24 to a page, each moved earlier or later (onto the next page or the one before, from either end of one) or taken out, asking first. It links to the collection's grocery list (§3.5), takes every recipe out with Remove all, asking first, and renames the collection or deletes it, asking first. On a recipe's page, the Collections menu has a checked item for each collection that holds it, which asks before taking the recipe out, and links to the Collections page to create one
 - **Personal notes:** one private markdown note per user per recipe, for any recipe its user can see. No one else ever sees it, admins included. It's kept while the recipe is out of its writer's sight (made private by its owner, or in the trash) and shows again if it comes back. Like ratings and comments, it isn't part of the recipe: no revision, no search, no audit event.
   - written on the recipe's page, under its steps, and saved with Save note; Delete note asks first. Not printed
 
@@ -396,21 +396,26 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - Home lists every recipe the reader may see, newest first, 24 to a page, straight from the database (`GET /recipes`), so it works while search is unavailable. The page is in the address.
 - Home may later gain curated categories above the list. They aren't planned for a phase yet.
 
-### 3.5 Shopping lists (editors and admins)
+### 3.5 Grocery lists (editors and admins)
 
-- **Lists are personal.** Each user can keep several named lists. No live syncing.
-- **Adding recipes:** pick recipes, each with its own serving count. Scalable quantities are scaled before they're added.
-- **Manual items:** free-text lines that aren't tied to a recipe.
-- **Using a list:** check items off and uncheck them; clear checked items; delete the list.
+- **From a collection.** A collection's page links to its grocery list: the ingredients of every recipe in it that its user can see, across the whole collection, added up. Nothing is stored. The list is worked out each time it's opened, from the recipes as published then, and a recipe left out of the collection (§3.2) is left out of the list.
+  - To shop for a week, put its recipes in a collection, and empty it afterwards with Remove all.
+- **Servings:** the list names each recipe with its servings, its own until others are chosen there. Scalable quantities are scaled before they're added up.
+- **Using it:** each line has a checkbox, to tick off what's in the basket or already at home. The servings chosen and the lines ticked are kept in the page's address, so a reload or the back button keeps them; nothing is saved.
+- **Printing:** the page has a Print button. What's printed is the list as shown: each line with a box, ticked if it's ticked, and the recipes with their servings, without the header or the page's controls. Always in the light theme, as recipes are (§3.7).
 - **Aggregation rules:**
-  1. Group lines by `normalized_name`.
-  2. Within a group, convert and add quantities only when units share a dimension (volume, mass, count).
-  3. If units can't be converted, keep separate lines under the same name, e.g. "garlic: 2 cloves; 1 tbsp".
-  4. Lines without a quantity ("salt to taste") collapse into one unquantified line.
-  5. Each line records the recipes that contributed to it, and the UI shows them.
+  1. Group lines by `normalized_name`: one line each, showing the name most of its lines use (the first alphabetically, if that's a tie).
+  2. Within a group, convert and add quantities only when units share a dimension (volume, mass, count). A named unit (cloves, cans) adds up only with itself.
+  3. Amounts that can't be added up are shown side by side on the group's line, e.g. "garlic: 2 cloves, 1 tbsp".
+  4. Lines without a quantity ("salt to taste") add nothing to their group's amounts. A group with only those shows no amount.
+  5. Each line records the recipes that contributed to it, and the list shows them.
+  6. Ranges add up end to end: "2–3 cloves" and "1 clove" make "3–4 cloves".
+  - Totals are shown in the reader's unit system, in the largest sensible unit, as scaled amounts are on a recipe's page (§3.2).
+  - Lines are in alphabetical order. A ticked line stays where it is, crossed out.
 - **Implementation:** the conversion and aggregation logic is a pure module in `packages/shared`, covered by unit tests and property-based tests:
   - scaling up then back down returns the original
-  - the order recipes are added in doesn't change the result
+  - the order of the recipes doesn't change the result
+  - adding up scaled recipes gives the total scaled
 
 ### 3.6 Cook mode
 
@@ -497,7 +502,6 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |
 | `collection`, `collection_item` | Per user; items are ordered |
 | `user_preference` | `user_id`, `unit_system`. No row means the defaults. The theme isn't here: it's chosen per browser (§6). |
-| `shopping_list`, `shopping_list_item` | `normalized_name`, `qty`, `unit`, `display_text`, `checked`, `is_manual`, `sources` (JSON) |
 | `audit_event` | `actor_id`, `action`, `target_type`, `target_id`, `metadata` (JSON), `ip`, `user_agent`, `created_at` |
 | `job` | `type`, `payload` (JSON), `status`, `attempts`, `run_after`, `last_error` |
 
@@ -538,7 +542,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 **Accessibility and usability**
 - WCAG 2.2 AA.
 - Full keyboard navigation. A skip link leads to the main content, and after moving to another page, focus moves to its heading.
-- Mobile-first layouts, especially cook mode and shopping lists.
+- Mobile-first layouts, especially cook mode and grocery lists.
 - Dark mode. It follows the device's setting by default. Anyone can choose light or dark instead, and the choice is remembered in that browser.
 
 **Operations**
@@ -569,7 +573,7 @@ These were considered and deliberately excluded:
 - cook-mode timers, voice control, saved progress, one-step-at-a-time view
 - automatic nutrition lookup
 - volume ↔ weight conversion
-- live-synced or shared shopping lists
+- saved or shared shopping lists, and items added by hand: a grocery list is worked out from a collection when it's opened (§3.5)
 - fallback HTML scraping for URL import
 
 ## 8. Delivery phases
@@ -581,7 +585,7 @@ Each phase is delivered as small, atomic increments, each reviewed on its own (s
 | **0. Foundation** | Monorepo; Compose (Caddy, API, Meilisearch, Mailpit); Hono + OpenAPI + Scalar; Drizzle + SQLite; Better Auth with roles, first-run setup and invitations; job/outbox worker; audit log; CI; seed script |
 | **1. MVP** | Recipe create/edit/delete with ingredient groups, structured steps and ingredient parsing; tags, allergens, diet, nutrition; images; scaling and units; visibility; Meilisearch indexing, search, filters and sorting; favorites; cook mode; print view |
 | **2. Collaboration** | Drafts, revisions, compare and restore; optimistic concurrency; comments; ratings; collections; personal notes; public links; trash |
-| **3. Shopping lists** | Aggregation, normalization and dedup; manual items; multiple lists; check-off |
+| **3. Grocery lists** | A collection's grocery list: aggregation, normalization and dedup, servings per recipe, check-off, printing; emptying a collection |
 | **4. Best effort and polish** | URL import; JSON and JSON-LD export; full-instance export; backup and restore tooling; the S3 blob storage adapter, tested against Garage; finished documentation |
 
 Before Phase 2, saving a recipe changed its published version directly. Deleting one has always set `deleted_at`, so recipes deleted then are in the trash too, counted from when they were deleted.

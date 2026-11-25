@@ -4,7 +4,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 2 (collaboration) done; Phase 3 (shopping lists) next.** Recipes, search, scaling, favorites, collections, notes, cook mode, revisions, the trash, comments, ratings and public links work today. The [roadmap](#roadmap) shows what's done and what's next.
+> **Status: Phase 2 (collaboration) done; Phase 3 (grocery lists) next.** Recipes, search, scaling, favorites, collections, notes, cook mode, revisions, the trash, comments, ratings and public links work today. The [roadmap](#roadmap) shows what's done and what's next.
 
 ## Features
 
@@ -20,7 +20,7 @@ What myli does once the [roadmap](#roadmap) is done:
   - a trash, where deleted recipes can be restored for 30 days, or as long as you set
   - comments and ratings
 - **Personal organization:** favorites, collections and private notes.
-- **Shopping lists:** built from selected recipes, with quantities scaled, units normalized and duplicates merged.
+- **Grocery lists:** a collection's recipes added up into one list to tick off or print, with quantities scaled, units converted and duplicates merged.
 - **Cook mode:** a large-type view of the whole recipe that keeps your screen awake.
 - **Access control:** invite-only accounts with admin, editor and viewer roles. Recipes can be private, shared with everyone on the instance, or shared through a read-only public link. Admins get an audit log.
 - **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and backups.
@@ -255,7 +255,7 @@ SMTP_FROM=myli <myli@example.com>
 | 0. Foundation | Monorepo, Compose stack, API skeleton with OpenAPI docs, database and migrations, authentication, roles, invitations, job worker, audit log, CI | Done |
 | 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view | Done |
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
-| 3. Shopping lists | Aggregation, unit normalization, merging duplicates, manual items | Planned |
+| 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Planned |
 | 4. Polish | URL import, exports, backup and restore tooling | Planned |
 
 ## License

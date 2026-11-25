@@ -258,7 +258,7 @@ function singular(word: string): string {
 }
 
 /**
- * The name used to find recipes by ingredient and to add up shopping lists (spec §3.2): lowercase,
+ * The name used to find recipes by ingredient and to add up grocery lists (spec §3.2): lowercase,
  * without accents, the note or punctuation, with its last word singular. "Cherry Tomatoes, halved"
  * is "cherry tomato", and "Jalapeños" and "jalapeno" are both "jalapeno". Normalizing a normalized
  * name changes nothing.

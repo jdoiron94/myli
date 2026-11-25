@@ -10,8 +10,7 @@ export const ROLE_LABELS: Readonly<Record<Role, string>> = {
 /** What each role can do, in a line, from spec §2. */
 export const ROLE_DESCRIPTIONS: Readonly<Record<Role, string>> = {
   viewer: "Browses, searches and cooks from shared recipes, but can't change anything.",
-  editor:
-    'Also adds and edits recipes, comments and rates, and keeps favorites and shopping lists.',
+  editor: 'Also adds and edits recipes, comments and rates, and keeps favorites and collections.',
   admin: 'Can do everything, including inviting people and managing users.',
 };
 

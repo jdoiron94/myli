@@ -13,7 +13,7 @@ export const ROLE_ACTIONS = [
   'tag.create',
   /** Rename, merge or delete tags. */
   'tag.manage',
-  /** Favorites, collections, personal notes and shopping lists. */
+  /** Favorites, collections and their grocery lists, and personal notes. */
   'personal.write',
   /** See the trash: the deleted recipes they may restore (`recipe.trash`). */
   'trash.read',

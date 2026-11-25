@@ -46,7 +46,7 @@ export function scaleFactor(baseline: number, servings: number): number {
 }
 
 /**
- * `amount` with its quantities multiplied by `factor`, unless the line doesn't scale. Shopping lists
+ * `amount` with its quantities multiplied by `factor`, unless the line doesn't scale. Grocery lists
  * add up amounts scaled this way (spec §3.5).
  */
 export function scaleAmount(amount: Amount, factor: number, scalable: boolean): Amount {
