@@ -222,7 +222,7 @@ export function registerRecipeRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db }) 
     const { visibility } = c.req.valid('json');
     authorizeOn(c, 'recipe.setVisibility', id);
     const version = ifMatchVersion(c.req.valid('header')['if-match']);
-    written(id, setRecipeVisibility(deps.db, id, visibility, version));
+    written(id, setRecipeVisibility(deps.db, auditOrigin(c), id, visibility, version));
     c.var.logger.info({ recipeId: id, visibility }, 'recipe visibility set');
     const recipe = found(id);
     return c.json({ recipe }, 200, etag(recipe));

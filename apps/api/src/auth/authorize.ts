@@ -21,7 +21,7 @@ export function forbidden(): HttpProblem {
  * they can't find.
  */
 export function notFound(
-  kind: 'Recipe' | 'Revision' | 'Comment' | 'Image' | 'Collection',
+  kind: 'Recipe' | 'Revision' | 'Comment' | 'Image' | 'Collection' | 'Public link',
 ): HttpProblem {
   return new HttpProblem(404, `${kind} not found.`);
 }

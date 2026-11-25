@@ -62,7 +62,7 @@ describe('keeping the index in step with SQLite', () => {
     expect(await indexed(id)).toEqual(buildRecipeDocument(db, id));
 
     updateRecipe(db, id, sampleRecipeContent({ title: 'Seeded Rye' }), 'owner', 1);
-    setRecipeVisibility(db, id, 'shared', 2);
+    setRecipeVisibility(db, { actorId: 'owner', ip: null, userAgent: null }, id, 'shared', 2);
     await runJobs();
     expect(await indexed(id)).toMatchObject({ title: 'Seeded Rye', visibility: 'shared' });
 

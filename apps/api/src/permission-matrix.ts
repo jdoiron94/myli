@@ -17,9 +17,14 @@ import {
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
 import { createUserWithPassword } from './auth/users.ts';
-import { comment as commentTable, recipe as recipeTable } from './db/schema.ts';
+import {
+  comment as commentTable,
+  image as imageTable,
+  recipe as recipeTable,
+} from './db/schema.ts';
 import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
+import { createPublicLink } from './public-links/public-links.ts';
 import {
   ifMatch,
   insertRecipe,
@@ -139,12 +144,12 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
   return { id: result.invitation.id, token: new URL(result.link).hash.slice(1) };
 }
 
-/** The ID of a new viewer, made directly in the database, for user-management requests. */
 /** A cuisine tag's ID, created if there isn't one with this name. */
 function someTagId(t: TestApp, name: string): string {
   return String(findOrCreateTag(t.db, 'cuisine', name).tag.id);
 }
 
+/** The ID of a new viewer, made directly in the database, for user-management requests. */
 async function someUserId(t: TestApp): Promise<string> {
   const created = await createUserWithPassword(t.auth, {
     name: 'Managed User',
@@ -153,6 +158,25 @@ async function someUserId(t: TestApp): Promise<string> {
     role: 'viewer',
   });
   return created.id;
+}
+
+/**
+ * Someone else's shared recipe with a public link and a cover photo, made directly in the
+ * database: the link's token and the photo's ID.
+ */
+async function linkedRecipe(t: TestApp): Promise<{ token: string; imageId: string }> {
+  const owner = await createUserWithPassword(t.auth, {
+    name: 'Sharing Editor',
+    email: `sharer-${randomUUID()}@example.com`,
+    password: 'A sharing editor password 1',
+    role: 'editor',
+  });
+  const recipeId = insertRecipe(t.db, owner.id);
+  const imageId = await insertRecipeImage(t, recipeId);
+  t.db.update(imageTable).set({ position: 0 }).where(eq(imageTable.id, imageId)).run();
+  t.db.update(recipeTable).set({ coverImageId: imageId }).where(eq(recipeTable.id, recipeId)).run();
+  const origin = { actorId: owner.id, ip: null, userAgent: null };
+  return { token: createPublicLink(t.db, origin, recipeId).token, imageId };
 }
 
 /** Every endpoint of the versioned API. Add an entry with each new endpoint. */
@@ -571,6 +595,40 @@ export const ENDPOINTS: readonly EndpointCase[] = [
       return request(t, 'POST', `/collections/${id}/recipes/${recipeId}/move`, cookie, {
         direction: 'later',
       });
+    },
+  },
+  {
+    method: 'get',
+    path: '/recipes/{id}/public-link',
+    access: { recipe: 'recipe.share' },
+    send: (t, cookie, recipeId) => request(t, 'GET', `/recipes/${recipeId}/public-link`, cookie),
+  },
+  {
+    method: 'put',
+    path: '/recipes/{id}/public-link',
+    access: { recipe: 'recipe.share' },
+    send: (t, cookie, recipeId) => request(t, 'PUT', `/recipes/${recipeId}/public-link`, cookie),
+  },
+  {
+    method: 'delete',
+    path: '/recipes/{id}/public-link',
+    access: { recipe: 'recipe.share' },
+    send: (t, cookie, recipeId) => request(t, 'DELETE', `/recipes/${recipeId}/public-link`, cookie),
+  },
+  {
+    method: 'get',
+    path: '/public/recipes/{token}',
+    access: 'public',
+    send: async (t, cookie) =>
+      request(t, 'GET', `/public/recipes/${(await linkedRecipe(t)).token}`, cookie),
+  },
+  {
+    method: 'get',
+    path: '/public/recipes/{token}/images/{id}/{width}',
+    access: 'public',
+    send: async (t, cookie) => {
+      const { token, imageId } = await linkedRecipe(t);
+      return request(t, 'GET', `/public/recipes/${token}/images/${imageId}/64`, cookie);
     },
   },
   {
