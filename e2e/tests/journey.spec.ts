@@ -592,7 +592,7 @@ test('the recipe is found from home and search, rated, kept, collected, commente
     await checkPage(page);
   });
 
-  await test.step('it’s kept in a new collection, which shows it, from where it opens again', async () => {
+  await test.step('it’s kept in a new collection, whose grocery list adds it up, and opens again from there', async () => {
     const collections = page.getByRole('button', { name: 'Collections' });
     await collections.click();
     await expect(page.getByRole('menuitem', { name: 'No collections yet' })).toBeVisible();
@@ -627,6 +627,25 @@ test('the recipe is found from home and search, rated, kept, collected, commente
       .getByRole('link', { name: 'Weeknight Bread' });
     await expect(card).toBeVisible();
     await checkPage(page);
+
+    // The grocery list, at the servings chosen there, ticked off on screen and on paper.
+    await page.getByRole('link', { name: 'Grocery list' }).click();
+    await expect(heading(page, 'Grocery list')).toBeVisible();
+    await page.getByRole('button', { name: 'More servings for Weeknight Bread' }).click();
+    const flour = page.getByRole('checkbox', { name: 'bread flour: 1¼ lb' });
+    await flour.click();
+    await expect(flour).toHaveAttribute('aria-checked', 'true');
+    await checkPage(page);
+    await page.emulateMedia({ media: 'print' });
+    for (const role of ['navigation', 'button', 'textbox', 'checkbox', 'radio'] as const) {
+      await expect(page.getByRole(role), `no ${role} on paper`).toHaveCount(0);
+    }
+    await expect(page.getByRole('region', { name: 'Recipes' }).getByRole('listitem')).toHaveText(
+      'Weeknight Bread, 9 servings',
+      { useInnerText: true },
+    );
+    await page.emulateMedia({ media: 'screen' });
+    await page.getByRole('link', { name: 'Back to collection' }).click();
     await card.click();
     await expect(heading(page, 'Weeknight Bread')).toBeVisible();
 

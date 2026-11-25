@@ -11,6 +11,9 @@ import { Input } from '@/components/ui/input';
  * leaving the field puts the last good number back.
  */
 const servings = defineModel<number>({ required: true });
+/** What the servings are for, where a page has several: "Pancakes". Screen readers hear it. */
+const props = defineProps<{ of?: string }>();
+const forWhat = computed(() => (props.of === undefined ? '' : ` for ${props.of}`));
 
 const MAX = RECIPE_LIMITS.servings;
 const id = useId();
@@ -60,11 +63,14 @@ defineExpose({
       <label
         :for="id"
         class="text-sm font-medium"
-      >Servings</label>
+      >Servings<span
+        v-if="of"
+        class="sr-only"
+      >{{ forWhat }}</span></label>
       <Button
         variant="outline"
         size="icon-sm"
-        aria-label="Fewer servings"
+        :aria-label="`Fewer servings${forWhat}`"
         :aria-controls="id"
         :aria-disabled="servings <= 1 ? true : undefined"
         @click="step(-1)"
@@ -86,7 +92,7 @@ defineExpose({
       <Button
         variant="outline"
         size="icon-sm"
-        aria-label="More servings"
+        :aria-label="`More servings${forWhat}`"
         :aria-controls="id"
         :aria-disabled="servings >= MAX ? true : undefined"
         @click="step(1)"
