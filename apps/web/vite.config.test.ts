@@ -135,6 +135,7 @@ describe('the build', () => {
         'src/pages/HomePage.vue',
         'src/pages/RecipePage.vue',
         'src/pages/CookPage.vue',
+        'src/pages/PublicRecipePage.vue',
       ].map((entry) => filesLoadedWith(entry, chunks));
 
       expect(loaded.every((files) => files.length > 0)).toBe(true);

@@ -1,6 +1,6 @@
 import { DEFAULT_PREFERENCES, type UnitSystem } from '@myli/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
-import { computed } from 'vue';
+import { computed, type InjectionKey, inject, type Ref, ref } from 'vue';
 import { api, responseData } from '@/api/client.ts';
 import type { components } from '@/api/schema.ts';
 
@@ -24,12 +24,48 @@ export function useSavePreferences() {
   });
 }
 
+/** The unit system recipes are shown in, and a way to choose another. */
+export interface UnitSystemSetting {
+  system: Readonly<Ref<UnitSystem>>;
+  choose: (unitSystem: UnitSystem) => void;
+  /** False until the system to show is known, so a page doesn't show one and then switch. */
+  ready: Readonly<Ref<boolean>>;
+  /** Why the last choice wasn't kept. */
+  failure: Readonly<Ref<Error | null>>;
+}
+
 /**
- * The unit system recipes are shown in, and a way to choose another. A choice shows at once, while
- * it's saved; if saving fails, the saved one comes back and `failure` says why. Until the saved one
- * is known, `ready` is false, so a page doesn't show imperial amounts and then switch.
+ * For a page whose reader isn't signed in, which keeps the unit system itself, as a public link's
+ * does (`pageUnitSystem()`). Every other page takes the reader's preference.
  */
-export function useUnitSystem() {
+export const PAGE_UNIT_SYSTEM: InjectionKey<UnitSystemSetting> = Symbol('page unit system');
+
+/** A unit system kept by the page, for as long as it's open: the default until another's chosen. */
+export function pageUnitSystem(): UnitSystemSetting {
+  const system = ref<UnitSystem>(DEFAULT_PREFERENCES.unitSystem);
+  return {
+    system,
+    choose: (unitSystem) => {
+      system.value = unitSystem;
+    },
+    ready: computed(() => true),
+    failure: ref(null),
+  };
+}
+
+/**
+ * The unit system recipes are shown in, and a way to choose another: the page's own, if it keeps
+ * one (`PAGE_UNIT_SYSTEM`), or else the reader's preference.
+ */
+export function useUnitSystem(): UnitSystemSetting {
+  return inject(PAGE_UNIT_SYSTEM, null) ?? usePreferredUnitSystem();
+}
+
+/**
+ * The reader's preferred unit system. A choice shows at once, while it's saved; if saving fails,
+ * the saved one comes back and `failure` says why. Until the saved one is known, `ready` is false.
+ */
+function usePreferredUnitSystem(): UnitSystemSetting {
   const preferences = useQuery(preferencesQuery);
   const save = useSavePreferences();
 

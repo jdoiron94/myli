@@ -141,7 +141,9 @@ There are three roles: **admin**, **editor** and **viewer**.
 - A recipe's visibility is chosen when it's created and changed on its own afterwards: saving the recipe's content never changes it, so editors can edit any shared recipe without being able to hide it.
 - A new recipe starts private in the editor, so nothing is shared by accident: sharing is a choice.
 - The owner shares a recipe, or makes it private again, from its page, after a confirmation that says who will see it.
-- Making a recipe private revokes its public link.
+- Making a recipe private revokes its public link. Its confirmation says so when it has one.
+- Whoever may share a recipe has a Public link button on its page, which creates the link, copies it, and revokes it after a confirmation.
+- The link's page shows the recipe as its page does, without its actions, ratings or comments: its photos, ingredients scaled to any servings, steps and nutrition. Someone not signed in chooses metric or imperial there, for as long as the page is open.
 
 **Audit log**
 - Append-only, enforced by the database: triggers refuse every change to a recorded event. Viewable by admins only, newest first, a page at a time, optionally filtered by action.

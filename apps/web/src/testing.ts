@@ -154,6 +154,13 @@ export function answerNote(note: components['schemas']['Note'] | null = null) {
   apiServer.use(http.get(NOTE_PATH, () => HttpResponse.json({ note })));
 }
 
+const PUBLIC_LINK_PATH = `${API_BASE_PATH}/recipes/:id/public-link`;
+
+/** Answers every recipe's public link with `link`: none, unless given. */
+export function answerPublicLink(link: components['schemas']['PublicLink'] | null = null) {
+  apiServer.use(http.get(PUBLIC_LINK_PATH, () => HttpResponse.json({ publicLink: link })));
+}
+
 const DRAFT_PATH = `${API_BASE_PATH}/recipes/:id/draft`;
 
 /** Answers every recipe's draft with `draft`: none, unless given. */
@@ -205,6 +212,7 @@ export async function renderApp(
   if (!answered('GET', NOTE_PATH)) answerNote();
   if (!answered('GET', COLLECTIONS_PATH)) answerCollections();
   if (!answered('GET', DRAFT_PATH)) answerDraft();
+  if (!answered('GET', PUBLIC_LINK_PATH)) answerPublicLink();
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();
