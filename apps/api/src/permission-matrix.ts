@@ -639,6 +639,13 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     },
   },
   {
+    method: 'delete',
+    path: '/collections/{id}/recipes',
+    access: 'personal.write',
+    send: async (t, cookie) =>
+      request(t, 'DELETE', `/collections/${await ownCollection(t, cookie)}/recipes`, cookie),
+  },
+  {
     method: 'get',
     path: '/recipes/{id}/collections',
     access: { recipe: 'recipe.interact' },

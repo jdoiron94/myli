@@ -7286,6 +7286,62 @@
         }
       }
     },
+    "/collections/{id}/recipes": {
+      "delete": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Take every recipe out of a collection",
+        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. Those they can no longer see too, so none comes back later. The recipes themselves stay as they are.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Empty."
+          },
+          "404": {
+            "description": "The caller has no collection with this ID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/recipes/{id}/collections": {
       "get": {
         "tags": [

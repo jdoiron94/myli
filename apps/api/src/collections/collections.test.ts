@@ -135,6 +135,7 @@ describe('collections', () => {
     const statuses = {
       get: (await send(t, admin.cookie, 'GET', `/collections/${id}`)).status,
       ingredients: (await send(t, admin.cookie, 'GET', `/collections/${id}/ingredients`)).status,
+      empty: (await send(t, admin.cookie, 'DELETE', `/collections/${id}/recipes`)).status,
       rename: (await send(t, admin.cookie, 'PUT', `/collections/${id}`, { name: 'Mine' })).status,
       move: await move(t, admin.cookie, id, recipeId, 'later'),
       add: (await send(t, admin.cookie, 'PUT', `/collections/${id}/recipes/${recipeId}`)).status,
@@ -145,6 +146,7 @@ describe('collections', () => {
     expect(statuses).toEqual({
       get: 404,
       ingredients: 404,
+      empty: 404,
       rename: 404,
       move: 404,
       add: 404,
@@ -185,6 +187,23 @@ describe('collections', () => {
 
     setTheirs({ deletedAt: null });
     expect(await shown(t, reader.cookie, id)).toEqual(['Curry', 'Their Stew', 'Bread']);
+  });
+
+  it('are emptied in one go, of the recipes their owner can no longer see too', async () => {
+    const t = createTestApp();
+    const [reader, author] = await Promise.all([signedInAs(t, 'editor'), signedInAs(t, 'editor')]);
+    const theirs = titled(t, author.user.id, 'Their Stew');
+    const id = await create(t, reader.cookie, 'This week');
+    for (const recipeId of [titled(t, reader.user.id, 'Bread'), theirs]) {
+      await send(t, reader.cookie, 'PUT', `/collections/${id}/recipes/${recipeId}`);
+    }
+    const setTheirs = (visibility: 'private' | 'shared') =>
+      t.db.update(recipe).set({ visibility }).where(eq(recipe.id, theirs)).run();
+
+    setTheirs('private');
+    expect((await send(t, reader.cookie, 'DELETE', `/collections/${id}/recipes`)).status).toBe(204);
+    setTheirs('shared');
+    expect(await shown(t, reader.cookie, id)).toEqual([]);
   });
 
   it('page their recipes, with no limit on how many, moved from page to page', async () => {
