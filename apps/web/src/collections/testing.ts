@@ -84,6 +84,13 @@ export function storeCollections(initial: StoredCollection[], perPage = RECIPES_
         );
       return new HttpResponse(null, { status: 204 });
     }),
+    http.delete('/api/v1/collections/:id/recipes', async ({ request, params }) => {
+      await record(request);
+      const found = find(params.id);
+      if (!found) return missing();
+      found.recipes = [];
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.delete('/api/v1/collections/:id/recipes/:recipeId', async ({ request, params }) => {
       await record(request);
       const found = find(params.id);

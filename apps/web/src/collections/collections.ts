@@ -84,6 +84,12 @@ export const useSetInCollection = () =>
     },
   );
 
+/** Takes every recipe out of a collection, those the reader can no longer see too. */
+export const useEmptyCollection = () =>
+  useRefreshingMutation(COLLECTIONS, async (id: string) => {
+    await api.DELETE('/collections/{id}/recipes', { params: { path: { id } } });
+  });
+
 export type MoveDirection = (typeof MOVE_DIRECTIONS)[number];
 
 /**

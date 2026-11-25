@@ -149,6 +149,28 @@ describe('a collection’s page', () => {
     expect(screen.queryByRole('link', { name: /Weeknight/ })).toBeNull();
   });
 
+  it('takes every recipe out at once, once confirmed, going back to its first page', async () => {
+    const sent = storeCollections(
+      [{ id: 'weeknight', name: 'Weeknight', recipes: [bread, curry, tacos] }],
+      2,
+    );
+    const { router, user } = await open('/collections/weeknight?page=2');
+    await user.click(screen.getByRole('button', { name: 'Remove all' }));
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Take every recipe out of “Weeknight”?',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove all' }));
+    await screen.findByText('Took every recipe out of “Weeknight”.');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
+    });
+    expect(router.currentRoute.value.fullPath).toBe('/collections/weeknight');
+    expect(screen.getByText('0 recipes')).toBeDefined();
+    expect(sent.map(({ method, path }) => [method, path])).toEqual([
+      ['DELETE', '/collections/weeknight/recipes'],
+    ]);
+  });
+
   it('says so for one the reader doesn’t have', async () => {
     storeCollections([]);
     await open('/collections/someone-elses');
