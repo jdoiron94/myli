@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/jdoiron94/myli/compare/v0.10.0...v0.11.0) (2026-11-25)
+
+
+### Features
+
+* **api:** keep a personal note on a recipe ([5b2df6e](https://github.com/jdoiron94/myli/commit/5b2df6e8f7ea3a15db5a73ddd94db1f2d717a023))
+* **api:** keep recipes in personal collections ([ecc02e4](https://github.com/jdoiron94/myli/commit/ecc02e4451f9e873b3685f21b9ba2406b62a898e))
+* let collections share a name ([ba2439d](https://github.com/jdoiron94/myli/commit/ba2439d18dfa8e1f0df2651c59afe5582cd577af))
+* page collections, with no limit on their size ([46df2e7](https://github.com/jdoiron94/myli/commit/46df2e7caf4c1e2bdb4e2eb495bf67ebc819d785))
+* **web:** ask before taking a recipe out of a collection ([fea2c1e](https://github.com/jdoiron94/myli/commit/fea2c1e12072a42ee0920b25af9376d5e3f82387))
+* **web:** keep a personal note on a recipe's page ([da46ab4](https://github.com/jdoiron94/myli/commit/da46ab4fffdab85386c6a662da5649309355f1d6))
+* **web:** keep recipes in collections, from their pages ([8ab9ae6](https://github.com/jdoiron94/myli/commit/8ab9ae6825eb8863c71dad63d4bc9efe6f094940))
+
 ## [0.10.0](https://github.com/jdoiron94/myli/compare/v0.9.0...v0.10.0) (2026-11-24)
 
 
