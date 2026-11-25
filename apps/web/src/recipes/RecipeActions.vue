@@ -30,6 +30,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { goWithNotice, pageNotice } from '@/lib/page-notice.ts';
 import { favoriteQuery, useSetFavorite } from './favorites.ts';
+import PublicLinkDialog from './PublicLinkDialog.vue';
+import { publicLinkKey, publicLinkQuery } from './public-links.ts';
 import {
   type Recipe,
   recipeDraftQuery,
@@ -57,7 +59,19 @@ const canFavorite = computed(() => allowed('recipe.interact'));
 const canEdit = computed(() => allowed('recipe.edit'));
 const canSetVisibility = computed(() => allowed('recipe.setVisibility'));
 const canDelete = computed(() => allowed('recipe.trash'));
+const canShare = computed(() => allowed('recipe.share'));
 const shared = computed(() => props.recipe.visibility === 'shared');
+
+// Only asked by someone who may share it. Making it private takes the link away, which its
+// confirmation says.
+const publicLink = useQuery(
+  computed(() => ({ ...publicLinkQuery(props.recipe.id), enabled: canShare.value })),
+);
+const privateWarning = computed(() =>
+  canShare.value && publicLink.data.value
+    ? 'Nobody but you will see it, not even admins, and its public link stops working for good. You can share it again later.'
+    : 'Nobody but you will see it, not even admins. You can share it again later.',
+);
 
 // Whoever may edit the recipe may continue its draft, so they're told there is one.
 const draftQuery = useQuery(
@@ -113,6 +127,7 @@ const refusalMessage = (error: unknown) =>
     : failureMessage(error);
 
 const changeVisibility = useChangeVisibility();
+const queryClient = useQueryClient();
 
 async function toggleVisibility() {
   if (changeVisibility.isPending.value) return;
@@ -129,6 +144,8 @@ async function toggleVisibility() {
     failure.value = refusalMessage(error);
     return;
   }
+  // Making it private took its public link away.
+  queryClient.removeQueries({ queryKey: publicLinkKey(props.recipe.id) });
   notice.value =
     visibility === 'shared'
       ? 'Shared: everyone on myli can see it now.'
@@ -136,7 +153,6 @@ async function toggleVisibility() {
 }
 
 const deleteRecipe = useDeleteRecipe();
-const queryClient = useQueryClient();
 
 /** Home afterwards, which says it's deleted: the recipe's page has nothing to show. */
 async function remove() {
@@ -217,6 +233,11 @@ async function remove() {
         </RouterLink>
       </Button>
 
+      <PublicLinkDialog
+        v-if="canShare"
+        :recipe-id="recipe.id"
+      />
+
       <AlertDialog v-if="canSetVisibility">
         <AlertDialogTrigger as-child>
           <Button
@@ -242,7 +263,7 @@ async function remove() {
             <AlertDialogDescription>
               {{
                 shared
-                  ? 'Nobody but you will see it, not even admins. You can share it again later.'
+                  ? privateWarning
                   : 'Everyone on myli will see it, and editors will be able to change it. You can make it private again later.'
               }}
             </AlertDialogDescription>

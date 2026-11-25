@@ -1,4 +1,10 @@
-import { can, INVITATION_ACCEPT_PATH, type RoleAction, type User } from '@myli/shared';
+import {
+  can,
+  INVITATION_ACCEPT_PATH,
+  PUBLIC_RECIPE_PATH,
+  type RoleAction,
+  type User,
+} from '@myli/shared';
 import type { QueryClient } from '@tanstack/vue-query';
 import {
   createRouter,
@@ -88,6 +94,14 @@ export const routes: RouteRecordRaw[] = [
     name: 'accept-invitation',
     component: () => import('./pages/AcceptInvitationPage.vue'),
     meta: { title: 'Accept invitation', access: 'public' },
+  },
+  {
+    // Open to anyone with the link, signed in or not: the token is the permission (ADR 0016).
+    path: `${PUBLIC_RECIPE_PATH}/:token`,
+    name: 'public-recipe',
+    component: () => import('./pages/PublicRecipePage.vue'),
+    props: true,
+    meta: { title: 'Recipe', access: 'public' },
   },
   {
     path: '/admin/invitations',

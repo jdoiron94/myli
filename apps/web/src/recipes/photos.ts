@@ -5,6 +5,7 @@ import {
   NOT_AN_IMAGE_DETAIL,
   TOO_LARGE_DETAIL,
 } from '@myli/shared';
+import type { InjectionKey } from 'vue';
 import { api, responseData } from '@/api/client.ts';
 import type { Image } from './recipe.ts';
 
@@ -30,20 +31,29 @@ export async function uploadPhoto(file: File): Promise<Image> {
   return image;
 }
 
-/** Where one size of a photo is served. The API decides who may see it, as for its recipe. */
-export const imageUrl = (id: string, width: number) =>
+/** Where one size of a photo is served. */
+export type PhotoAddress = (id: string, width: number) => string;
+
+/** Where the signed-in reader gets a photo. The API decides who may see it, as for its recipe. */
+export const imageUrl: PhotoAddress = (id, width) =>
   `${API_BASE_PATH}/images/${encodeURIComponent(id)}/${String(width)}`;
+
+/**
+ * Where the photos on a page come from, for a page whose reader isn't signed in: a public link's
+ * gives its token's. Every other page gets `imageUrl`.
+ */
+export const PHOTO_ADDRESS: InjectionKey<PhotoAddress> = Symbol('photo address');
 
 /**
  * What an `<img>` needs to let the browser pick the size of a photo it shows: each size the API
  * made, and for `src`, the first at least 1280 pixels wide, or the widest.
  */
-export function imageSources(image: Image) {
+export function imageSources(image: Image, address: PhotoAddress = imageUrl) {
   const fallback = image.variants.find(({ width }) => width >= 1280) ?? image.variants.at(-1);
   return {
-    src: fallback && imageUrl(image.id, fallback.width),
+    src: fallback && address(image.id, fallback.width),
     srcset: image.variants
-      .map(({ width }) => `${imageUrl(image.id, width)} ${String(width)}w`)
+      .map(({ width }) => `${address(image.id, width)} ${String(width)}w`)
       .join(', '),
   };
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { imageSources } from './photos.ts';
+import { computed, inject } from 'vue';
+import { imageSources, imageUrl, PHOTO_ADDRESS } from './photos.ts';
 import type { Image } from './recipe.ts';
 
 const props = defineProps<{
@@ -16,7 +16,8 @@ const props = defineProps<{
   alt?: string;
 }>();
 
-const sources = computed(() => imageSources(props.image));
+const address = inject(PHOTO_ADDRESS, imageUrl);
+const sources = computed(() => imageSources(props.image, address));
 </script>
 
 <template>

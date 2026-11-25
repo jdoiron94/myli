@@ -876,3 +876,51 @@ test('the recipe is revised, deleted and restored from the trash', async ({ page
     await expect(listed).toBeVisible();
   });
 });
+
+test('the recipe is shared through a public link, which opens for anyone until it’s revoked', async ({
+  page,
+  newContext,
+  baseURL,
+}) => {
+  await signInAsAdmin(page);
+  await page.goto(recipePath);
+  await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Public link' });
+  // Someone with the link, in a browser that isn't signed in.
+  const visitor = await (await newContext({ baseURL, viewport: page.viewportSize() })).newPage();
+
+  await test.step('its public link is created, and shows the recipe to someone not signed in', async () => {
+    await page.getByRole('button', { name: 'Public link' }).click();
+    await dialog.getByRole('button', { name: 'Create public link' }).click();
+    const field = dialog.getByRole('textbox', { name: 'Link' });
+    await expect(field).toBeFocused();
+    await checkPage(page, { popup: true });
+    const link = await field.inputValue();
+    expect(new URL(link).pathname).toMatch(/^\/p\/[\w-]{43}$/);
+    await page.keyboard.press('Escape');
+
+    await visitor.goto(link);
+    await expect(heading(visitor, 'Weeknight Bread')).toBeVisible();
+    await loaded(visitor.getByRole('img', { name: 'The loaf cut open, showing its crumb.' }));
+    // What it says, and nothing about who wrote it, its ratings or comments.
+    await expect(
+      visitor.getByRole('region', { name: 'Ingredients' }).getByRole('listitem').first(),
+    ).toBeVisible();
+    await expect(visitor.getByText(ADMIN.name)).toHaveCount(0);
+    await expect(visitor.getByRole('heading', { name: 'Comments' })).toHaveCount(0);
+    await checkPage(visitor);
+  });
+
+  await test.step('revoking it, once confirmed, stops it working', async () => {
+    await page.getByRole('button', { name: 'Public link' }).click();
+    await dialog.getByRole('button', { name: 'Revoke link' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Revoke the public link?' })
+      .getByRole('button', { name: 'Revoke link' })
+      .click();
+    await expect(dialog.getByRole('button', { name: 'Create public link' })).toBeFocused();
+
+    await visitor.reload();
+    await expect(heading(visitor, 'Link not found')).toBeVisible();
+  });
+});
