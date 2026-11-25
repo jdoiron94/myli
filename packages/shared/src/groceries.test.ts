@@ -75,6 +75,9 @@ describe('groceryList', () => {
           recipe('C', ['3 Roma tomatoes']),
         ),
       },
+      'as many lines with each name': {
+        entries: atOwn(recipe('A', ['2 eggs']), recipe('B', ['1 egg'])),
+      },
       'metric, in the largest sensible unit': {
         entries: atOwn(recipe('A', ['750 ml stock']), recipe('B', ['750 ml stock'])),
         system: 'metric',
@@ -101,6 +104,7 @@ describe('groceryList', () => {
       'no quantity and a quantity': ['salt: 1 tsp (A, B)'],
       'servings chosen, and a line that doesn’t scale': ['oil: 2 cups (A)', 'rice: 2 cups (A)'],
       'the name most lines use': ['Roma tomatoes: 6 (A, B, C)'],
+      'as many lines with each name': ['eggs: 3 (A, B)'],
       'metric, in the largest sensible unit': ['stock: 1.5 l (A, B)'],
       'in the other system': ['beef: 2⅛ lb (A, B)'],
     });

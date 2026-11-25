@@ -404,7 +404,7 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - **Using it:** each line has a checkbox, to tick off what's in the basket or already at home. The servings chosen and the lines ticked are kept in the page's address, so a reload or the back button keeps them; nothing is saved.
 - **Printing:** the page has a Print button. What's printed is the list as shown: each line with a box, ticked if it's ticked, and the recipes with their servings, without the header or the page's controls. Always in the light theme, as recipes are (§3.7).
 - **Aggregation rules:**
-  1. Group lines by `normalized_name`: one line each, showing the name most of its lines use (the first alphabetically, if that's a tie).
+  1. Group lines by `normalized_name`: one line each, showing the name most of its lines use. If that's a tie, the longest, which is usually the plural ("eggs" for "2 eggs" and "1 egg"), then the first alphabetically.
   2. Within a group, convert and add quantities only when units share a dimension (volume, mass, count). A named unit (cloves, cans) adds up only with itself.
   3. Amounts that can't be added up are shown side by side on the group's line, e.g. "garlic: 2 cloves, 1 tbsp".
   4. Lines without a quantity ("salt to taste") add nothing to their group's amounts. A group with only those shows no amount.
