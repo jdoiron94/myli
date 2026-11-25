@@ -53,7 +53,7 @@ export interface GroceryEntry {
 export interface GroceryLine {
   /** The normalized name its ingredients share, which identifies the line, as when it's ticked. */
   key: string;
-  /** The name most of its ingredients use. */
+  /** The name most of its ingredients use, or the longest of those used as often. */
   name: string;
   /**
    * How much, as one amount for each kind of unit that can't be added to the others: a measure in
@@ -85,11 +85,16 @@ function sum(values: readonly number[]): number {
   return [...values].sort((a, b) => a - b).reduce((total, value) => total + value, 0);
 }
 
-/** The name used most, or the first alphabetically of those used most. */
+/**
+ * The name used most. Of those used as often, the longest, which is usually the plural ("eggs" for
+ * "2 eggs" and "1 egg"), then the first alphabetically.
+ */
 function commonest(names: readonly string[]): string {
   const counts = new Map<string, number>();
   for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
-  const [first] = [...counts].sort(([a, m], [b, n]) => n - m || compareText(a, b));
+  const [first] = [...counts].sort(
+    ([a, m], [b, n]) => n - m || b.length - a.length || compareText(a, b),
+  );
   return first?.[0] ?? '';
 }
 
