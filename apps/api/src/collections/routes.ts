@@ -26,6 +26,7 @@ import {
   collectionsHolding,
   createCollection,
   deleteCollection,
+  emptyCollection,
   listCollections,
   loadCollection,
   moveInCollection,
@@ -211,6 +212,23 @@ const deleteRecipe = createRoute({
   },
 });
 
+const deleteRecipes = createRoute({
+  method: 'delete',
+  path: '/collections/{id}/recipes',
+  tags: ['Collections'],
+  summary: 'Take every recipe out of a collection',
+  description:
+    `${PERSONAL} Those they can no longer see too, so none comes back later. The recipes ` +
+    'themselves stay as they are.',
+  middleware: [requirePermission('personal.write')] as const,
+  request: { params: collectionIdParamsSchema },
+  responses: {
+    204: { description: 'Empty.' },
+    404: noCollection,
+    ...errorResponses,
+  },
+});
+
 const getRecipeCollections = createRoute({
   method: 'get',
   path: '/recipes/{id}/collections',
@@ -294,6 +312,13 @@ export function registerCollectionRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db
     authorizeOn(c, 'recipe.interact', recipeId);
     if (!ownsCollection(db, c.var.user.id, id)) throw notFound('Collection');
     removeFromCollection(db, id, recipeId);
+    return c.body(null, 204);
+  });
+
+  v1.openapi(deleteRecipes, (c) => {
+    if (!emptyCollection(db, c.var.user.id, c.req.valid('param').id)) {
+      throw notFound('Collection');
+    }
     return c.body(null, 204);
   });
 

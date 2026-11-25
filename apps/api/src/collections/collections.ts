@@ -176,6 +176,16 @@ export function addToCollection(db: Db, id: string, recipeId: string): void {
   );
 }
 
+/**
+ * Takes every recipe out of one of the owner's collections, those they can no longer see included,
+ * so none comes back later. Whether they have one with this ID.
+ */
+export function emptyCollection(db: Db, ownerId: string, id: string): boolean {
+  if (!ownsCollection(db, ownerId, id)) return false;
+  db.delete(collectionItem).where(eq(collectionItem.collectionId, id)).run();
+  return true;
+}
+
 /** Takes a recipe out of a collection. One that isn't in it changes nothing. */
 export function removeFromCollection(db: Db, id: string, recipeId: string): void {
   db.delete(collectionItem)
