@@ -70,6 +70,13 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Collection', permission: 'personal.write' },
   },
   {
+    path: '/collections/:id/groceries',
+    name: 'collection-groceries',
+    component: () => import('./pages/GroceryListPage.vue'),
+    props: true,
+    meta: { title: 'Grocery list', permission: 'personal.write' },
+  },
+  {
     path: '/trash',
     name: 'trash',
     component: () => import('./pages/TrashPage.vue'),

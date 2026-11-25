@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ArrowLeftIcon, ArrowRightIcon, PencilIcon, TrashIcon, XIcon } from '@lucide/vue';
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  PencilIcon,
+  ShoppingBasketIcon,
+  TrashIcon,
+  XIcon,
+} from '@lucide/vue';
 import { recipeListQuerySchema } from '@myli/shared';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { until } from '@vueuse/core';
@@ -40,8 +47,8 @@ import { documentTitle } from '@/router.ts';
 
 /**
  * One of the reader's collections (spec §3.3): its recipes in their order, which they change, a
- * page at a time, the page in the address (`?page=2`), and renaming or deleting it. No one else
- * sees it.
+ * page at a time, the page in the address (`?page=2`), a link to its grocery list, and renaming or
+ * deleting it. No one else sees it.
  */
 const props = defineProps<{ id: string }>();
 
@@ -215,6 +222,16 @@ async function removeRecipe(recipeId: string, title: string) {
       v-else
       class="mt-4 flex flex-wrap gap-2"
     >
+      <Button
+        v-if="collection.total > 0"
+        size="sm"
+        as-child
+      >
+        <RouterLink :to="{ name: 'collection-groceries', params: { id } }">
+          <ShoppingBasketIcon aria-hidden="true" />
+          Grocery list
+        </RouterLink>
+      </Button>
       <Button
         id="rename-collection"
         variant="outline"
