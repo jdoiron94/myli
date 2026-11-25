@@ -202,6 +202,27 @@ export function displayAmount(amount: Amount, options: DisplayOptions): Displaye
     (factor === 1 && written.system === options.system)
       ? written
       : chooseUnit(qty, written, options.system);
+  return displayIn(qty, qtyMax, written, unit);
+}
+
+/**
+ * How a grocery list's total is shown (spec §3.5): always in the reader's system and the largest
+ * sensible unit, as a scaled amount is, whatever unit it's in. A count or a named unit as it is.
+ */
+export function displayTotal(amount: Amount, system: UnitSystem): DisplayedAmount {
+  const written = resolveUnit(amount.unit);
+  if (amount.qty === null) return { quantity: null, unit: written?.name ?? null };
+  const unit = written?.system == null ? written : chooseUnit(amount.qty, written, system);
+  return displayIn(amount.qty, amount.qtyMax, written, unit);
+}
+
+/** `qty` (to `qtyMax`) of `written`, shown in `unit`. */
+function displayIn(
+  qty: number,
+  qtyMax: number | null,
+  written: Unit | null,
+  unit: Unit | null,
+): DisplayedAmount {
   const inUnit = (value: number) => convert(value, written, unit) ?? value;
 
   const low = quantityText(inUnit(qty), unit);
