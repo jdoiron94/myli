@@ -62,11 +62,15 @@ export {
 } from './compare.ts';
 export { type Favorite, favoriteSchema } from './favorites.ts';
 export {
+  type CollectionIngredients,
+  collectionIngredientsSchema,
   type GroceryEntry,
   type GroceryIngredient,
   type GroceryLine,
   type GroceryRecipe,
+  groceryIngredientSchema,
   groceryList,
+  groceryRecipeSchema,
 } from './groceries.ts';
 export {
   IMAGE_MAX_BYTES,

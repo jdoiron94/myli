@@ -1,6 +1,7 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import {
   collectionIdParamsSchema,
+  collectionIngredientsSchema,
   collectionListSchema,
   collectionMoveSchema,
   collectionRecipeParamsSchema,
@@ -21,6 +22,7 @@ import { errorResponses, HttpProblem } from '../problems.ts';
 import { recipeGuards } from '../recipes/http.ts';
 import {
   addToCollection,
+  collectionIngredients,
   collectionsHolding,
   createCollection,
   deleteCollection,
@@ -96,6 +98,24 @@ const getCollection = createRoute({
   request: { params: collectionIdParamsSchema, query: recipeListQuerySchema },
   responses: {
     200: json('The collection.', collectionSchema),
+    404: noCollection,
+    ...errorResponses,
+  },
+});
+
+const getIngredients = createRoute({
+  method: 'get',
+  path: '/collections/{id}/ingredients',
+  tags: ['Collections'],
+  summary: 'Get the ingredients of a collection’s recipes',
+  description:
+    `${PERSONAL} What its grocery list is added up from: every recipe in it they may see now, as ` +
+    'published, with its servings and ingredients, all at once. The client adds them up, at the ' +
+    'servings the reader chooses.',
+  middleware: [requirePermission('personal.write')] as const,
+  request: { params: collectionIdParamsSchema },
+  responses: {
+    200: json('Its recipes’ ingredients.', collectionIngredientsSchema),
     404: noCollection,
     ...errorResponses,
   },
@@ -224,6 +244,12 @@ export function registerCollectionRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db
       c.req.valid('param').id,
       c.req.valid('query').page,
     );
+    if (!found) throw notFound('Collection');
+    return c.json(found, 200);
+  });
+
+  v1.openapi(getIngredients, (c) => {
+    const found = collectionIngredients(db, c.var.user, c.req.valid('param').id);
     if (!found) throw notFound('Collection');
     return c.json(found, 200);
   });

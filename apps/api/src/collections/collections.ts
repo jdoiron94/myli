@@ -1,6 +1,8 @@
 import {
   type Collection,
+  type CollectionIngredients,
   type CollectionSummary,
+  type GroceryIngredient,
   type MOVE_DIRECTIONS,
   type PolicyUser,
   RECIPES_PER_PAGE,
@@ -8,7 +10,7 @@ import {
 } from '@myli/shared';
 import { and, asc, count, eq, max } from 'drizzle-orm';
 import type { Db } from '../db/database.ts';
-import { collection, collectionItem, recipe } from '../db/schema.ts';
+import { collection, collectionItem, recipe, recipeIngredient } from '../db/schema.ts';
 import { pageOffset, readableBy, recipeListPage, SUMMARY_COLUMNS } from '../recipes/list.ts';
 
 const owned = (ownerId: string, id: string) =>
@@ -100,6 +102,55 @@ export function loadCollection(
     .offset(pageOffset(page))
     .all();
   return { ...row, ...recipeListPage(db, user, rows, { total, page }) };
+}
+
+/**
+ * What one of the user's collections' grocery list is worked out from (spec §3.5): the ingredients
+ * of every recipe in it that they may see now, as published, in its order, all at once. `null` if
+ * they have no collection with this ID.
+ */
+export function collectionIngredients(
+  db: Db,
+  user: PolicyUser,
+  id: string,
+): CollectionIngredients | null {
+  const row = db
+    .select({ id: collection.id, name: collection.name })
+    .from(collection)
+    .where(owned(user.id, id))
+    .get();
+  if (!row) return null;
+  const recipes = db
+    .select({ id: recipe.id, title: recipe.title, servings: recipe.servings })
+    .from(collectionItem)
+    .innerJoin(recipe, eq(recipe.id, collectionItem.recipeId))
+    .where(visibleIn(user, id))
+    .orderBy(asc(collectionItem.position), asc(recipe.id))
+    .all();
+  // Every line of every recipe in it: only those of the recipes they may see are used.
+  const lines = db
+    .select({
+      recipeId: recipeIngredient.recipeId,
+      qty: recipeIngredient.qty,
+      qtyMax: recipeIngredient.qtyMax,
+      unit: recipeIngredient.unit,
+      name: recipeIngredient.name,
+      normalizedName: recipeIngredient.normalizedName,
+      scalable: recipeIngredient.scalable,
+    })
+    .from(recipeIngredient)
+    .innerJoin(collectionItem, eq(collectionItem.recipeId, recipeIngredient.recipeId))
+    .where(eq(collectionItem.collectionId, id))
+    .orderBy(asc(recipeIngredient.groupPosition), asc(recipeIngredient.position))
+    .all();
+  const byRecipe = new Map<string, GroceryIngredient[]>();
+  for (const { recipeId, ...line } of lines) {
+    byRecipe.set(recipeId, [...(byRecipe.get(recipeId) ?? []), line]);
+  }
+  return {
+    ...row,
+    recipes: recipes.map((found) => ({ ...found, ingredients: byRecipe.get(found.id) ?? [] })),
+  };
 }
 
 /**

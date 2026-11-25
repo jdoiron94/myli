@@ -546,6 +546,13 @@ export const ENDPOINTS: readonly EndpointCase[] = [
       request(t, 'GET', `/collections/${await ownCollection(t, cookie)}`, cookie),
   },
   {
+    method: 'get',
+    path: '/collections/{id}/ingredients',
+    access: 'personal.write',
+    send: async (t, cookie) =>
+      request(t, 'GET', `/collections/${await ownCollection(t, cookie)}/ingredients`, cookie),
+  },
+  {
     method: 'put',
     path: '/collections/{id}',
     access: 'personal.write',

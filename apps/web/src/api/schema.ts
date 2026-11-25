@@ -3283,6 +3283,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collections/{id}/ingredients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the ingredients of a collection’s recipes
+         * @description Editors and admins. Collections are personal: no one else ever sees them, admins included. What its grocery list is added up from: every recipe in it they may see now, as published, with its servings and ingredients, all at once. The client adds them up, at the servings the reader chooses.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Its recipes’ ingredients. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CollectionIngredients"];
+                    };
+                };
+                /** @description The caller has no collection with this ID. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/collections/{id}/recipes/{recipeId}": {
         parameters: {
             query?: never;
@@ -5313,6 +5381,29 @@ export interface components {
             total: number;
             page: number;
             totalPages: number;
+        };
+        CollectionIngredients: {
+            id: string;
+            name: string;
+            /** @description Every recipe in it that the caller may see now, as published, in the order they put them: all of them at once, not a page. */
+            recipes: components["schemas"]["GroceryRecipe"][];
+        };
+        GroceryRecipe: {
+            id: string;
+            title: string;
+            /** @description The servings its amounts are written for. */
+            servings: number;
+            /** @description In the order the recipe lists them. */
+            ingredients: components["schemas"]["GroceryIngredient"][];
+        };
+        GroceryIngredient: {
+            qty: number | null;
+            qtyMax: number | null;
+            unit: string | null;
+            name: string;
+            /** @description The name lowercase and singular, without accents or punctuation. */
+            normalizedName: string;
+            scalable: boolean;
         };
         CollectionMove: {
             /**

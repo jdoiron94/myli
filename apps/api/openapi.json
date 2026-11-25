@@ -3039,6 +3039,98 @@
           "totalPages"
         ]
       },
+      "CollectionIngredients": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "recipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroceryRecipe"
+            },
+            "description": "Every recipe in it that the caller may see now, as published, in the order they put them: all of them at once, not a page."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "recipes"
+        ]
+      },
+      "GroceryRecipe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "servings": {
+            "type": "integer",
+            "description": "The servings its amounts are written for."
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroceryIngredient"
+            },
+            "description": "In the order the recipe lists them."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "servings",
+          "ingredients"
+        ]
+      },
+      "GroceryIngredient": {
+        "type": "object",
+        "properties": {
+          "qty": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "qtyMax": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "normalizedName": {
+            "type": "string",
+            "description": "The name lowercase and singular, without accents or punctuation."
+          },
+          "scalable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "qty",
+          "qtyMax",
+          "unit",
+          "name",
+          "normalizedName",
+          "scalable"
+        ]
+      },
       "CollectionMove": {
         "type": "object",
         "properties": {
@@ -6861,6 +6953,69 @@
         "responses": {
           "204": {
             "description": "Deleted."
+          },
+          "404": {
+            "description": "The caller has no collection with this ID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/collections/{id}/ingredients": {
+      "get": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Get the ingredients of a collection’s recipes",
+        "description": "Editors and admins. Collections are personal: no one else ever sees them, admins included. What its grocery list is added up from: every recipe in it they may see now, as published, with its servings and ingredients, all at once. The client adds them up, at the servings the reader chooses.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Its recipes’ ingredients.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionIngredients"
+                }
+              }
+            }
           },
           "404": {
             "description": "The caller has no collection with this ID.",
