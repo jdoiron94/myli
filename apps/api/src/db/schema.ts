@@ -358,7 +358,7 @@ export const recipeIngredient = sqliteTable(
     /** A unit's name from the unit table, or one typed by hand. */
     unit: text('unit'),
     name: text('name').notNull(),
-    /** `normalizeIngredientName(name)`, for search and shopping lists. */
+    /** `normalizeIngredientName(name)`, for search and grocery lists. */
     normalizedName: text('normalized_name').notNull(),
     note: text('note'),
     scalable: integer('scalable', { mode: 'boolean' }).notNull().default(true),
