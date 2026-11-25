@@ -324,10 +324,12 @@ export function updateRecipe(
 
 /**
  * Makes a recipe private or shared, if it's still at `version`. The visibility it already has
- * changes nothing, the version included.
+ * changes nothing, the version included. Making it private takes away its public link, if it has
+ * one, recorded in the audit log: only a shared recipe has one.
  */
 export function setRecipeVisibility(
   db: Db,
+  origin: AuditOrigin,
   id: string,
   visibility: Visibility,
   version: number,
@@ -335,13 +337,33 @@ export function setRecipeVisibility(
   return db.transaction((tx): WriteResult => {
     const current = atVersion(tx, id, version);
     if (!current.ok) return current;
+    const linked = tx
+      .select({ token: recipe.publicToken })
+      .from(recipe)
+      .where(eq(recipe.id, id))
+      .get();
     const [updated] = tx
       .update(recipe)
-      .set({ visibility, version: version + 1 })
+      .set({
+        visibility,
+        version: version + 1,
+        ...(visibility === 'private' && { publicToken: null }),
+      })
       .where(and(liveAt(id, version), ne(recipe.visibility, visibility)))
-      .returning({ id: recipe.id })
+      .returning({ title: recipe.title })
       .all();
-    if (updated) enqueueJob(tx, indexRecipeJob, { recipeId: id });
+    if (!updated) return { ok: true };
+    enqueueJob(tx, indexRecipeJob, { recipeId: id });
+    if (visibility === 'private' && linked !== undefined && linked.token !== null) {
+      recordAuditEvent(tx, origin, {
+        action: 'public_link.revoked',
+        target: { type: 'recipe', id },
+        metadata: {
+          ...auditedRecipe({ title: updated.title, visibility }),
+          reason: 'made private',
+        },
+      });
+    }
     return { ok: true };
   });
 }

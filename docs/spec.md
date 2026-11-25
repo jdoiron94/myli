@@ -133,8 +133,10 @@ There are three roles: **admin**, **editor** and **viewer**.
 | `shared` | Every signed-in user |
 | Public link | Anyone with the link. It's an add-on to a shared recipe, not a separate level. |
 
-- A public link is read-only and uses an unguessable token.
-- The owner or an admin can revoke it at any time.
+- A public link is read-only and uses an unguessable token: `PUBLIC_URL/p/<token>`. Anyone with it can see the recipe as it's published, photos included, without signing in. It doesn't show who wrote the recipe, its ratings, comments, notes or history, nor any photo only an older revision or a draft uses.
+- A shared recipe has one public link at most. Its owner or an admin creates it, copies it again whenever they like, and can revoke it at any time. A link created after one was revoked is a new one: the old one never works again. Creating or revoking it doesn't change the recipe, so it doesn't move its version.
+- A recipe in the trash hides its public link, which works again if the recipe is restored.
+- The token is kept out of logs and away from other sites ([ADR 0016](adr/0016-public-link-token-in-the-path.md)), and the audit log never records it.
 - Only the owner can change a recipe's visibility. Making someone else's shared recipe private would hide it from everyone but its owner.
 - A recipe's visibility is chosen when it's created and changed on its own afterwards: saving the recipe's content never changes it, so editors can edit any shared recipe without being able to hide it.
 - A new recipe starts private in the editor, so nothing is shared by accident: sharing is a choice.

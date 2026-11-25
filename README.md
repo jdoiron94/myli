@@ -83,6 +83,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 13. [HTTPS with Caddy's local certificate authority](docs/adr/0013-https-with-caddys-local-ca.md)
 14. [Markdown is edited with Milkdown's kit, held to the subset, not with Crepe](docs/adr/0014-milkdown-kit-held-to-the-markdown-subset.md)
 15. [The markdown editor reads markdown with the renderer's parser](docs/adr/0015-editor-reads-markdown-with-the-renderers-parser.md)
+16. [A public link carries its token in the path](docs/adr/0016-public-link-token-in-the-path.md)
 
 ## Getting started
 
@@ -158,6 +159,10 @@ Get `myli-root.crt` onto each device in a way you trust, such as AirDrop, a cabl
 - **Linux:** on Debian and Ubuntu, `sudo cp myli-root.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates`. Firefox and Chrome on Linux keep their own lists: import the file in their certificate settings, as an authority that identifies websites.
 
 A device that trusts this certificate trusts it for every site, not only myli. Whoever has the `caddy-data` volume could pretend to be any site to that device, so guard the volume like the server's other secrets.
+
+### Public links
+
+A recipe's public link holds its secret in its address, as `https://myli.home.arpa/p/<token>` ([ADR 0016](docs/adr/0016-public-link-token-in-the-path.md)). myli never logs it, nor sends it to other sites. If you put a proxy of your own in front of myli, keep it from logging paths under `/p/` and `/api/v1/public/`: anyone who reads those logs could open the recipes.
 
 ### Back up
 

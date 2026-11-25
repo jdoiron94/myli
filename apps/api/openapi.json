@@ -3069,6 +3069,58 @@
           "collectionIds"
         ]
       },
+      "RecipePublicLink": {
+        "type": "object",
+        "properties": {
+          "publicLink": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "publicLink"
+        ]
+      },
+      "PublicLink": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Unguessable. The link is `PUBLIC_URL/p/<token>`, which anyone can open."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "CreatedPublicLink": {
+        "type": "object",
+        "properties": {
+          "publicLink": {
+            "$ref": "#/components/schemas/PublicLink"
+          }
+        },
+        "required": [
+          "publicLink"
+        ]
+      },
+      "PublicRecipeResult": {
+        "type": "object",
+        "properties": {
+          "recipe": {
+            "$ref": "#/components/schemas/RecipeRevisionContent"
+          }
+        },
+        "required": [
+          "recipe"
+        ]
+      },
       "RecipeSearchResult": {
         "type": "object",
         "properties": {
@@ -7121,6 +7173,361 @@
           },
           "404": {
             "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/public-link": {
+      "get": {
+        "tags": [
+          "Public links"
+        ],
+        "summary": "Get a recipe’s public link",
+        "description": "The recipe’s owner, or an admin, while it’s shared: only a shared recipe has a public link, and making it private takes the link away.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Its public link, if it has one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipePublicLink"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not share it: it’s private, or someone else’s, or the caller is a viewer.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Public links"
+        ],
+        "summary": "Give a recipe a public link",
+        "description": "The recipe’s owner, or an admin, while it’s shared: only a shared recipe has a public link, and making it private takes the link away. Anyone with the link can see the recipe as it’s published, without signing in. One it already has stays as it is. It doesn’t change the recipe, so it takes no `If-Match`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Its public link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedPublicLink"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may see the recipe but not share it: it’s private, or someone else’s, or the caller is a viewer.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Public links"
+        ],
+        "summary": "Revoke a recipe’s public link",
+        "description": "The recipe’s owner, or an admin, while it’s shared: only a shared recipe has a public link, and making it private takes the link away. Anyone who has it can no longer open it. With no link, it changes nothing.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It has no public link now."
+          },
+          "403": {
+            "description": "The caller may see the recipe but not share it: it’s private, or someone else’s, or the caller is a viewer.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/recipes/{token}": {
+      "get": {
+        "tags": [
+          "Public links"
+        ],
+        "summary": "Get the recipe a public link shows",
+        "description": "Anyone, signed in or not. The recipe as it’s published: what it says, not who wrote it, its ratings, comments or history. Never cached, so revoking the link takes effect at once.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "token",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recipe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecipeResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No public link has this token now: it never did, it was revoked, or its recipe was made private or is in the trash.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/recipes/{token}/images/{id}/{width}": {
+      "get": {
+        "tags": [
+          "Public links"
+        ],
+        "summary": "Get a photo of the recipe a public link shows",
+        "description": "Anyone, signed in or not, for a photo the recipe uses as published: one of its own or a step’s. Not one only its older revisions or its draft use. `width` is one of the widths in its `variants`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "required": true,
+            "name": "width",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "token",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo at that size, as WebP.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No public link has this token now: it never did, it was revoked, or its recipe was made private or is in the trash. Or the recipe doesn’t use a photo with this ID and size.",
             "content": {
               "application/problem+json": {
                 "schema": {

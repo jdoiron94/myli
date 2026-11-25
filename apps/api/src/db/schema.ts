@@ -300,8 +300,14 @@ export const recipe = sqliteTable(
      * it was based on in `If-Match`, and only goes ahead while that's still the version (ADR 0007).
      */
     version: integer('version').notNull().default(1),
+    /**
+     * Its public link's unguessable token, while it has one (`public-links/public-links.ts`). Only
+     * a shared recipe has one: making it private clears it.
+     */
+    publicToken: text('public_token'),
   },
   (table) => [
+    uniqueIndex('recipe_public_token_idx').on(table.publicToken),
     check('recipe_visibility_check', sql`${table.visibility} in ${sqlList(VISIBILITIES)}`),
     check(
       'recipe_difficulty_check',

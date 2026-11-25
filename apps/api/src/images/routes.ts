@@ -13,14 +13,14 @@ import {
   TOO_LARGE_DETAIL,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
-import type { MiddlewareHandler } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { notFound, requirePermission } from '../auth/authorize.ts';
 import { requireSession } from '../auth/session.ts';
 import type { BlobStore } from '../blobs/store.ts';
 import type { AppEnv } from '../context.ts';
 import type { Db } from '../db/database.ts';
-import { image } from '../db/schema.ts';
+import { image, type StoredImageVariant } from '../db/schema.ts';
 import { mediaType } from '../json-only.ts';
 import { errorResponses, HttpProblem, InvalidFields } from '../problems.ts';
 import { findRecipeAccess } from '../recipes/recipes.ts';
@@ -140,19 +140,31 @@ export function registerImageRoutes(v1: OpenAPIHono<AppEnv>, deps: { db: Db; blo
     const row = deps.db.select().from(image).where(eq(image.id, id)).get();
     const access = row && imageAccess(deps.db, row);
     if (!row || !access || !can(c.var.user, 'recipe.read', access)) throw notFound('Image');
-    const variant = row.variants.find((each) => each.width === width);
-    if (!variant) throw notFound('Image');
+    return imageFile(c, deps.blobs, { id, variants: row.variants }, width);
+  });
+}
 
-    const blob = await deps.blobs.get(variant.key);
-    if (!blob) {
-      // Its row says it's there: a store that lost files, or was restored without them.
-      c.var.logger.error({ imageId: id, key: variant.key }, 'image blob missing');
-      throw notFound('Image');
-    }
-    return c.body(Readable.toWeb(blob.body) as ReadableStream, 200, {
-      'Content-Type': blob.contentType,
-      'Content-Length': String(blob.size),
-      'Cache-Control': IMAGE_CACHE_CONTROL,
-    });
+/**
+ * Answers with a photo at one of its sizes, which the caller may see: 404 for a size it doesn't
+ * have, as for a photo that doesn't exist.
+ */
+export async function imageFile<E extends AppEnv>(
+  c: Context<E>,
+  blobs: BlobStore,
+  photo: { id: string; variants: StoredImageVariant[] },
+  width: number,
+) {
+  const variant = photo.variants.find((each) => each.width === width);
+  if (!variant) throw notFound('Image');
+  const blob = await blobs.get(variant.key);
+  if (!blob) {
+    // Its row says it's there: a store that lost files, or was restored without them.
+    c.var.logger.error({ imageId: photo.id, key: variant.key }, 'image blob missing');
+    throw notFound('Image');
+  }
+  return c.body(Readable.toWeb(blob.body) as ReadableStream, 200, {
+    'Content-Type': blob.contentType,
+    'Content-Length': String(blob.size),
+    'Cache-Control': IMAGE_CACHE_CONTROL,
   });
 }

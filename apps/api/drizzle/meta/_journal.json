@@ -162,6 +162,13 @@
       "when": 1795548900563,
       "tag": "0022_collection_names_may_repeat",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1795613024114,
+      "tag": "0023_recipe_public_token",
+      "breakpoints": true
     }
   ]
 }
