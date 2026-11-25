@@ -2,6 +2,7 @@
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
+  ListXIcon,
   PencilIcon,
   ShoppingBasketIcon,
   TrashIcon,
@@ -22,6 +23,7 @@ import {
   type MoveDirection,
   recipeCountText,
   useDeleteCollection,
+  useEmptyCollection,
   useMoveInCollection,
   useRenameCollection,
   useSetInCollection,
@@ -47,8 +49,8 @@ import { documentTitle } from '@/router.ts';
 
 /**
  * One of the reader's collections (spec §3.3): its recipes in their order, which they change, a
- * page at a time, the page in the address (`?page=2`), a link to its grocery list, and renaming or
- * deleting it. No one else sees it.
+ * page at a time, the page in the address (`?page=2`), a link to its grocery list, taking every
+ * recipe out at once, and renaming or deleting it. No one else sees it.
  */
 const props = defineProps<{ id: string }>();
 
@@ -126,6 +128,23 @@ async function deleteCollection() {
 }
 
 const pageLink = (to: number) => ({ query: to > 1 ? { page: String(to) } : {} });
+
+const empty = useEmptyCollection();
+
+/** Every recipe out at once, from whichever page: back to the first, and focus on the heading. */
+async function removeAll() {
+  if (empty.isPending.value || !collection.value) return;
+  const { name } = collection.value;
+  starting();
+  try {
+    await empty.mutateAsync(props.id);
+    notice.value = `Took every recipe out of “${name}”.`;
+  } catch (error) {
+    failure.value = failureMessage(error);
+  }
+  if (page.value > 1) await router.replace(pageLink(1));
+  headingElement.value?.focus();
+}
 const count = useTemplateRef('count');
 const { paged } = useFocusAfterPaging(() => collection.value?.page, count);
 
@@ -241,6 +260,34 @@ async function removeRecipe(recipeId: string, title: string) {
         <PencilIcon aria-hidden="true" />
         Rename
       </Button>
+      <AlertDialog v-if="collection.total > 0">
+        <AlertDialogTrigger as-child>
+          <Button
+            variant="outline"
+            size="sm"
+          >
+            <ListXIcon aria-hidden="true" />
+            Remove all
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Take every recipe out of “{{ collection.name }}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The recipes stay as they are, and so does the collection, empty.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              @click="removeAll"
+            >
+              Remove all
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog>
         <AlertDialogTrigger as-child>
           <Button
