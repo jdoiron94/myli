@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/jdoiron94/myli/compare/v0.11.0...v0.12.0) (2026-11-25)
+
+
+### Features
+
+* **api:** give shared recipes a public link ([03919a4](https://github.com/jdoiron94/myli/commit/03919a486fbb8dd5781c46336293a859a42ffd67))
+* **web:** share a recipe through its public link, and open one ([6bfc296](https://github.com/jdoiron94/myli/commit/6bfc2964ea870472428ace0bcb2818d0eb75536b))
+
 ## [0.11.0](https://github.com/jdoiron94/myli/compare/v0.10.0...v0.11.0) (2026-11-25)
 
 
