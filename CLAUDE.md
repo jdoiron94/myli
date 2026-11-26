@@ -411,6 +411,7 @@ Run these from the repo root:
   - Then it saves the demo recipes (`DEMO_RECIPES` in `setup/demo-recipes.ts`), written by the demo admin and editor, one of each kept private, through `createRecipe`, as the API saves any recipe: each queues its search update. Ingredients are typed lines that the shared parser reads, as the editor does.
   - It logs to stderr, so stdout holds only the accounts and the number of recipes.
 - `pnpm reindex`: rebuilds the search index (`reindex-search.ts`). It queues `reindexRecipesJob` for the running API's worker and waits for it, printing failed attempts; stopping it doesn't stop the rebuild. It reads `.env`, like `pnpm dev`. In the API's container: `docker compose exec api node src/reindex-search.ts`.
+- **Copying the photos** to switch `BLOB_STORE`: `copy-photos.ts` copies every size of every photo into the store `BLOB_STORE` names from the other one (`copyPhotos()`, `blobs/copy.ts`), leaving what's there and deleting nothing. In the API's container, with the API stopped: `docker compose run --rm api node src/copy-photos.ts` (README's "Keep photos in S3").
 - `docker compose up --detach --build`: the whole stack, as deployed (README's "Getting started"). It reads `.env`, where `PUBLIC_URL` must be `https://` for Caddy, unlike `pnpm dev`'s; pass another file with `--env-file` to keep both.
 - `pnpm db:generate`: generates a SQL migration from changes to the Drizzle schema. Name it with `--name <what_changed>` (no `--` separator: pnpm passes arguments straight through, and drizzle-kit rejects a literal `--`).
 
