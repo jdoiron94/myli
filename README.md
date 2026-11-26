@@ -4,7 +4,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 3 (grocery lists) done; Phase 4 (polish) next.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings and public links work today. The [roadmap](#roadmap) shows what's done and what's next.
+> **Status: Phase 4 (polish) under way: import and exports done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link and exports work today. The [roadmap](#roadmap) shows what's done and what's next.
 
 ## Features
 
@@ -13,7 +13,7 @@ What myli does once the [roadmap](#roadmap) is done:
 - **Structured recipes:** ingredient groups, parsed quantities and units, ordered steps with markdown and photos, prep, cook and total times, difficulty, and nutrition entered by hand.
 - **Scaling:** any serving size, shown as readable fractions, in metric or imperial.
 - **Import from a link:** a recipe site's page fills in a new recipe, photo included, to check before saving.
-- **Export:** download a recipe as JSON, or as schema.org JSON-LD for other recipe apps.
+- **Export:** download a recipe as JSON, or as schema.org JSON-LD for other recipe apps. Admins download every recipe they can see, with its history and photos, as one archive.
 - **Search:** typo-tolerant full-text search, ingredient autocomplete, filtering on several ingredients, and filters for cuisine, meal type, diet, allergens, difficulty and total time. Sort by rating, recency or time.
 - **Collaboration:**
   - drafts and published versions
@@ -259,7 +259,7 @@ SMTP_FROM=myli <myli@example.com>
 | 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view | Done |
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
 | 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Done |
-| 4. Polish | URL import, exports, backup and restore tooling | Planned |
+| 4. Polish | URL import, exports, backup and restore tooling | In progress: import and exports done |
 
 ## License
 

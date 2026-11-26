@@ -172,6 +172,7 @@ describe('the main navigation', () => {
       'Users',
       'Search index',
       'Tags',
+      'Export',
     ]);
   });
 
