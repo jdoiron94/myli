@@ -36,7 +36,16 @@ function compose(...args: string[]) {
 // once its web server answers on the port, Playwright refuses to start the launcher that would
 // remove it.
 for (const { name } of BROWSERS) {
-  compose('--project-name', composeProject(name), 'down', '--volumes', '--remove-orphans');
+  // With the s3 profile, which Firefox's stack runs, so Garage goes too.
+  compose(
+    '--project-name',
+    composeProject(name),
+    '--profile',
+    's3',
+    'down',
+    '--volumes',
+    '--remove-orphans',
+  );
 }
 
 console.log(`Building ${API_IMAGE} and ${WEB_IMAGE} from compose.yaml`);

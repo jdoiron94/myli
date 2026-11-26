@@ -17,11 +17,11 @@
   },
   "customManagers": [
     {
-      "description": "The Meilisearch image the container tests use, which must match compose.yaml's.",
+      "description": "The images the container tests use, Meilisearch and Garage, each of which must match compose.yaml's.",
       "customType": "regex",
-      "managerFilePatterns": ["/^apps/api/src/search/testing\\.ts$/"],
+      "managerFilePatterns": ["/^apps/api/src/(search|blobs)/testing\\.ts$/"],
       "matchStrings": [
-        "'(?<depName>getmeili/meilisearch):(?<currentValue>[^@']+)@(?<currentDigest>sha256:[0-9a-f]{64})'"
+        "'(?<depName>[a-z0-9./-]+):(?<currentValue>[^@']+)@(?<currentDigest>sha256:[0-9a-f]{64})'"
       ],
       "datasourceTemplate": "docker"
     },
@@ -68,6 +68,11 @@
       "description": "The Meilisearch image, in compose.yaml and search/testing.ts. A test fails if the two differ.",
       "matchDepNames": ["getmeili/meilisearch"],
       "groupName": "Meilisearch"
+    },
+    {
+      "description": "The Garage image, in compose.yaml and blobs/testing.ts. A test fails if the two differ.",
+      "matchDepNames": ["dxflrs/garage"],
+      "groupName": "Garage"
     },
     {
       "description": "ESLint and its plugins and configs.",

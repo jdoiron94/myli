@@ -86,8 +86,14 @@ services:
       # The database, and the photos unless they're kept in S3: all of the instance's data.
       - api-data:/data
     networks: [proxy, backend]
-    # The API starts without search, and keeps trying to reach it.
-    depends_on: [meilisearch]
+    depends_on:
+      # The API starts without search, and keeps trying to reach it.
+      meilisearch:
+        condition: service_started
+      # With the s3 profile, only once Garage is ready for photos.
+      garage-init:
+        condition: service_completed_successfully
+        required: false
 
   meilisearch:
     <<: *hardened
@@ -111,6 +117,64 @@ services:
       start_period: 30s
       start_interval: 1s
       retries: 3
+
+  # Optional (`docker compose --profile s3 up`): Garage, a store that speaks S3, for photos, on this
+  # machine. Set BLOB_STORE=s3, the S3_* variables and Garage's secrets as the README's "Keep photos
+  # in S3" shows. Only the API can reach it, on the backend network.
+  garage:
+    <<: *hardened
+    profiles: [s3]
+    image: dxflrs/garage:v2.5.0@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5
+    # Not read_only: Compose copies the secrets into the container. The image runs Garage as root,
+    # and Garage refuses secrets anyone else could read, so only root may.
+    environment:
+      GARAGE_RPC_SECRET_FILE: ${MYLI_GARAGE_RPC_SECRET:+/run/secrets/myli_garage_rpc_secret}
+      GARAGE_ADMIN_TOKEN_FILE: ${MYLI_GARAGE_ADMIN_TOKEN:+/run/secrets/myli_garage_admin_token}
+    secrets:
+      - source: myli_garage_rpc_secret
+        mode: 0400
+      - source: myli_garage_admin_token
+        mode: 0400
+    configs:
+      - source: garage
+        target: /etc/garage.toml
+    volumes:
+      # Its photos and what it knows of them. Back it up with the database.
+      - garage-data:/var/lib/garage
+    networks: [backend]
+    healthcheck:
+      test: [CMD, /garage, status]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      start_interval: 1s
+      retries: 3
+
+  # With the s3 profile: sets Garage up for the API, then exits, before the API starts. Each time,
+  # it leaves what's done as it is (apps/api/src/set-up-garage.ts).
+  garage-init:
+    <<: *hardened
+    profiles: [s3]
+    image: ${MYLI_IMAGE_PREFIX:-}myli-api:${MYLI_VERSION:-latest}
+    # The api service's image, which that service pulls or builds.
+    pull_policy: never
+    command: [node, src/set-up-garage.ts]
+    # Once each time the stack starts: Garage keeps what it sets up.
+    restart: 'no'
+    healthcheck:
+      disable: true
+    environment:
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_ADMIN_TOKEN_FILE: ${MYLI_GARAGE_ADMIN_TOKEN:+/run/secrets/myli_garage_admin_token}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY_FILE: ${S3_SECRET_ACCESS_KEY:+/run/secrets/s3_secret_access_key}
+      LOG_LEVEL: ${LOG_LEVEL:-}
+    secrets: [myli_garage_admin_token, s3_secret_access_key]
+    networks: [backend]
+    depends_on:
+      garage:
+        condition: service_healthy
 
   # Development only (`docker compose --profile dev up`): catches the API's email, with
   # SMTP_HOST=mailpit, SMTP_SECURITY=none and any SMTP_FROM. Its inbox is at http://localhost:8025,
@@ -141,6 +205,27 @@ volumes:
   api-data:
   caddy-data:
   meilisearch-data:
+  garage-data:
+
+configs:
+  # Garage's settings, in the s3 profile. Its secrets come from files (`garage` above).
+  garage:
+    content: |
+      metadata_dir = "/var/lib/garage/meta"
+      data_dir = "/var/lib/garage/data"
+      # One node, so one copy of each photo.
+      replication_factor = 1
+      # Where nodes talk to each other. Alone, it talks only to itself.
+      rpc_bind_addr = "127.0.0.1:3901"
+      rpc_public_addr = "127.0.0.1:3901"
+
+      [s3_api]
+      api_bind_addr = "[::]:3900"
+      # The region requests are signed for: the API's S3_REGION, unless it's changed.
+      s3_region = "us-east-1"
+
+      [admin]
+      api_bind_addr = "[::]:3903"
 
 # Each from the variable of the same name. Compose 5 doesn't mount an empty one, and older versions
 # mount an empty file. Either way, the API's NAME_FILE is empty then, so it doesn't read it.
@@ -155,3 +240,7 @@ secrets:
     environment: SMTP_PASSWORD
   s3_secret_access_key:
     environment: S3_SECRET_ACCESS_KEY
+  myli_garage_rpc_secret:
+    environment: MYLI_GARAGE_RPC_SECRET
+  myli_garage_admin_token:
+    environment: MYLI_GARAGE_ADMIN_TOKEN
