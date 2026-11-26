@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.15.0](https://github.com/jdoiron94/myli/compare/v0.14.0...v0.15.0) (2026-11-26)
+
+
+### Features
+
+* **api:** export a recipe as myli's JSON or schema.org JSON-LD ([aa05d02](https://github.com/jdoiron94/myli/commit/aa05d020c259961113e8869030d98dbc840d8abc))
+* **api:** export the instance as a zip archive, for admins ([7fcee77](https://github.com/jdoiron94/myli/commit/7fcee77614f56c74f9b3b08f08b9ac2ca6d8beff))
+* **web:** an admin Export page, to download the instance's archive ([833dea1](https://github.com/jdoiron94/myli/commit/833dea148cffebf3031365bbbeaa1343f3c4ca19))
+* **web:** download a recipe as JSON or JSON-LD from its page ([f0b690c](https://github.com/jdoiron94/myli/commit/f0b690c69c18621c480a0ca94ecef5b7aa1a3a51))
+
 ## [0.14.0](https://github.com/jdoiron94/myli/compare/v0.13.0...v0.14.0) (2026-11-26)
 
 
