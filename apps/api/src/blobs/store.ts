@@ -1,7 +1,8 @@
 import type { Readable } from 'node:stream';
 
 /**
- * Where uploaded files live (ADR 0004): a local directory by default, an S3 bucket later (Phase 4).
+ * Where uploaded files live (ADR 0004): a local directory by default (`local.ts`), or an S3 bucket
+ * (`s3.ts`).
  *
  * Keys are opaque and immutable, such as `images/<uuid>/640.webp`. A changed file gets a new key,
  * so nothing is overwritten and what's served can be cached for good. A key's extension names its
