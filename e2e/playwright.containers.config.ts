@@ -12,6 +12,9 @@ import type { Options } from './tests/fixtures.ts';
  *
  * Each run's web server makes a new local CA, which the browsers don't trust, so they ignore
  * certificate errors here. web-server.spec.ts checks the certificate itself.
+ *
+ * Firefox's stack keeps photos in Garage, with compose.yaml's s3 profile; Chromium's, in the API's
+ * volume.
  */
 const stacks = BROWSERS.map((browser, index) => {
   const network = `10.89.${String(index + 1)}`;
@@ -21,12 +24,13 @@ const stacks = BROWSERS.map((browser, index) => {
     proxySubnet: `${network}.0/29`,
     // Docker forwards connections to published ports from the network's gateway, its first address.
     clientAddress: `${network}.1`,
+    blobStore: browser.name === 'firefox' ? ('s3' as const) : ('local' as const),
   };
 });
 
 export default defineConfig<Options>({
   ...COMMON_CONFIG,
-  projects: stacks.map(({ name, device, webUrl, clientAddress }) => ({
+  projects: stacks.map(({ name, device, webUrl, clientAddress, blobStore }) => ({
     name,
     use: {
       ...device,
@@ -34,10 +38,11 @@ export default defineConfig<Options>({
       ignoreHTTPSErrors: true,
       clientAddress,
       searchAvailable: true,
+      blobStore,
     },
   })),
   webServer: stacks.map(
-    ({ name, webUrl, proxySubnet }): WebServer => ({
+    ({ name, webUrl, proxySubnet, blobStore }): WebServer => ({
       name: `${name} stack`,
       command: 'node start-compose.ts',
       env: {
@@ -45,6 +50,7 @@ export default defineConfig<Options>({
         PUBLIC_URL: webUrl,
         HTTP_PORT: String(redirectPortFor(webUrl)),
         PROXY_SUBNET: proxySubnet,
+        BLOB_STORE: blobStore,
       },
       // Not `url`: Caddy answers before the host's network has settled (start-compose.ts), and
       // Playwright would start the tests on whichever came first.
@@ -54,7 +60,7 @@ export default defineConfig<Options>({
       gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
       stdout: 'pipe',
       stderr: 'pipe',
-      // Meilisearch's image may need pulling first.
+      // Meilisearch's and Garage's images may need pulling first.
       timeout: 180_000,
     }),
   ),

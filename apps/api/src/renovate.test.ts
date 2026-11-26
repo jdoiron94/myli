@@ -82,15 +82,20 @@ describe('the Renovate configuration', () => {
     expect(new Set(valuesOf(config, 'minimumReleaseAge'))).toEqual(new Set(['7 days']));
   });
 
-  it("updates search/testing.ts's Meilisearch image together with compose.yaml's", () => {
-    const [found, ...others] = customMatches('apps/api/src/search/testing.ts');
+  it("updates the container tests' images, Meilisearch and Garage, together with compose.yaml's", () => {
+    const paths = ['apps/api/src/search/testing.ts', 'apps/api/src/blobs/testing.ts'];
+    const images = paths.map((path) => {
+      const [found, ...others] = customMatches(path);
+      expect(others, path).toEqual([]);
+      const depName = String(found?.depName);
+      expect(read('compose.yaml'), path).toContain(
+        `image: ${depName}:${String(found?.currentValue)}@${String(found?.currentDigest)}\n`,
+      );
+      expect(groupOf(depName), path).toBeDefined();
+      return depName;
+    });
 
-    expect(others).toEqual([]);
-    expect(found?.depName).toBe('getmeili/meilisearch');
-    expect(read('compose.yaml')).toContain(
-      `image: ${String(found?.depName)}:${String(found?.currentValue)}@${String(found?.currentDigest)}\n`,
-    );
-    expect(groupOf('getmeili/meilisearch')).toBeDefined();
+    expect(images).toEqual(['getmeili/meilisearch', 'dxflrs/garage']);
   });
 
   it("updates the Dockerfiles' pnpm together with packageManager in package.json", () => {

@@ -7,16 +7,19 @@ import { setUpGarage } from './garage.ts';
 export const GARAGE_IMAGE =
   'dxflrs/garage:v2.5.0@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5';
 
-/** Garage's settings in the `s3` profile (compose.yaml), but its secrets, which come from here. */
-const CONFIG = `
-metadata_dir = "/var/lib/garage/meta"
+/** Garage's settings: the `s3` profile's (compose.yaml, a test checks). */
+export const GARAGE_CONFIG = `metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
+# One node, so one copy of each photo.
 replication_factor = 1
+# Where nodes talk to each other. Alone, it talks only to itself.
 rpc_bind_addr = "127.0.0.1:3901"
+rpc_public_addr = "127.0.0.1:3901"
 
 [s3_api]
-s3_region = "garage"
 api_bind_addr = "[::]:3900"
+# The region requests are signed for: the API's S3_REGION, unless it's changed.
+s3_region = "us-east-1"
 
 [admin]
 api_bind_addr = "[::]:3903"
@@ -27,7 +30,7 @@ const ADMIN_TOKEN = randomBytes(24).toString('base64url');
 /** A Garage of its own, on random host ports. Set it up with `setUpTestGarage()`. */
 export function garageContainer() {
   return new GenericContainer(GARAGE_IMAGE)
-    .withCopyContentToContainer([{ content: CONFIG, target: '/etc/garage.toml' }])
+    .withCopyContentToContainer([{ content: GARAGE_CONFIG, target: '/etc/garage.toml' }])
     .withEnvironment({
       GARAGE_RPC_SECRET: randomBytes(32).toString('hex'),
       GARAGE_ADMIN_TOKEN: ADMIN_TOKEN,
@@ -63,7 +66,7 @@ export async function setUpTestGarage(
   );
   return {
     endpoint: `http://${container.getHost()}:${String(container.getMappedPort(3900))}`,
-    region: 'garage',
+    region: 'us-east-1',
     bucket,
     ...key,
   };

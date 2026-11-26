@@ -182,6 +182,27 @@ S3_SECRET_ACCESS_KEY=...
 
 The bucket must exist, and its key must be allowed to read, write and delete objects in it. Nothing in it needs to be public: the API serves every photo itself, to whoever may see its recipe. myli puts the bucket's name in the path, as `https://s3.example.com/myli-photos/images/…`, not in the host name, so any store that speaks S3 can serve it.
 
+#### With Garage, on the same machine
+
+Compose's `s3` profile runs [Garage](https://garagehq.deuxfleurs.fr/), a store that speaks S3, next to the API, where only the API can reach it. Before the API starts, it sets Garage up: the bucket, and the API's key, allowed only to read, write and delete photos in it.
+
+1. In `.env`, set:
+
+   ```sh
+   COMPOSE_PROFILES=s3                  # so every docker compose command includes Garage
+   BLOB_STORE=s3
+   S3_ENDPOINT=http://garage:3900
+   S3_BUCKET=myli
+   S3_ACCESS_KEY_ID=GK...               # echo "GK$(openssl rand -hex 12)"
+   S3_SECRET_ACCESS_KEY=...             # openssl rand -hex 32
+   MYLI_GARAGE_RPC_SECRET=...           # openssl rand -hex 32
+   MYLI_GARAGE_ADMIN_TOKEN=...          # openssl rand -base64 32
+   ```
+
+2. Start the stack as usual. `docker compose ps --all` shows `garage-init` exited with code 0 once Garage is ready, and the API's log says `photos are kept in an S3 bucket`.
+
+Garage keeps the photos in the `garage-data` volume. It can't change a key's secret: to change `S3_SECRET_ACCESS_KEY`, choose a new `S3_ACCESS_KEY_ID` too.
+
 ### Back up
 
 Compose keeps myli's data in volumes, named after the project (`myli` unless you choose another):
@@ -190,13 +211,14 @@ Compose keeps myli's data in volumes, named after the project (`myli` unless you
 |---|---|
 | `myli_api-data` | The database and the photos: all of myli's data. With `BLOB_STORE=s3`, the photos are in the bucket instead: back it up as its store allows. |
 | `myli_caddy-data` | The certificate authority. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
+| `myli_garage-data` | With Garage (the `s3` profile), the photos. |
 | `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up: an empty index is rebuilt when the API starts. |
 
-Until myli has backups of its own, stop the stack and archive the first two:
+Until myli has backups of its own, stop the stack and archive the first two, and Garage's if it has one:
 
 ```sh
 docker compose stop
-for volume in api-data caddy-data; do
+for volume in api-data caddy-data; do   # and garage-data, with Garage
   docker run --rm -v "myli_$volume:/data:ro" -v "$PWD:/backup" alpine \
     tar -czf "/backup/myli-$volume.tar.gz" -C /data .
 done

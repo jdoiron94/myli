@@ -44,6 +44,8 @@ export interface Options {
    * degraded mode; the Compose stack has it.
    */
   searchAvailable: boolean;
+  /** Where the API keeps photos: in a directory, or, in one Compose stack, in Garage. */
+  blobStore: 'local' | 's3';
 }
 
 interface Fixtures {
@@ -57,6 +59,7 @@ interface Fixtures {
 export const test = base.extend<Fixtures & Options>({
   clientAddress: ['127.0.0.1', { option: true }],
   searchAvailable: [false, { option: true }],
+  blobStore: ['local', { option: true }],
   cspViolations: [
     // eslint-disable-next-line no-empty-pattern -- Playwright requires a destructuring pattern.
     async ({}, use) => {

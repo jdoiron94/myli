@@ -1,8 +1,8 @@
 /**
  * Starts the Compose stack (compose.yaml, with compose.e2e.yaml on top) for one browser's run
  * against the images (playwright.containers.config.ts), as its own Compose project: Caddy at
- * PUBLIC_URL with its redirect from HTTP on HTTP_PORT, the API and Meilisearch. build-images.ts
- * builds the images first.
+ * PUBLIC_URL with its redirect from HTTP on HTTP_PORT, the API and Meilisearch, and with
+ * BLOB_STORE=s3, Garage for the photos (the s3 profile). build-images.ts builds the images first.
  *
  * Compose gets only the variables below, never the shell's or the repo's `.env`, which it would
  * otherwise read: no first admin, so the run starts at first-run setup, and no SMTP, so invitation
@@ -19,10 +19,26 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { dockerClientEnvironment, IMAGE_TAG, STACK_READY } from './images.ts';
 
-const { PROJECT, PUBLIC_URL, HTTP_PORT, PROXY_SUBNET } = process.env;
+const { PROJECT, PUBLIC_URL, HTTP_PORT, PROXY_SUBNET, BLOB_STORE } = process.env;
 if (!PROJECT || !PUBLIC_URL || !HTTP_PORT || !PROXY_SUBNET) {
   throw new Error('PROJECT, PUBLIC_URL, HTTP_PORT and PROXY_SUBNET must be set');
 }
+
+/** Garage, set up as the README's "Keep photos in S3" says, or photos in the API's volume. */
+const blobStore =
+  BLOB_STORE === 's3'
+    ? {
+        COMPOSE_PROFILES: 's3',
+        BLOB_STORE: 's3',
+        S3_ENDPOINT: 'http://garage:3900',
+        S3_BUCKET: 'myli',
+        S3_ACCESS_KEY_ID: `GK${randomBytes(12).toString('hex')}`,
+        S3_SECRET_ACCESS_KEY: randomBytes(32).toString('hex'),
+        MYLI_GARAGE_RPC_SECRET: randomBytes(32).toString('hex'),
+        MYLI_GARAGE_ADMIN_TOKEN: randomBytes(32).toString('base64'),
+      }
+    : // Listed, as compose.yaml requires, and empty.
+      { S3_SECRET_ACCESS_KEY: '' };
 
 const repoRoot = join(import.meta.dirname, '..');
 
@@ -37,11 +53,11 @@ const variables = {
   MYLI_VERSION: IMAGE_TAG,
   BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
   MEILI_MASTER_KEY: randomBytes(32).toString('base64'),
-  // Listed, as compose.yaml requires, and empty: no first admin, no SMTP, photos in a directory.
+  // Listed, as compose.yaml requires, and empty: no first admin, no SMTP.
   ADMIN_PASSWORD: '',
   SMTP_PASSWORD: '',
-  S3_SECRET_ACCESS_KEY: '',
   LOG_LEVEL: 'warn',
+  ...blobStore,
 };
 
 const composeArgs = [
@@ -112,8 +128,8 @@ function hostNetworkSettled(): Promise<void> {
 }
 
 down();
-// The images were just built, so nothing is built or pulled here, other than Meilisearch the first
-// time.
+// The images were just built, so nothing is built or pulled here, other than Meilisearch and Garage
+// the first time.
 compose('up', '--detach', '--wait', '--wait-timeout', '120', '--no-build');
 await hostNetworkSettled();
 process.stdout.write(`${STACK_READY}\n`);

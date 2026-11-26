@@ -1,6 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import type { Locator, Page } from '@playwright/test';
 import { unzipSync } from 'fflate';
+import { composeProject } from '../images.ts';
 import { checkPage } from './accessibility.ts';
 import { expect, test } from './fixtures.ts';
 import { solidPng } from './images.ts';
@@ -959,6 +961,8 @@ test('the recipe is shared through a public link, which opens for anyone until i
 
 test('the recipe is downloaded for other recipe apps, and everything for safekeeping', async ({
   page,
+  browserName,
+  blobStore,
 }) => {
   await signInAsAdmin(page);
 
@@ -991,5 +995,15 @@ test('the recipe is downloaded for other recipe apps, and everything for safekee
     // Its two photos and its step's, read from where uploads are kept, none missing.
     const manifest: unknown = JSON.parse(new TextDecoder().decode(files['manifest.json']));
     expect(manifest).toMatchObject({ photos: 3, missingPhotos: [] });
+
+    if (blobStore === 's3') {
+      // So they're in Garage: the API kept none in its volume.
+      const volume = execFileSync(
+        'docker',
+        ['compose', '--project-name', composeProject(browserName), 'exec', 'api', 'ls', '/data'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      );
+      expect(volume.split('\n')).not.toContain('blobs');
+    }
   });
 });

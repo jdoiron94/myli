@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { type ProxyRange, parseProxyRange } from './client-ip.ts';
 
 /** For variables without a default: says "is required" instead of Zod's type message. */
-const required = {
+export const required = {
   error: (issue: { input: unknown }) => (issue.input === undefined ? 'is required' : undefined),
 };
 
@@ -181,10 +181,13 @@ const READ_FAILURES: Record<string, string> = {
  * Reads each secret whose `NAME_FILE` is set. Returns the values, and the problems by variable
  * name. A file's path isn't a secret, so a problem can name it; its contents are never shown.
  */
-function readFileVariables(set: Readonly<Record<string, string | undefined>>) {
+function readFileVariables(
+  set: Readonly<Record<string, string | undefined>>,
+  names: readonly string[],
+) {
   const values: Record<string, string> = {};
   const problems = new Map<string, string>();
-  for (const name of FILE_VARIABLES) {
+  for (const name of names) {
     const fileVariable = `${name}_FILE`;
     const path = set[fileVariable];
     if (path === undefined) continue;
@@ -218,6 +221,8 @@ export class EnvError extends Error {
   override name = 'EnvError';
 }
 
+type Source = Readonly<Record<string, string | undefined>>;
+
 /**
  * Validates the environment and returns typed config, reading the secrets that come from files
  * (`FILE_VARIABLES`).
@@ -226,11 +231,23 @@ export class EnvError extends Error {
  * Throws an `EnvError` that lists every invalid variable. The message never includes
  * the values themselves, because some of them will be secrets.
  */
-export function loadEnv(source: Readonly<Record<string, string | undefined>> = process.env): Env {
+export function loadEnv(source: Source = process.env): Env {
+  return loadVariables(envSchema, FILE_VARIABLES, source);
+}
+
+/**
+ * `loadEnv()` for a schema of its own, as a script that isn't the API's has (`set-up-garage.ts`):
+ * the secrets `fileVariables` names can come from files too.
+ */
+export function loadVariables<T>(
+  schema: z.ZodType<T>,
+  fileVariables: readonly string[],
+  source: Source,
+): T {
   const set = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''));
-  const files = readFileVariables(set);
+  const files = readFileVariables(set, fileVariables);
   // The schema drops the NAME_FILE variables, as it does any variable it doesn't know.
-  const result = envSchema.safeParse({ ...set, ...files.values });
+  const result = schema.safeParse({ ...set, ...files.values });
   if (result.success && files.problems.size === 0) {
     return result.data;
   }
@@ -256,8 +273,13 @@ export function loadEnv(source: Readonly<Record<string, string | undefined>> = p
  * the logger's level comes from the env, so it can't exist yet.
  */
 export function loadEnvOrExit(): Env {
+  return loadOrExit(() => loadEnv());
+}
+
+/** What `load` gives, or else, for an `EnvError`, its problems printed and exit code 1. */
+export function loadOrExit<T>(load: () => T): T {
   try {
-    return loadEnv();
+    return load();
   } catch (error) {
     if (error instanceof EnvError) {
       // eslint-disable-next-line no-console -- see above

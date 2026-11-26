@@ -358,7 +358,10 @@ describe('.env.example', () => {
   });
 
   it('shows the default of each variable, leaving the required ones empty', () => {
-    for (const name of composeOnly) expect(example[name], name).toBe(composeDefaults.get(name));
+    // A secret's, `${NAME:+...}`, has no default.
+    for (const name of composeOnly) {
+      expect(example[name], name).toBe(composeDefaults.get(name) ?? '');
+    }
     for (const name of Object.keys(REQUIRED)) expect(example[name], name).toBe('');
     expect(loadEnv({ ...example, ...REQUIRED })).toEqual(loadEnv(REQUIRED));
   });

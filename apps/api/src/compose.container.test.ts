@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { GARAGE_CONFIG, GARAGE_IMAGE } from './blobs/testing.ts';
 import { envSchema, FILE_VARIABLES } from './env.ts';
 import { MEILISEARCH_IMAGE } from './search/testing.ts';
 
@@ -10,9 +11,12 @@ const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
 interface Service {
   image: string;
+  command?: string[];
+  depends_on?: Record<string, { condition: string; required: boolean }>;
   build?: { context: string; dockerfile: string };
   environment?: Record<string, string>;
-  secrets?: { source: string; target: string }[];
+  secrets?: { source: string; target: string; mode?: number | string }[];
+  configs?: { source: string; target: string }[];
   ports?: { target: number; published: string; protocol: string; host_ip?: string }[];
   networks?: Record<string, unknown>;
   cap_drop?: string[];
@@ -25,6 +29,7 @@ interface ComposeConfig {
   services: Record<string, Service>;
   networks: Record<string, { ipam: { config?: { subnet: string }[] } }>;
   secrets: Record<string, { environment: string }>;
+  configs: Record<string, { content: string }>;
 }
 
 /** The variables compose.yaml needs before Compose will read it at all. */
@@ -35,8 +40,8 @@ const REQUIRED = {
 };
 
 /**
- * compose.yaml as Compose resolves it, with the dev profile and any `overrides` on top, given only
- * `variables`: not the shell's, nor the repo's .env.
+ * compose.yaml as Compose resolves it, with the dev and s3 profiles and any `overrides` on top, given
+ * only `variables`: not the shell's, nor the repo's .env.
  */
 function composeConfig(variables: Record<string, string> = {}, overrides: string[] = []) {
   const files = ['compose.yaml', ...overrides].flatMap((file) => ['--file', file]);
@@ -49,6 +54,8 @@ function composeConfig(variables: Record<string, string> = {}, overrides: string
       '/dev/null',
       '--profile',
       'dev',
+      '--profile',
+      's3',
       'config',
       '--format',
       'json',
@@ -138,6 +145,53 @@ describe('the services', () => {
     expect(service(composeConfig(), 'meilisearch').image).toBe(MEILISEARCH_IMAGE);
   });
 
+  it('run the same Garage as the container tests, set up before the API starts, with the s3 profile', () => {
+    const config = composeConfig({
+      S3_SECRET_ACCESS_KEY: 's3 secret',
+      MYLI_GARAGE_RPC_SECRET: 'rpc secret',
+      MYLI_GARAGE_ADMIN_TOKEN: 'admin token',
+    });
+    const garage = service(config, 'garage');
+    const init = service(config, 'garage-init');
+
+    expect(garage.image).toBe(GARAGE_IMAGE);
+    expect(garage.configs).toEqual([{ source: 'garage', target: '/etc/garage.toml' }]);
+    expect(config.configs.garage?.content).toBe(GARAGE_CONFIG);
+    // Only root may read them, or Garage refuses to start. Compose 5 writes the mode as octal text.
+    const modes = (garage.secrets ?? []).map(({ source, mode }) => ({
+      source,
+      mode: typeof mode === 'string' ? Number.parseInt(mode, 8) : mode,
+    }));
+    expect(modes).toEqual([
+      { source: 'myli_garage_rpc_secret', mode: 0o400 },
+      { source: 'myli_garage_admin_token', mode: 0o400 },
+    ]);
+    expect(garage.environment).toEqual({
+      GARAGE_RPC_SECRET_FILE: '/run/secrets/myli_garage_rpc_secret',
+      GARAGE_ADMIN_TOKEN_FILE: '/run/secrets/myli_garage_admin_token',
+    });
+    expect(config.secrets.myli_garage_admin_token).toEqual(
+      expect.objectContaining({ environment: 'MYLI_GARAGE_ADMIN_TOKEN' }),
+    );
+
+    expect(init.image).toBe(service(config, 'api').image);
+    expect(init.command).toEqual(['node', 'src/set-up-garage.ts']);
+    expect(init.environment).toEqual(
+      expect.objectContaining({
+        GARAGE_ADMIN_URL: 'http://garage:3903',
+        GARAGE_ADMIN_TOKEN_FILE: '/run/secrets/myli_garage_admin_token',
+        S3_SECRET_ACCESS_KEY_FILE: '/run/secrets/s3_secret_access_key',
+      }),
+    );
+    expect(init.depends_on).toEqual({
+      garage: expect.objectContaining({ condition: 'service_healthy' }),
+    });
+    // Without the profile, the API starts without it.
+    expect(service(config, 'api').depends_on?.['garage-init']).toEqual(
+      expect.objectContaining({ condition: 'service_completed_successfully', required: false }),
+    );
+  });
+
   it("take myli's images from MYLI_IMAGE_PREFIX at MYLI_VERSION, or build them here", () => {
     const local = composeConfig();
     expect(service(local, 'api').image).toBe('myli-api:latest');
@@ -170,6 +224,7 @@ describe('the services', () => {
     expect(ports(defaults, 'caddy')).toEqual(['80:80/tcp', '443:443/tcp', '443:443/udp']);
     expect(ports(defaults, 'api')).toEqual([]);
     expect(ports(defaults, 'meilisearch')).toEqual([]);
+    expect(ports(defaults, 'garage')).toEqual([]);
     expect(ports(defaults, 'mailpit')).toEqual([
       '127.0.0.1:8025:8025/tcp',
       '127.0.0.1:1025:1025/tcp',
@@ -191,7 +246,14 @@ describe('the services', () => {
   it('run without Linux capabilities, unable to gain any', () => {
     const { services } = composeConfig();
 
-    expect(Object.keys(services).sort()).toEqual(['api', 'caddy', 'mailpit', 'meilisearch']);
+    expect(Object.keys(services).sort()).toEqual([
+      'api',
+      'caddy',
+      'garage',
+      'garage-init',
+      'mailpit',
+      'meilisearch',
+    ]);
     for (const [name, { cap_drop, security_opt }] of Object.entries(services)) {
       expect(cap_drop, name).toEqual(['ALL']);
       expect(security_opt, name).toEqual(['no-new-privileges:true']);
