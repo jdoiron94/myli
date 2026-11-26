@@ -37,9 +37,10 @@ const variables = {
   MYLI_VERSION: IMAGE_TAG,
   BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
   MEILI_MASTER_KEY: randomBytes(32).toString('base64'),
-  // Listed, as compose.yaml requires, and empty: no first admin, no SMTP.
+  // Listed, as compose.yaml requires, and empty: no first admin, no SMTP, photos in a directory.
   ADMIN_PASSWORD: '',
   SMTP_PASSWORD: '',
+  S3_SECRET_ACCESS_KEY: '',
   LOG_LEVEL: 'warn',
 };
 

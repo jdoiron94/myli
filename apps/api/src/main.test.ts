@@ -111,12 +111,13 @@ describe('main.ts', () => {
     expect(logs.map((line) => line.msg)).toEqual([
       'database ready',
       'email is off because SMTP_HOST is not set',
+      'photos are kept in a directory',
       'job worker started',
       'listening',
       'shutting down',
     ]);
-    expect(logs[3]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
-    expect(logs[4]).toMatchObject({ signal: 'SIGTERM' });
+    expect(logs[4]).toMatchObject({ level: 30, port, time: expect.any(String) as unknown });
+    expect(logs[5]).toMatchObject({ signal: 'SIGTERM' });
 
     const db = new Database(databasePath, { readonly: true });
     const jobTable = db.prepare("select name from sqlite_master where name = 'job'").get();
@@ -161,6 +162,7 @@ describe('main.ts', () => {
       'database ready',
       'first admin created from the environment',
       'email is off because SMTP_HOST is not set',
+      'photos are kept in a directory',
       'job worker started',
       'listening',
       'shutting down',

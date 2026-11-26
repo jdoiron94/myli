@@ -104,7 +104,7 @@ myli runs with Docker Compose: Caddy serves it over HTTPS and passes `/api` to t
    - `PUBLIC_URL`: `https://` and the server's address, like `https://myli.home.arpa`.
    - `BETTER_AUTH_SECRET` and `MEILI_MASTER_KEY`: generate each with `openssl rand -base64 32`.
 
-   [`.env.example`](.env.example) explains every variable. Leave the `_FILE` variables empty: Compose hands the secrets to the containers as files itself. Keep `ADMIN_PASSWORD` and `SMTP_PASSWORD` listed, even empty, or Compose won't start.
+   [`.env.example`](.env.example) explains every variable. Leave the `_FILE` variables empty: Compose hands the secrets to the containers as files itself. Keep `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY` listed, even empty, or Compose won't start.
 
 3. Build the images and start the stack. It's ready when `docker compose ps` shows every service healthy.
 
@@ -167,13 +167,28 @@ A device that trusts this certificate trusts it for every site, not only myli. W
 
 A recipe's public link holds its secret in its address, as `https://myli.home.arpa/p/<token>` ([ADR 0016](docs/adr/0016-public-link-token-in-the-path.md)). myli never logs it, nor sends it to other sites. If you put a proxy of your own in front of myli, keep it from logging paths under `/p/` and `/api/v1/public/`: anyone who reads those logs could open the recipes.
 
+### Keep photos in S3
+
+Photos are kept in the `api-data` volume unless you choose an S3 bucket instead: on AWS, or any store that speaks its API. Set, in `.env`:
+
+```sh
+BLOB_STORE=s3
+S3_ENDPOINT=https://s3.example.com   # empty for AWS
+S3_REGION=us-east-1                  # the region requests are signed for
+S3_BUCKET=myli-photos
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+```
+
+The bucket must exist, and its key must be allowed to read, write and delete objects in it. Nothing in it needs to be public: the API serves every photo itself, to whoever may see its recipe. myli puts the bucket's name in the path, as `https://s3.example.com/myli-photos/images/…`, not in the host name, so any store that speaks S3 can serve it.
+
 ### Back up
 
 Compose keeps myli's data in volumes, named after the project (`myli` unless you choose another):
 
 | Volume | Contents |
 |---|---|
-| `myli_api-data` | The database and the photos: all of myli's data. |
+| `myli_api-data` | The database and the photos: all of myli's data. With `BLOB_STORE=s3`, the photos are in the bucket instead: back it up as its store allows. |
 | `myli_caddy-data` | The certificate authority. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
 | `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up: an empty index is rebuilt when the API starts. |
 

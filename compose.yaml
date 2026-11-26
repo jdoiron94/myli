@@ -2,9 +2,9 @@
 # README's "Getting started".
 #
 # Settings come from the environment, or from .env next to this file (.env.example lists them).
-# PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTER_KEY are required. ADMIN_PASSWORD and
-# SMTP_PASSWORD must be listed even when unused, empty if so: every secret goes to the containers as
-# a file, and Compose refuses to start when a secret's variable isn't there at all.
+# PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTER_KEY are required. ADMIN_PASSWORD, SMTP_PASSWORD
+# and S3_SECRET_ACCESS_KEY must be listed even when unused, empty if so: every secret goes to the
+# containers as a file, and Compose refuses to start when a secret's variable isn't there at all.
 #
 # Images come from MYLI_IMAGE_PREFIX (a registry, like ghcr.io/jdoiron94/ for releases) at MYLI_VERSION.
 # Without them, Compose builds them here from the repo: `docker compose up --build`.
@@ -74,9 +74,16 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD_FILE: ${SMTP_PASSWORD:+/run/secrets/smtp_password}
       SMTP_FROM: ${SMTP_FROM:-}
-    secrets: [better_auth_secret, meili_master_key, admin_password, smtp_password]
+      BLOB_STORE: ${BLOB_STORE:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY_FILE: ${S3_SECRET_ACCESS_KEY:+/run/secrets/s3_secret_access_key}
+    secrets:
+      [better_auth_secret, meili_master_key, admin_password, smtp_password, s3_secret_access_key]
     volumes:
-      # The database: all of the instance's data.
+      # The database, and the photos unless they're kept in S3: all of the instance's data.
       - api-data:/data
     networks: [proxy, backend]
     # The API starts without search, and keeps trying to reach it.
@@ -146,3 +153,5 @@ secrets:
     environment: ADMIN_PASSWORD
   smtp_password:
     environment: SMTP_PASSWORD
+  s3_secret_access_key:
+    environment: S3_SECRET_ACCESS_KEY

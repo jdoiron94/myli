@@ -46,7 +46,9 @@ describe('loadEnv', () => {
       PORT: 8080,
       LOG_LEVEL: 'info',
       DATABASE_PATH: '/data/myli.db',
+      BLOB_STORE: 'local',
       BLOB_DIR: '/data/blobs',
+      S3_REGION: 'us-east-1',
       PUBLIC_URL: 'http://localhost:5173',
       BETTER_AUTH_SECRET: REQUIRED.BETTER_AUTH_SECRET,
       MEILI_URL: 'http://meilisearch:7700',
@@ -137,6 +139,42 @@ describe('the first admin variables', () => {
     const weak = loadEnvError({ ...REQUIRED, ...ADMIN, ADMIN_PASSWORD: 'hunter2-hunter2' }).message;
     expect(weak).toMatch(/^\s+ADMIN_PASSWORD: Must contain an uppercase letter\.$/m);
     expect(weak).not.toContain('hunter2');
+  });
+});
+
+describe('the S3 variables', () => {
+  const S3 = {
+    S3_BUCKET: 'myli-photos',
+    S3_ACCESS_KEY_ID: 'GK0123456789abcdef01234567',
+    S3_SECRET_ACCESS_KEY: 's3-secret',
+  };
+
+  it('name the bucket photos are kept in with BLOB_STORE=s3', () => {
+    expect(
+      loadEnv({ ...REQUIRED, ...S3, BLOB_STORE: 's3', S3_ENDPOINT: 'http://garage:3900' }),
+    ).toMatchObject({
+      ...S3,
+      BLOB_STORE: 's3',
+      S3_ENDPOINT: 'http://garage:3900',
+      S3_REGION: 'us-east-1',
+    });
+  });
+
+  it('need the bucket and its key with BLOB_STORE=s3, and a name S3 takes', () => {
+    expect(
+      loadEnvError({ ...REQUIRED, BLOB_STORE: 's3' })
+        .message.split('\n')
+        .slice(1),
+    ).toEqual([
+      '  S3_BUCKET: is required when BLOB_STORE is s3',
+      '  S3_ACCESS_KEY_ID: is required when BLOB_STORE is s3',
+      '  S3_SECRET_ACCESS_KEY: is required when BLOB_STORE is s3',
+    ]);
+    expect(
+      loadEnvError({ ...REQUIRED, ...S3, BLOB_STORE: 's3', S3_BUCKET: 'My_Photos' }).message,
+    ).toMatch(
+      /^\s+S3_BUCKET: must be a bucket name: 3 to 63 lowercase letters, digits, dots and dashes$/m,
+    );
   });
 });
 

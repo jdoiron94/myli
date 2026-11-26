@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createAuth } from './auth/auth.ts';
-import { createLocalBlobStore } from './blobs/local.ts';
+import { createBlobStore } from './blobs/configured.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
 import { loadEnvOrExit } from './env.ts';
 import { allJobs } from './jobs/all.ts';
@@ -73,7 +73,7 @@ const search = createSearchService({
 });
 search.start();
 
-const blobs = createLocalBlobStore(env.BLOB_DIR);
+const blobs = createBlobStore(env, logger);
 
 const worker = createWorker({
   services: { db, mailer, publicUrl: env.PUBLIC_URL, search, blobs },
