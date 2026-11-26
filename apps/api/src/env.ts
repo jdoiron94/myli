@@ -20,7 +20,12 @@ const smtpFromSchema = z.string().refine((value) => {
   return address !== undefined && z.email().safeParse(address).success;
 }, 'must be an email address, optionally with a name, like: myli <myli@example.com>');
 
+/** Where uploaded photos are kept: in a directory, or in an S3 bucket. */
+export const BLOB_STORES = ['local', 's3'] as const;
+
 const FIRST_ADMIN_VARIABLES = ['ADMIN_NAME', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'] as const;
+/** What an S3 bucket needs, besides its endpoint and region, which have defaults. */
+const S3_VARIABLES = ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
 /** SMTP variables that mean nothing without SMTP_HOST. SMTP_SECURITY has a default, so can't tell. */
 const SMTP_HOST_DEPENDENTS = ['SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'] as const;
 
@@ -37,8 +42,23 @@ export const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     DATABASE_PATH: z.string().default('./data/myli.db'),
-    // Where uploaded photos are kept (ADR 0004): a directory only the API's container mounts.
+    // Where uploaded photos are kept (ADR 0004): in BLOB_DIR, a directory only the API's container
+    // mounts, or in an S3 bucket.
+    BLOB_STORE: z.enum(BLOB_STORES).default('local'),
     BLOB_DIR: z.string().default('./data/blobs'),
+    // The bucket, with BLOB_STORE=s3: on AWS, or any store that speaks its API, like Garage. Without
+    // an endpoint, AWS's for the region.
+    S3_ENDPOINT: z.url({ protocol: /^https?$/ }).optional(),
+    S3_REGION: z.string().default('us-east-1'),
+    S3_BUCKET: z
+      .string()
+      .regex(
+        /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/,
+        'must be a bucket name: 3 to 63 lowercase letters, digits, dots and dashes',
+      )
+      .optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
     // The address people open myli at. Sign-in only accepts requests from this origin, cookies are
     // marked Secure when it's https, and emailed links point here.
     PUBLIC_URL: z
@@ -111,6 +131,12 @@ export const envSchema = z
         }
       }
 
+      if (env.BLOB_STORE === 's3') {
+        for (const name of S3_VARIABLES.filter((variable) => env[variable] === undefined)) {
+          problem(name, 'is required when BLOB_STORE is s3');
+        }
+      }
+
       if (env.SMTP_HOST === undefined) {
         for (const name of SMTP_HOST_DEPENDENTS.filter((variable) => env[variable] !== undefined)) {
           problem(name, 'requires SMTP_HOST, which is not set');
@@ -141,6 +167,7 @@ export const FILE_VARIABLES = [
   'MEILI_MASTER_KEY',
   'ADMIN_PASSWORD',
   'SMTP_PASSWORD',
+  'S3_SECRET_ACCESS_KEY',
 ] as const satisfies readonly (keyof typeof envSchema.shape)[];
 
 /** Why a file couldn't be read, in the operator's terms. */
