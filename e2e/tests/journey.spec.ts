@@ -268,12 +268,23 @@ test('an admin writes a recipe, with a formatted description, steps and tags, an
 }) => {
   await signInAsAdmin(page);
 
-  await test.step('the description is edited in place, with its toolbar', async () => {
+  await test.step('importing from a link refuses an address that isn’t on the public internet', async () => {
     await page
       .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'New recipe' })
       .click();
     await expect(heading(page, 'New recipe')).toBeVisible();
+    // myli's own address: the API won't fetch it, nor anything else on its network.
+    const address = page.getByRole('textbox', { name: "Address of the recipe's page" });
+    await address.fill(new URL('/recipes/new', page.url()).href);
+    await page.getByRole('button', { name: 'Import' }).click();
+    await expect(address).toBeFocused();
+    await expect(address).toHaveAccessibleDescription(
+      /^myli only imports from sites on the public internet\./,
+    );
+  });
+
+  await test.step('the description is edited in place, with its toolbar', async () => {
     await page.getByRole('textbox', { name: 'Title' }).fill('Weeknight Bread');
     await page.getByRole('textbox', { name: 'Servings' }).fill('8');
     await page.getByRole('textbox', { name: 'Ingredient 1' }).fill('500 g bread flour');

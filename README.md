@@ -12,6 +12,7 @@ What myli does once the [roadmap](#roadmap) is done:
 
 - **Structured recipes:** ingredient groups, parsed quantities and units, ordered steps with markdown and photos, prep, cook and total times, difficulty, and nutrition entered by hand.
 - **Scaling:** any serving size, shown as readable fractions, in metric or imperial.
+- **Import from a link:** a recipe site's page fills in a new recipe, photo included, to check before saving.
 - **Search:** typo-tolerant full-text search, ingredient autocomplete, filtering on several ingredients, and filters for cuisine, meal type, diet, allergens, difficulty and total time. Sort by rating, recency or time.
 - **Collaboration:**
   - drafts and published versions

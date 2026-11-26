@@ -1,5 +1,6 @@
 import {
   DIFFICULTIES,
+  type ImportedRecipe,
   ingredientGroupInputSchema,
   ingredientLineInputSchema,
   type ParsedIngredient,
@@ -392,6 +393,18 @@ export function recipeFormValues(recipe?: Recipe): RecipeFormValues {
     // Nothing is shared by accident: sharing is a choice.
     visibility: 'private',
     message: '',
+  };
+}
+
+/**
+ * A recipe read from another site (spec §3.7): private, as any new recipe starts, with its servings
+ * left blank when the page didn't say.
+ */
+export function importedFormValues(recipe: ImportedRecipe): RecipeFormValues {
+  const { servings } = recipe;
+  return {
+    ...contentFormValues({ ...recipe, servings: servings ?? 1 }, 'private'),
+    servings: servings === null ? '' : String(servings),
   };
 }
 

@@ -26,6 +26,7 @@ import { apiFieldErrors, focusFirstInvalidField, formSchema } from '@/lib/forms.
 import { changedParts } from './changes.ts';
 import { DIFFICULTY_LABELS } from './format.ts';
 import IngredientsEditor from './IngredientsEditor.vue';
+import type { ImportRecipeResult } from './import.ts';
 import PhotosEditor from './PhotosEditor.vue';
 import { recipePhotos, usePhotoLibrary } from './photo-library.ts';
 import {
@@ -41,6 +42,7 @@ import {
 import {
   contentFormValues,
   DIFFICULTY_CHOICES,
+  importedFormValues,
   NUTRIENTS,
   RECIPE_FORM_FIELDS,
   recipeFormSchema,
@@ -50,10 +52,15 @@ import StepsEditor from './StepsEditor.vue';
 import TagsEditor from './TagsEditor.vue';
 
 /**
- * The recipe editor: creates a recipe, or edits `recipe`, continuing its `draft` when it has one.
- * An edit is saved as the recipe's draft, or published (spec §3.3).
+ * The recipe editor: creates a recipe, filled in from an `imported` one if given, or edits
+ * `recipe`, continuing its `draft` when it has one. An edit is saved as the recipe's draft, or
+ * published (spec §3.3).
  */
-const props = defineProps<{ recipe?: Recipe; draft?: RecipeDraft | null }>();
+const props = defineProps<{
+  recipe?: Recipe;
+  draft?: RecipeDraft | null;
+  imported?: ImportRecipeResult;
+}>();
 const emit = defineEmits<{ saved: [recipe: Recipe]; discarded: []; reload: [] }>();
 
 const { handleSubmit, isSubmitting, setErrors } = useForm({
@@ -62,7 +69,9 @@ const { handleSubmit, isSubmitting, setErrors } = useForm({
   initialValues:
     props.recipe && props.draft
       ? contentFormValues(props.draft.content, props.recipe.visibility)
-      : recipeFormValues(props.recipe),
+      : props.imported
+        ? importedFormValues(props.imported.recipe)
+        : recipeFormValues(props.recipe),
 });
 
 const difficultyChoices = DIFFICULTY_CHOICES.map((value) => ({
@@ -92,6 +101,7 @@ const NUTRIENT_LABELS: Readonly<Record<(typeof NUTRIENTS)[number], string>> = {
 const library = usePhotoLibrary([
   ...(props.recipe ? recipePhotos(props.recipe) : []),
   ...(props.draft?.photos ?? []),
+  ...(props.imported?.images ?? []),
 ]);
 const form = useTemplateRef('form');
 const createRecipe = useCreateRecipe();
