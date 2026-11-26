@@ -9,6 +9,7 @@ import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
 import { registerDraftRoutes } from './drafts/routes.ts';
 import type { Env } from './env.ts';
+import { registerExportRoutes } from './export/routes.ts';
 import { registerFavoriteRoutes } from './favorites/routes.ts';
 import { registerImageRoutes } from './images/routes.ts';
 import { registerImportRoutes } from './import/routes.ts';
@@ -75,6 +76,7 @@ export function createV1Router(deps: V1Deps) {
   registerRecipeRoutes(v1, { db: deps.db });
   registerDraftRoutes(v1, { db: deps.db });
   registerRevisionRoutes(v1, { db: deps.db });
+  registerExportRoutes(v1, { db: deps.db });
   registerTrashRoutes(v1, { db: deps.db, retentionDays: deps.env.TRASH_RETENTION_DAYS });
   registerImageRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerTagRoutes(v1, { db: deps.db });

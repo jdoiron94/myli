@@ -60,6 +60,13 @@ export {
   type RecipeStep,
   type TextPart,
 } from './compare.ts';
+export {
+  EXPORT_FORMATS,
+  exportedRecipeSchema,
+  type RecipeExport,
+  recipeExportQuerySchema,
+  recipeExportSchema,
+} from './export.ts';
 export { type Favorite, favoriteSchema } from './favorites.ts';
 export {
   type CollectionIngredients,

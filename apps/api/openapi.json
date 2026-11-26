@@ -2779,6 +2779,264 @@
           "coverImageId"
         ]
       },
+      "RecipeExport": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "myli.recipe"
+            ]
+          },
+          "formatVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ],
+            "description": "Goes up when the format changes."
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recipe": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "author": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "url",
+                  "title",
+                  "author"
+                ]
+              },
+              "equipment": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "yield": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "qty": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "qty",
+                  "unit"
+                ]
+              },
+              "servings": {
+                "type": "integer"
+              },
+              "prepMinutes": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "cookMinutes": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "totalMinutes": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Set only when it differs from prep plus cook. See `recipeTotalMinutes`."
+              },
+              "difficulty": {
+                "$ref": "#/components/schemas/Difficulty"
+              },
+              "nutrition": {
+                "type": "object",
+                "properties": {
+                  "calories": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "proteinGrams": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "carbsGrams": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "fatGrams": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "fiberGrams": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "sugarGrams": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "sodiumMilligrams": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "calories",
+                  "proteinGrams",
+                  "carbsGrams",
+                  "fatGrams",
+                  "fiberGrams",
+                  "sugarGrams",
+                  "sodiumMilligrams"
+                ]
+              },
+              "ingredientGroups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ingredients": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/IngredientLine"
+                      }
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "ingredients"
+                  ]
+                }
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "body": {
+                      "type": "string",
+                      "description": "Markdown."
+                    }
+                  },
+                  "required": [
+                    "body"
+                  ]
+                }
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "$ref": "#/components/schemas/TagType"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "name"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "title",
+              "description",
+              "source",
+              "equipment",
+              "yield",
+              "servings",
+              "prepMinutes",
+              "cookMinutes",
+              "totalMinutes",
+              "difficulty",
+              "nutrition",
+              "ingredientGroups",
+              "createdAt",
+              "updatedAt",
+              "steps",
+              "tags"
+            ]
+          }
+        },
+        "required": [
+          "format",
+          "formatVersion",
+          "exportedAt",
+          "recipe"
+        ]
+      },
       "TrashList": {
         "type": "object",
         "properties": {
@@ -5324,6 +5582,98 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/{id}/export": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Export a recipe",
+        "description": "Anyone who may see the recipe, as a file to download: as published, in myli’s own JSON or as schema.org/Recipe JSON-LD, without its photos, whose addresses only work signed in here.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "jsonld"
+              ],
+              "default": "json",
+              "description": "`json`, myli’s own format, or `jsonld`, schema.org/Recipe as JSON-LD."
+            },
+            "required": false,
+            "description": "`json`, myli’s own format, or `jsonld`, schema.org/Recipe as JSON-LD.",
+            "name": "format",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recipe in the format asked for.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "An attachment, named after the recipe."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeExport"
+                }
+              },
+              "application/ld+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recipe has this ID, or the caller may not see it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
                 }
               }
             }
