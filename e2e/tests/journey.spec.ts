@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { Locator, Page } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { checkPage } from './accessibility.ts';
 import { expect, test } from './fixtures.ts';
 import { solidPng } from './images.ts';
@@ -956,19 +957,39 @@ test('the recipe is shared through a public link, which opens for anyone until i
   });
 });
 
-test('the recipe is downloaded as schema.org JSON-LD, for other recipe apps', async ({ page }) => {
+test('the recipe is downloaded for other recipe apps, and everything for safekeeping', async ({
+  page,
+}) => {
   await signInAsAdmin(page);
-  await page.goto(recipePath);
-  await expect(heading(page, 'Weeknight Bread')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Download' }).click();
-  await checkPage(page, { popup: true });
-  const downloading = page.waitForEvent('download');
-  await page.getByRole('menuitem', { name: 'JSON-LD, for other recipe apps' }).click();
-  const download = await downloading;
-  expect(download.suggestedFilename()).toBe('weeknight-bread.jsonld');
-  expect(JSON.parse(await readFile(await download.path(), 'utf8'))).toMatchObject({
-    '@type': 'Recipe',
-    name: 'Weeknight Bread',
+  await test.step('the recipe, as schema.org JSON-LD', async () => {
+    await page.goto(recipePath);
+    await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+    await page.getByRole('button', { name: 'Download' }).click();
+    await checkPage(page, { popup: true });
+    const downloading = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: 'JSON-LD, for other recipe apps' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe('weeknight-bread.jsonld');
+    expect(JSON.parse(await readFile(await download.path(), 'utf8'))).toMatchObject({
+      '@type': 'Recipe',
+      name: 'Weeknight Bread',
+    });
+  });
+
+  await test.step('every recipe the admin can see, with its photos, in one archive', async () => {
+    await openAdminPage(page, 'Export');
+    await expect(heading(page, 'Export')).toBeVisible();
+    await checkPage(page);
+    const downloading = page.waitForEvent('download');
+    await page.getByRole('link', { name: 'Download the export' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toMatch(/^myli-export-\d{4}-\d{2}-\d{2}\.zip$/);
+    const files = unzipSync(await readFile(await download.path()));
+    const recipeId = recipePath.split('/').at(-1) ?? '';
+    expect(Object.keys(files)).toContain(`recipes/${recipeId}.json`);
+    // Its two photos and its step's, read from where uploads are kept, none missing.
+    const manifest: unknown = JSON.parse(new TextDecoder().decode(files['manifest.json']));
+    expect(manifest).toMatchObject({ photos: 3, missingPhotos: [] });
   });
 });

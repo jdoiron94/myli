@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArchiveIcon,
   FolderIcon,
   HeartIcon,
   MailIcon,
@@ -39,6 +40,7 @@ const ADMIN_PAGES = [
   { name: 'users', icon: UserCogIcon },
   { name: 'search-index', icon: SearchCheckIcon },
   { name: 'tags', icon: TagsIcon },
+  { name: 'export', icon: ArchiveIcon },
 ] as const;
 const ACCOUNT_PAGES = [{ name: 'trash', icon: TrashIcon }] as const;
 

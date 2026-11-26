@@ -173,6 +173,9 @@ catalogs:
     fast-check:
       specifier: 4.10.2
       version: 4.10.2
+    fflate:
+      specifier: 0.8.3
+      version: 0.8.3
     typescript:
       specifier: 6.0.3
       version: 6.0.3
@@ -251,7 +254,7 @@ importers:
         specifier: 9.0.0
         version: 9.0.0
       fflate:
-        specifier: 0.8.3
+        specifier: 'catalog:'
         version: 0.8.3
       hono:
         specifier: 4.13.18
@@ -426,6 +429,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
