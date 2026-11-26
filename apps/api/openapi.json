@@ -5691,6 +5691,56 @@
         }
       }
     },
+    "/export": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "Export the instance",
+        "description": "Admins only. A zip archive of every recipe the caller may see, as published, with its revisions; every tag; and each photo they show, at its largest size. Other people’s private recipes aren’t in it: backups hold everything.",
+        "responses": {
+          "200": {
+            "description": "The archive, made as it downloads.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "An attachment, named after the day."
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trash": {
       "get": {
         "tags": [

@@ -318,6 +318,12 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: '/export',
+    access: 'instance.export',
+    send: (t, cookie) => request(t, 'GET', '/export', cookie),
+  },
+  {
+    method: 'get',
     path: '/recipes/{id}/export',
     access: { recipe: 'recipe.read' },
     send: (t, cookie, id) => request(t, 'GET', `/recipes/${id}/export?format=jsonld`, cookie),
