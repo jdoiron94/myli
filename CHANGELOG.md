@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.0](https://github.com/jdoiron94/myli/compare/v0.13.0...v0.14.0) (2026-11-26)
+
+
+### Features
+
+* **api:** fetch only from the public internet, through one guard ([9e6315e](https://github.com/jdoiron94/myli/commit/9e6315efd028f416d371abb95fa93384b6124fad))
+* **api:** import a recipe from a link, to fill in a new one ([46a88bd](https://github.com/jdoiron94/myli/commit/46a88bd0ee4f0bd02ce1d5142e82cce81aec5b01))
+* **api:** read a page's schema.org recipe data ([c686eb7](https://github.com/jdoiron94/myli/commit/c686eb78bf5aefe695c5f7eeb80d9065e3f8b704))
+* **web:** import a recipe from a link on the New recipe page ([806ab0f](https://github.com/jdoiron94/myli/commit/806ab0fc37413d853ba67de378a0f8bce2c59a1a))
+
 ## [0.13.0](https://github.com/jdoiron94/myli/compare/v0.12.0...v0.13.0) (2026-11-26)
 
 
