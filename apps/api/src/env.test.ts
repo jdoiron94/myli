@@ -60,6 +60,7 @@ describe('loadEnv', () => {
       ],
       INVITATION_TTL_DAYS: 14,
       TRASH_RETENTION_DAYS: 30,
+      BACKUP_KEEP: 7,
       SMTP_SECURITY: 'starttls',
     });
   });

@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createAuth } from './auth/auth.ts';
+import { backupSettings } from './backups/backup.ts';
 import { createBlobStore } from './blobs/configured.ts';
 import { migrateDatabase, openDatabase } from './db/database.ts';
 import { loadEnvOrExit } from './env.ts';
@@ -90,6 +91,7 @@ const dailyJobs = scheduleDailyJobs({
   db,
   logger,
   trashRetentionDays: env.TRASH_RETENTION_DAYS,
+  backups: backupSettings(env),
 });
 
 const app = createApp({ logger, auth, db, env, search, blobs, outbound: fetchPublic });

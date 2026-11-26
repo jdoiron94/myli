@@ -574,7 +574,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 - **In Compose,** secrets reach the containers as files, never in their environment, and the API trusts `X-Forwarded-For` only from Caddy's network. No service has Linux capabilities.
 - **Images:** multi-stage builds, non-root user, healthchecks, pinned versions.
 - **Releases:** versions follow the conventional commits (release-please). Each release tags the commit, creates a GitHub release with its changelog, and publishes both images to GHCR, privately, for linux/amd64, tagged with the version and `latest`.
-- **Backups:** a scheduled `VACUUM INTO` snapshot of SQLite plus an archive of the uploads volume, with a documented restore procedure. Meilisearch isn't backed up (§4).
+- **Backups** (ADR 0018): every night at 03:30 server time, and when the API starts if the last is more than a day old, the worker writes one zip: a `VACUUM INTO` copy of SQLite and every photo it names, from whichever store keeps them. They go in `BACKUP_DIR`, a volume of its own in Compose, and the newest `BACKUP_KEEP` (7) are kept; 0 turns them off. Meilisearch isn't backed up (§4), nor is Caddy's certificate authority.
 - **Demo data:** a seed script, for a new instance only, creates one account per role, with random passwords it prints once, and 20 recipes written by the admin and the editor, across cuisines, meals, diets and allergens. Each of the two keeps one private, which the other accounts never see.
 
 ## 7. Out of scope

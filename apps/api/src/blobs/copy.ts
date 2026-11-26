@@ -11,6 +11,15 @@ export interface CopyResult {
   missing: string[];
 }
 
+/** The key of every size of every photo the database has, saved or only uploaded. */
+export function photoKeys(db: Db): string[] {
+  return db
+    .select({ variants: image.variants })
+    .from(image)
+    .all()
+    .flatMap(({ variants }) => variants.map(({ key }) => key));
+}
+
 /**
  * Copies every size of every photo the database has, saved or only uploaded, from one store to
  * another (ADR 0004), to switch `BLOB_STORE`: `src/copy-photos.ts`. Nothing is deleted, and a
@@ -22,11 +31,7 @@ export async function copyPhotos(
   { from, to, logger }: { from: BlobStore; to: BlobStore; logger: Logger },
   onProgress: (done: number, total: number) => void = () => undefined,
 ): Promise<CopyResult> {
-  const keys = db
-    .select({ variants: image.variants })
-    .from(image)
-    .all()
-    .flatMap(({ variants }) => variants.map(({ key }) => key));
+  const keys = photoKeys(db);
   const result: CopyResult = { copied: 0, present: 0, missing: [] };
 
   for (const [index, key] of keys.entries()) {

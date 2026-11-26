@@ -51,8 +51,8 @@ services:
       dockerfile: apps/api/Dockerfile
     # Not read_only: Compose copies secrets from the environment into the container, which it can't
     # do in a read-only one.
-    # The image sets NODE_ENV, HOST, PORT, DATABASE_PATH and BLOB_DIR (apps/api/Dockerfile). An
-    # empty value counts as unset, so the API's defaults apply.
+    # The image sets NODE_ENV, HOST, PORT, DATABASE_PATH, BLOB_DIR and BACKUP_DIR
+    # (apps/api/Dockerfile). An empty value counts as unset, so the API's defaults apply.
     environment:
       PUBLIC_URL: ${PUBLIC_URL:?must be set to the address people open myli at, like https://myli.home.arpa}
       # Each secret is a file in /run/secrets (see `secrets` below), named only when it's set. Unset,
@@ -65,6 +65,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-}
       TRASH_RETENTION_DAYS: ${TRASH_RETENTION_DAYS:-}
+      BACKUP_KEEP: ${BACKUP_KEEP:-}
       ADMIN_NAME: ${ADMIN_NAME:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD_FILE: ${ADMIN_PASSWORD:+/run/secrets/admin_password}
@@ -85,6 +86,9 @@ services:
     volumes:
       # The database, and the photos unless they're kept in S3: all of the instance's data.
       - api-data:/data
+      # The nightly backups, of both. To keep them on another disk, mount a directory there instead
+      # (the README's "Back up and restore").
+      - backups:/backups
     networks: [proxy, backend]
     depends_on:
       # The API starts without search, and keeps trying to reach it.
@@ -203,6 +207,7 @@ networks:
 
 volumes:
   api-data:
+  backups:
   caddy-data:
   meilisearch-data:
   garage-data:

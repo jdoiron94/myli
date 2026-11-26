@@ -57,6 +57,19 @@ test('starts Caddy and the API without errors, with search ready', async ({ brow
   expect(logEntries(api).filter(isError)).toEqual([]);
 });
 
+test('backs up the instance on its first start, onto the backups volume', async ({
+  browserName,
+}) => {
+  const api = container(browserName, 'api');
+  const backups = () =>
+    docker(['exec', api, 'sh', '-c', 'stat --format "%U %n" /backups/*']).split('\n');
+
+  // A new named volume takes the owner of the image's directory: the API's user, who can write.
+  await expect
+    .poll(backups, { timeout: 10_000 })
+    .toEqual([expect.stringMatching(/^node \/backups\/myli-backup-[\dT-]+Z\.zip$/)]);
+});
+
 test('sets up Garage before the API starts, with the s3 profile', ({ browserName, blobStore }) => {
   test.skip(blobStore !== 's3', 'Only Firefox’s stack keeps photos in Garage.');
   const init = docker([

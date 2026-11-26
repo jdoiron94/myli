@@ -35,7 +35,8 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
     DATABASE_PATH=/data/myli.db \
-    BLOB_DIR=/data/blobs
+    BLOB_DIR=/data/blobs \
+    BACKUP_DIR=/backups
 WORKDIR /app
 # The installed packages (symlinks into node_modules/.pnpm, kept as symlinks), then the source.
 COPY --from=dependencies /app/node_modules node_modules
@@ -47,9 +48,10 @@ COPY apps/api/package.json apps/api/
 COPY apps/api/drizzle apps/api/drizzle
 COPY apps/api/src apps/api/src
 
-# The database lives on a volume at /data. The image's node user (uid 1000) owns it, and a new
-# named volume takes that owner. A host directory mounted there must be writable by uid 1000.
-RUN mkdir /data && chown node:node /data
+# The database lives on a volume at /data, and backups on another at /backups. The image's node
+# user (uid 1000) owns both, and a new named volume takes that owner. A host directory mounted on
+# either must be writable by uid 1000.
+RUN mkdir /data /backups && chown node:node /data /backups
 USER node
 WORKDIR /app/apps/api
 EXPOSE 3000

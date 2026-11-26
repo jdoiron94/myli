@@ -9,14 +9,24 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it('queues a trash purge and a photo sweep on startup and every day at 03:30, until stopped', () => {
+it('queues a backup, a trash purge and a photo sweep on startup and every day at 03:30, until stopped', () => {
   // In the server's time zone, as the schedule is.
   const started = new Date(2026, 10, 16, 12, 0);
   const nextDay = new Date(2026, 10, 17, 3, 30);
   const daysBefore = (date: Date, days: number) =>
     new Date(date.getTime() - days * DAY_MS).toISOString();
+  const backups = { directory: '/backups', keep: 7 };
   /** What's queued at `date`. */
-  const dailyAt = (date: Date) => [
+  const dailyAt = (date: Date, onStartup = false) => [
+    {
+      type: 'backup.create',
+      payload: {
+        takenAt: date.toISOString(),
+        ...backups,
+        // On startup, only if there's none from the last day.
+        ...(onStartup && { ifNoneSince: daysBefore(date, 1) }),
+      },
+    },
     { type: 'trash.purge', payload: { deletedBefore: daysBefore(date, 30) } },
     { type: 'images.sweep-unused', payload: { uploadedBefore: daysBefore(date, 1) } },
   ];
@@ -25,17 +35,27 @@ it('queues a trash purge and a photo sweep on startup and every day at 03:30, un
   const queued = () => db.select({ type: job.type, payload: job.payload }).from(job).all();
   const finishAll = () => db.update(job).set({ status: 'succeeded' }).run();
 
-  const daily = scheduleDailyJobs({ db, logger: createLogger('silent'), trashRetentionDays: 30 });
+  const logger = createLogger('silent');
 
-  expect(queued()).toEqual(dailyAt(started));
+  const daily = scheduleDailyJobs({ db, logger, trashRetentionDays: 30, backups });
+
+  expect(queued()).toEqual(dailyAt(started, true));
   finishAll();
   vi.advanceTimersByTime(nextDay.getTime() - started.getTime() - 1000);
-  expect(queued()).toHaveLength(2);
+  expect(queued()).toHaveLength(3);
   vi.advanceTimersByTime(1000);
-  expect(queued()).toEqual([...dailyAt(started), ...dailyAt(nextDay)]);
+  expect(queued()).toEqual([...dailyAt(started, true), ...dailyAt(nextDay)]);
 
   daily.stop();
   finishAll();
   vi.advanceTimersByTime(DAY_MS);
-  expect(queued()).toHaveLength(4);
+  expect(queued()).toHaveLength(6);
+
+  // BACKUP_KEEP=0: no backups.
+  scheduleDailyJobs({ db, logger, trashRetentionDays: 30, backups: null }).stop();
+  expect(
+    queued()
+      .slice(6)
+      .map(({ type }) => type),
+  ).toEqual(['trash.purge', 'images.sweep-unused']);
 });

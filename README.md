@@ -87,6 +87,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 15. [The markdown editor reads markdown with the renderer's parser](docs/adr/0015-editor-reads-markdown-with-the-renderers-parser.md)
 16. [A public link carries its token in the path](docs/adr/0016-public-link-token-in-the-path.md)
 17. [The SSRF guard checks the address it connects to, on Node's own HTTP client](docs/adr/0017-ssrf-guard-checks-the-connected-address.md)
+18. [Nightly backups in the worker: one zip of the database and every photo](docs/adr/0018-nightly-backups-in-the-worker.md)
 
 ## Getting started
 
@@ -224,26 +225,38 @@ The photos uploaded so far stay where they were kept until they're copied into t
 
 Nothing is deleted from the old store: once the photos show, free its space yourself. Going back to the `api-data` volume works the same way, with `BLOB_STORE=local`, and the S3 variables still set while the photos are copied from the bucket.
 
-### Back up
+### Back up and restore
 
-Compose keeps myli's data in volumes, named after the project (`myli` unless you choose another):
+myli backs itself up every night at 03:30, server time, and when the API starts if its last backup is more than a day old. Each backup is one zip file: the database, copied as it was at one moment, and every photo it names, whether they're kept in the `api-data` volume or in an S3 bucket. The API's log says `backup saved` for each, with its size.
+
+The newest 7 are kept in the `backups` volume. Set `BACKUP_KEEP` in `.env` to keep more or fewer, or to 0 to turn backups off. Each is a full copy, so seven take about seven times the space of the photos.
+
+That volume is on the same disk as everything else. To keep backups on another, mount a directory from it at `/backups` instead, in a `compose.override.yaml` beside `compose.yaml`, and make it writable by uid 1000, the API's user (`sudo chown 1000:1000 /mnt/backups/myli`):
+
+```yaml
+services:
+  api:
+    volumes:
+      - /mnt/backups/myli:/backups
+```
+
+Copy them off the machine too, with whatever you use for other files.
+
+Compose keeps the rest of myli's data in volumes, named after the project (`myli` unless you choose another):
 
 | Volume | Contents |
 |---|---|
-| `myli_api-data` | The database and the photos: all of myli's data. With `BLOB_STORE=s3`, the photos are in the bucket instead: back it up as its store allows. |
-| `myli_caddy-data` | The certificate authority. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
-| `myli_garage-data` | With Garage (the `s3` profile), the photos. |
+| `myli_api-data` | The database and the photos, all of which the backups hold. With `BLOB_STORE=s3`, the photos are in the bucket instead, and the backups hold them too. |
+| `myli_backups` | The backups. |
+| `myli_caddy-data` | The certificate authority, which the backups don't hold. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
+| `myli_garage-data` | With Garage (the `s3` profile), the photos, which the backups hold. |
 | `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up: an empty index is rebuilt when the API starts. |
 
-Until myli has backups of its own, stop the stack and archive the first two, and Garage's if it has one:
+Caddy's certificate authority doesn't change once it's created, so archive its volume once:
 
 ```sh
-docker compose stop
-for volume in api-data caddy-data; do   # and garage-data, with Garage
-  docker run --rm -v "myli_$volume:/data:ro" -v "$PWD:/backup" alpine \
-    tar -czf "/backup/myli-$volume.tar.gz" -C /data .
-done
-docker compose start
+docker run --rm -v myli_caddy-data:/data:ro -v "$PWD:/backup" alpine \
+  tar -czf /backup/myli-caddy-data.tar.gz -C /data .
 ```
 
 ### Rebuild the search index
