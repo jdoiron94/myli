@@ -458,7 +458,10 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 - **Print view:** a print stylesheet; the browser handles PDF. A recipe's page has a Print button, for anyone who can see it, which opens the browser's print dialog.
   - What's printed is the recipe as shown, at the servings and in the units chosen, without the header, the page's buttons and controls, or the slideshow's.
   - Always in the light theme, whichever is on screen: browsers leave out backgrounds when printing.
-- **Per-recipe export:** JSON (the native format) or schema.org/Recipe JSON-LD.
+- **Per-recipe export:** anyone who can see a recipe downloads it from its page, as published:
+  - as JSON, myli's own format, with its tags by name and a format version
+  - as schema.org/Recipe JSON-LD, which other recipe apps import: its markdown as plain text, its cuisine and meal type tags as its cuisine and category, diets schema.org knows as its diets, and other tags but allergens as keywords
+  - Neither holds its photos, whose addresses work only signed in to the instance.
 - **Full-instance export (admins):** all recipes, revisions, tags and images as one archive.
 
 ## 4. Search architecture

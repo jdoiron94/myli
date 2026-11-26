@@ -1461,6 +1461,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export a recipe
+         * @description Anyone who may see the recipe, as a file to download: as published, in myli’s own JSON or as schema.org/Recipe JSON-LD, without its photos, whose addresses only work signed in here.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description `json`, myli’s own format, or `jsonld`, schema.org/Recipe as JSON-LD. */
+                    format?: "json" | "jsonld";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The recipe in the format asked for. */
+                200: {
+                    headers: {
+                        /** @description An attachment, named after the recipe. */
+                        "Content-Disposition"?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecipeExport"];
+                        "application/ld+json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description No recipe has this ID, or the caller may not see it. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trash": {
         parameters: {
             query?: never;
@@ -5412,6 +5488,62 @@ export interface components {
             images: components["schemas"]["Image"][];
             /** @description One of `images`, or `null` when there are none. */
             coverImageId: string | null;
+        };
+        RecipeExport: {
+            /** @enum {string} */
+            format: "myli.recipe";
+            /**
+             * @description Goes up when the format changes.
+             * @enum {number}
+             */
+            formatVersion: 1;
+            /** Format: date-time */
+            exportedAt: string;
+            recipe: {
+                title: string;
+                description: string;
+                source: {
+                    url: string | null;
+                    title: string | null;
+                    author: string | null;
+                };
+                equipment: string[];
+                yield: {
+                    qty: number;
+                    unit: string | null;
+                } | null;
+                servings: number;
+                prepMinutes: number | null;
+                cookMinutes: number | null;
+                /** @description Set only when it differs from prep plus cook. See `recipeTotalMinutes`. */
+                totalMinutes: number | null;
+                difficulty: components["schemas"]["Difficulty"];
+                nutrition: {
+                    calories: number | null;
+                    proteinGrams: number | null;
+                    carbsGrams: number | null;
+                    fatGrams: number | null;
+                    fiberGrams: number | null;
+                    sugarGrams: number | null;
+                    sodiumMilligrams: number | null;
+                };
+                ingredientGroups: {
+                    label: string | null;
+                    ingredients: components["schemas"]["IngredientLine"][];
+                }[];
+                /** Format: date-time */
+                createdAt: string;
+                /** Format: date-time */
+                updatedAt: string;
+                steps: {
+                    /** @description Markdown. */
+                    body: string;
+                }[];
+                tags: {
+                    type: components["schemas"]["TagType"];
+                    name: string;
+                }[];
+            };
         };
         TrashList: {
             /** @description Most recently deleted first. */
