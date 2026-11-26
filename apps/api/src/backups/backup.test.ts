@@ -1,65 +1,24 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
-import { afterEach, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { photoKeys } from '../blobs/copy.ts';
-import { createMemoryBlobStore } from '../blobs/memory.ts';
-import { type Db, openDatabase } from '../db/database.ts';
-import { image, job, recipe, user } from '../db/schema.ts';
-import { createTestDatabase } from '../db/testing.ts';
-import { insertRecipeImage } from '../images/testing.ts';
-import { allJobs } from '../jobs/all.ts';
+import { openDatabase } from '../db/database.ts';
 import { enqueueJob } from '../jobs/queue.ts';
-import { createWorker } from '../jobs/worker.ts';
 import { createLogger } from '../logger.ts';
-import { insertRecipe } from '../recipes/testing.ts';
 import { DAY_MS } from '../trash/trash.ts';
 import { backupFileName, backupJob, queueBackup } from './backup.ts';
-
-const tempDirs: string[] = [];
-afterEach(() => {
-  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
-
-function tempDir() {
-  const dir = mkdtempSync(join(tmpdir(), 'myli-backup-'));
-  tempDirs.push(dir);
-  return dir;
-}
+import { backedUpRows, sampleInstance, tempDir, workerFor } from './testing.ts';
 
 /** A database with a recipe and its two photos, the worker that backs it up, and where to. */
 async function instance() {
-  const db = createTestDatabase();
-  const blobs = createMemoryBlobStore();
-  db.insert(user).values({ id: 'owner', name: 'Owner', email: 'owner@example.com' }).run();
-  const recipeId = insertRecipe(db, 'owner');
-  await insertRecipeImage({ db, blobs }, recipeId);
-  await insertRecipeImage({ db, blobs }, recipeId);
-  // Its search update: only the backup runs here.
-  db.delete(job).run();
+  const sample = await sampleInstance();
   const logs: { level: number; msg: string; key?: string }[] = [];
-  const worker = createWorker({
-    services: {
-      db,
-      mailer: null,
-      publicUrl: 'https://myli.test',
-      search: { client: undefined },
-      blobs,
-    },
-    logger: createLogger('info', { write: (line: string) => logs.push(JSON.parse(line)) }),
-    jobs: allJobs,
-  });
-  return { db, blobs, worker, logs, directory: tempDir() };
+  const logger = createLogger('info', { write: (line: string) => logs.push(JSON.parse(line)) });
+  return { ...sample, worker: workerFor(sample, logger), logs, directory: tempDir() };
 }
 
 const takenAt = new Date('2026-11-26T03:30:00.123Z');
-
-/** Rows of the tables a backup must bring back, to compare one database with another. */
-const contents = (db: Db) => ({
-  recipes: db.select({ id: recipe.id, title: recipe.title }).from(recipe).all(),
-  images: db.select().from(image).all(),
-});
 
 it('backs up the database and every photo in one zip, naming photos the store has lost', async () => {
   const { db, blobs, worker, logs, directory } = await instance();
@@ -75,7 +34,7 @@ it('backs up the database and every photo in one zip, naming photos the store ha
   expect(Object.keys(entries)).toEqual(['myli.db', `photos/${kept}`, 'manifest.json']);
   const copy = join(tempDir(), 'copy.db');
   writeFileSync(copy, entries['myli.db'] ?? new Uint8Array());
-  expect(contents(openDatabase(copy))).toEqual(contents(db));
+  expect(backedUpRows(openDatabase(copy))).toEqual(backedUpRows(db));
   expect(entries[`photos/${kept}`]).toEqual(
     new Uint8Array(Buffer.concat((await (await blobs.get(kept))?.body.toArray()) ?? [])),
   );

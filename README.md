@@ -250,6 +250,22 @@ docker compose exec api node src/backup-now.ts
 
 It says where it saved the backup, which counts among the 7 kept.
 
+To restore one, stop the API, so nothing changes meanwhile, and give the backup's name. Without one, the command lists the backups, newest first:
+
+```sh
+docker compose stop api
+docker compose run --rm api node src/restore-backup.ts myli-backup-2026-11-26T033000Z.zip
+docker compose start api
+```
+
+It checks the backup before it changes anything, then puts its photos in the store `BLOB_STORE` names and its database in place. The database it replaces is kept beside it, renamed `myli.db.before-restore-<time>`, until you delete it. Photos uploaded since the backup stay in the store, unseen. The API rebuilds the search index as it starts. Everyone is signed out who signed in since the backup, and every change since is gone. Restore with the version of myli that made the backup, or a newer one: an older one doesn't know a newer database.
+
+To move myli to another machine, set it up there as in [Getting started](#getting-started), with the same `.env`, and before you start it, restore a backup from the directory you copied it to:
+
+```sh
+docker compose run --rm -v "$PWD:/restore:ro" api node src/restore-backup.ts /restore/myli-backup-2026-11-26T033000Z.zip
+```
+
 Compose keeps the rest of myli's data in volumes, named after the project (`myli` unless you choose another):
 
 | Volume | Contents |
