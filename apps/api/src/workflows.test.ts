@@ -73,6 +73,7 @@ const NOT_CHECKS = {
   'db:generate': 'writes a migration; pnpm test checks none is missing',
   seed: 'writes demo accounts to a database',
   reindex: 'rebuilds the search index of a running instance',
+  backup: 'backs up a running instance',
 };
 
 describe('every workflow', () => {

@@ -14,6 +14,7 @@
     "db:generate": "pnpm --filter @myli/api db:generate",
     "seed": "pnpm --filter @myli/api seed",
     "reindex": "pnpm --filter @myli/api reindex",
+    "backup": "pnpm --filter @myli/api backup",
     "format": "biome check --write",
     "format:check": "biome check",
     "lint": "eslint . --max-warnings=0",

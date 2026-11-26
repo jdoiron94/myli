@@ -193,6 +193,16 @@ describe('the API image', () => {
     expect(stdout.trimEnd().split('\n').at(-1)).toBe('Rebuilt the search index.');
   });
 
+  it('backs up now with the backup script, through the running API', async () => {
+    const { exitCode, stdout } = await api.exec(['node', 'src/backup-now.ts']);
+    const saved = /^Saved (\/backups\/myli-backup-[\dT-]+Z\.zip)$/.exec(
+      stdout.trimEnd().split('\n').at(-1) ?? '',
+    )?.[1];
+
+    expect({ exitCode, saved }).toEqual({ exitCode: 0, saved: expect.any(String) });
+    expect((await api.exec(['stat', '--format', '%U', saved ?? ''])).output.trim()).toBe('node');
+  });
+
   it('shuts down cleanly when Docker stops it', async () => {
     const id = api.getId();
     await api.stop({ timeout: 10_000, remove: false });
