@@ -11,6 +11,7 @@ import type { Db } from './db/database.ts';
 import { createTestDatabase } from './db/testing.ts';
 import type { Env } from './env.ts';
 import { createLogger, type Logger } from './logger.ts';
+import { FetchRefused, type Outbound } from './outbound/fetch.ts';
 import { fakeSearchClient } from './search/fake-client.ts';
 import type { SearchAccess } from './search/service.ts';
 
@@ -63,6 +64,8 @@ export interface TestAppOptions {
   search?: SearchAccess;
   /** Where uploads go: in memory, unless given. */
   blobs?: BlobStore;
+  /** How URL import fetches pages. Unless given, it can't: tests never reach the internet. */
+  outbound?: Outbound;
   /**
    * Better Auth's own password hashing in place of the test app's, for a database whose passwords
    * something else hashed, as the seed script does.
@@ -89,11 +92,16 @@ export function createTestApp(options: TestAppOptions = {}) {
     client: fakeSearchClient().client,
   };
   const blobs = options.blobs ?? createMemoryBlobStore();
-  const app = createApp({ logger, auth, db, env, search, blobs });
-  return { app, db, auth, logger, env, search, blobs, publicUrl: env.PUBLIC_URL };
+  const outbound = options.outbound ?? offline;
+  const app = createApp({ logger, auth, db, env, search, blobs, outbound });
+  return { app, db, auth, logger, env, search, blobs, outbound, publicUrl: env.PUBLIC_URL };
 }
 
 export type TestApp = ReturnType<typeof createTestApp>;
+
+/** The test app's fetcher, unless a test gives its own: as if there were no network. */
+const offline: Outbound = () =>
+  Promise.reject(new FetchRefused('network', "tests don't reach the internet"));
 
 /** The `Cookie` header a browser would send back after receiving `res`. */
 export function cookieHeaderFrom(res: Response): string {

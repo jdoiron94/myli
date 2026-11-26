@@ -44,6 +44,9 @@ export interface FetchOptions {
   isAllowed?: (address: string) => boolean;
 }
 
+/** How the API fetches from other sites: `fetchPublic`, except in tests, which never reach the internet. */
+export type Outbound = (url: string, options: FetchOptions) => Promise<Fetched>;
+
 export const FETCH_TIMEOUT_MS = 10_000;
 export const MAX_REDIRECTS = 5;
 

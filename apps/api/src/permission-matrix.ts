@@ -318,6 +318,14 @@ export const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'post',
+    path: '/recipes/import',
+    access: 'recipe.create',
+    // The test app fetches nothing, so whoever may import gets the address field's 422.
+    send: (t, cookie) =>
+      request(t, 'POST', '/recipes/import', cookie, { url: 'https://recipes.example.com/bread' }),
+  },
+  {
+    method: 'post',
     path: '/images',
     access: 'image.upload',
     send: async (t, cookie) =>

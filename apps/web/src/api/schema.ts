@@ -458,6 +458,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a recipe from another site
+         * @description Editors and admins. Fetches the page at `url` and reads the schema.org/Recipe data it holds as JSON-LD, to fill in a new recipe, which saves nothing. Its first photo is uploaded as the caller’s, as if they had added it; if it can’t be, the import goes on without it. Tags it names are added only if they exist. Only pages on the public internet are fetched. A page that can’t be imported is a 422 at `url`, saying why.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ImportRecipeRequest"];
+                };
+            };
+            responses: {
+                /** @description The recipe as the page gives it. `servings` is `null` when it doesn’t say. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportRecipeResult"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipes": {
         parameters: {
             query?: never;
@@ -4848,6 +4909,105 @@ export interface components {
         ChangeRoleRequest: {
             role: components["schemas"]["Role"];
         };
+        ImportRecipeResult: {
+            recipe: components["schemas"]["ImportedRecipe"];
+            /** @description The photos `recipe` names, at their sizes: uploads of the caller’s, deleted after a day unless a recipe is saved with them. */
+            images: components["schemas"]["Image"][];
+        };
+        ImportedRecipe: {
+            title: string;
+            /** @description Markdown. */
+            description: string;
+            source: components["schemas"]["RecipeSource"];
+            equipment: string[];
+            /** @description "24 cookies", separate from the servings. */
+            yield: {
+                qty: number;
+                unit: string | null;
+            } | null;
+            /** @description The baseline scaling starts from. */
+            servings: number | null;
+            prepMinutes: number | null;
+            cookMinutes: number | null;
+            /** @description Only when it differs from prep plus cook: `null` means their sum. */
+            totalMinutes: number | null;
+            difficulty: components["schemas"]["Difficulty"];
+            nutrition: components["schemas"]["Nutrition"];
+            ingredientGroups: components["schemas"]["IngredientGroupInput"][];
+            /** @description In order. Each body is markdown. */
+            steps: {
+                body: string;
+                /** @description Its photo, if it has one. */
+                image: {
+                    id: string;
+                    /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                    alt: string;
+                } | null;
+            }[];
+            /** @description Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again. */
+            images: {
+                id: string;
+                /** @description Its alt text: empty when the recipe’s text already says what it shows. */
+                alt: string;
+            }[];
+            /** @description The photo shown for it in lists: one of `images`, or `null` when there are none. */
+            coverImageId: string | null;
+            tagIds: number[];
+        };
+        RecipeSource: {
+            /** Format: uri */
+            url: string | null;
+            /** @description A book or site title. */
+            title: string | null;
+            author: string | null;
+        };
+        /** @enum {string|null} */
+        Difficulty: "easy" | "medium" | "hard" | null;
+        /** @description Per serving, entered by hand. `null` for each value nobody entered. */
+        Nutrition: {
+            calories: number | null;
+            proteinGrams: number | null;
+            carbsGrams: number | null;
+            fatGrams: number | null;
+            fiberGrams: number | null;
+            sugarGrams: number | null;
+            sodiumMilligrams: number | null;
+        };
+        IngredientGroupInput: {
+            /** @description "For the dough". A lone group needs none. */
+            label: string | null;
+            ingredients: components["schemas"]["IngredientLineInput"][];
+        };
+        IngredientLineInput: {
+            rawText: string;
+            /** @description `null` when the line has no quantity. */
+            qty: number | null;
+            /** @description The top of a range ("2–3 cloves"): more than `qty`. Otherwise `null`. */
+            qtyMax: number | null;
+            /** @description A unit from the unit table, by any of its names, or one typed by hand. */
+            unit: string | null;
+            name: string;
+            note: string | null;
+            /** @description False for lines like "salt to taste", which never scale. */
+            scalable: boolean;
+        };
+        Image: {
+            id: string;
+            /** @description What it shows, for people who can’t see it. Empty when it isn’t described. */
+            alt: string;
+            /** @description Of the upload, in pixels, turned upright. */
+            width: number;
+            height: number;
+            /** @description The sizes it’s served at, narrowest first, each from /images/{id}/{width}. */
+            variants: {
+                width: number;
+                height: number;
+            }[];
+        };
+        ImportRecipeRequest: {
+            /** Format: uri */
+            url: string;
+        };
         RecipeResult: {
             recipe: components["schemas"]["Recipe"];
         };
@@ -4910,8 +5070,6 @@ export interface components {
         };
         /** @enum {string} */
         Visibility: "private" | "shared";
-        /** @enum {string|null} */
-        Difficulty: "easy" | "medium" | "hard" | null;
         IngredientLine: {
             rawText: string;
             qty: number | null;
@@ -4922,19 +5080,6 @@ export interface components {
             normalizedName: string;
             note: string | null;
             scalable: boolean;
-        };
-        Image: {
-            id: string;
-            /** @description What it shows, for people who can’t see it. Empty when it isn’t described. */
-            alt: string;
-            /** @description Of the upload, in pixels, turned upright. */
-            width: number;
-            height: number;
-            /** @description The sizes it’s served at, narrowest first, each from /images/{id}/{width}. */
-            variants: {
-                width: number;
-                height: number;
-            }[];
         };
         Tag: {
             id: number;
@@ -4984,41 +5129,6 @@ export interface components {
             coverImageId: string | null;
             tagIds: number[];
             visibility: components["schemas"]["Visibility"];
-        };
-        RecipeSource: {
-            /** Format: uri */
-            url: string | null;
-            /** @description A book or site title. */
-            title: string | null;
-            author: string | null;
-        };
-        /** @description Per serving, entered by hand. `null` for each value nobody entered. */
-        Nutrition: {
-            calories: number | null;
-            proteinGrams: number | null;
-            carbsGrams: number | null;
-            fatGrams: number | null;
-            fiberGrams: number | null;
-            sugarGrams: number | null;
-            sodiumMilligrams: number | null;
-        };
-        IngredientGroupInput: {
-            /** @description "For the dough". A lone group needs none. */
-            label: string | null;
-            ingredients: components["schemas"]["IngredientLineInput"][];
-        };
-        IngredientLineInput: {
-            rawText: string;
-            /** @description `null` when the line has no quantity. */
-            qty: number | null;
-            /** @description The top of a range ("2–3 cloves"): more than `qty`. Otherwise `null`. */
-            qtyMax: number | null;
-            /** @description A unit from the unit table, by any of its names, or one typed by hand. */
-            unit: string | null;
-            name: string;
-            note: string | null;
-            /** @description False for lines like "salt to taste", which never scale. */
-            scalable: boolean;
         };
         RecipeList: {
             recipes: components["schemas"]["RecipeSummary"][];

@@ -405,6 +405,486 @@
           "role"
         ]
       },
+      "ImportRecipeResult": {
+        "type": "object",
+        "properties": {
+          "recipe": {
+            "$ref": "#/components/schemas/ImportedRecipe"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            },
+            "description": "The photos `recipe` names, at their sizes: uploads of the caller’s, deleted after a day unless a recipe is saved with them."
+          }
+        },
+        "required": [
+          "recipe",
+          "images"
+        ]
+      },
+      "ImportedRecipe": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "Markdown."
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecipeSource"
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 50
+          },
+          "yield": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "qty": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1000000
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 50
+              }
+            },
+            "required": [
+              "qty",
+              "unit"
+            ],
+            "description": "\"24 cookies\", separate from the servings."
+          },
+          "servings": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "The baseline scaling starts from."
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "totalMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Only when it differs from prep plus cook: `null` means their sum."
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "nutrition": {
+            "$ref": "#/components/schemas/Nutrition"
+          },
+          "ingredientGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientGroupInput"
+            },
+            "maxItems": 20
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                },
+                "image": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "alt": {
+                      "type": "string",
+                      "maxLength": 300,
+                      "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "alt"
+                  ],
+                  "description": "Its photo, if it has one."
+                }
+              },
+              "required": [
+                "body",
+                "image"
+              ]
+            },
+            "maxItems": 100,
+            "description": "In order. Each body is markdown."
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "alt": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "description": "Its alt text: empty when the recipe’s text already says what it shows."
+                }
+              },
+              "required": [
+                "id",
+                "alt"
+              ]
+            },
+            "maxItems": 20,
+            "description": "Its photos, in order: its own, or uploads of the caller’s no recipe was saved with. Those left out stay its own, for its older revisions, and a later save can use them again."
+          },
+          "coverImageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The photo shown for it in lists: one of `images`, or `null` when there are none."
+          },
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "source",
+          "equipment",
+          "yield",
+          "servings",
+          "prepMinutes",
+          "cookMinutes",
+          "totalMinutes",
+          "difficulty",
+          "nutrition",
+          "ingredientGroups",
+          "steps",
+          "images",
+          "coverImageId",
+          "tagIds"
+        ]
+      },
+      "RecipeSource": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "A book or site title."
+          },
+          "author": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "url",
+          "title",
+          "author"
+        ]
+      },
+      "Difficulty": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "easy",
+          "medium",
+          "hard",
+          null
+        ]
+      },
+      "Nutrition": {
+        "type": "object",
+        "properties": {
+          "calories": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "proteinGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "carbsGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "fatGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "fiberGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "sugarGrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "sodiumMilligrams": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          }
+        },
+        "required": [
+          "calories",
+          "proteinGrams",
+          "carbsGrams",
+          "fatGrams",
+          "fiberGrams",
+          "sugarGrams",
+          "sodiumMilligrams"
+        ],
+        "description": "Per serving, entered by hand. `null` for each value nobody entered."
+      },
+      "IngredientGroupInput": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "\"For the dough\". A lone group needs none."
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientLineInput"
+            },
+            "minItems": 1,
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "label",
+          "ingredients"
+        ]
+      },
+      "IngredientLineInput": {
+        "type": "object",
+        "properties": {
+          "rawText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "qty": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 1000000,
+            "description": "`null` when the line has no quantity."
+          },
+          "qtyMax": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 1000000,
+            "description": "The top of a range (\"2–3 cloves\"): more than `qty`. Otherwise `null`."
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 30,
+            "description": "A unit from the unit table, by any of its names, or one typed by hand."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          },
+          "scalable": {
+            "type": "boolean",
+            "description": "False for lines like \"salt to taste\", which never scale."
+          }
+        },
+        "required": [
+          "rawText",
+          "qty",
+          "qtyMax",
+          "unit",
+          "name",
+          "note",
+          "scalable"
+        ]
+      },
+      "Image": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string",
+            "description": "What it shows, for people who can’t see it. Empty when it isn’t described."
+          },
+          "width": {
+            "type": "integer",
+            "description": "Of the upload, in pixels, turned upright."
+          },
+          "height": {
+            "type": "integer"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "integer"
+                },
+                "height": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "width",
+                "height"
+              ]
+            },
+            "description": "The sizes it’s served at, narrowest first, each from /images/{id}/{width}."
+          }
+        },
+        "required": [
+          "id",
+          "alt",
+          "width",
+          "height",
+          "variants"
+        ]
+      },
+      "ImportRecipeRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2000,
+            "format": "uri"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
       "RecipeResult": {
         "type": "object",
         "properties": {
@@ -704,18 +1184,6 @@
           "shared"
         ]
       },
-      "Difficulty": {
-        "type": [
-          "string",
-          "null"
-        ],
-        "enum": [
-          "easy",
-          "medium",
-          "hard",
-          null
-        ]
-      },
       "IngredientLine": {
         "type": "object",
         "properties": {
@@ -766,51 +1234,6 @@
           "normalizedName",
           "note",
           "scalable"
-        ]
-      },
-      "Image": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "alt": {
-            "type": "string",
-            "description": "What it shows, for people who can’t see it. Empty when it isn’t described."
-          },
-          "width": {
-            "type": "integer",
-            "description": "Of the upload, in pixels, turned upright."
-          },
-          "height": {
-            "type": "integer"
-          },
-          "variants": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "width": {
-                  "type": "integer"
-                },
-                "height": {
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "width",
-                "height"
-              ]
-            },
-            "description": "The sizes it’s served at, narrowest first, each from /images/{id}/{width}."
-          }
-        },
-        "required": [
-          "id",
-          "alt",
-          "width",
-          "height",
-          "variants"
         ]
       },
       "Tag": {
@@ -1043,197 +1466,6 @@
           "coverImageId",
           "tagIds",
           "visibility"
-        ]
-      },
-      "RecipeSource": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 2000,
-            "format": "uri"
-          },
-          "title": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200,
-            "description": "A book or site title."
-          },
-          "author": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          }
-        },
-        "required": [
-          "url",
-          "title",
-          "author"
-        ]
-      },
-      "Nutrition": {
-        "type": "object",
-        "properties": {
-          "calories": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "proteinGrams": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "carbsGrams": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "fatGrams": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "fiberGrams": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "sugarGrams": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "sodiumMilligrams": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 100000
-          }
-        },
-        "required": [
-          "calories",
-          "proteinGrams",
-          "carbsGrams",
-          "fatGrams",
-          "fiberGrams",
-          "sugarGrams",
-          "sodiumMilligrams"
-        ],
-        "description": "Per serving, entered by hand. `null` for each value nobody entered."
-      },
-      "IngredientGroupInput": {
-        "type": "object",
-        "properties": {
-          "label": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 100,
-            "description": "\"For the dough\". A lone group needs none."
-          },
-          "ingredients": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IngredientLineInput"
-            },
-            "minItems": 1,
-            "maxItems": 200
-          }
-        },
-        "required": [
-          "label",
-          "ingredients"
-        ]
-      },
-      "IngredientLineInput": {
-        "type": "object",
-        "properties": {
-          "rawText": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "qty": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "exclusiveMinimum": 0,
-            "maximum": 1000000,
-            "description": "`null` when the line has no quantity."
-          },
-          "qtyMax": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "exclusiveMinimum": 0,
-            "maximum": 1000000,
-            "description": "The top of a range (\"2–3 cloves\"): more than `qty`. Otherwise `null`."
-          },
-          "unit": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 1,
-            "maxLength": 30,
-            "description": "A unit from the unit table, by any of its names, or one typed by hand."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "note": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 500
-          },
-          "scalable": {
-            "type": "boolean",
-            "description": "False for lines like \"salt to taste\", which never scale."
-          }
-        },
-        "required": [
-          "rawText",
-          "qty",
-          "qtyMax",
-          "unit",
-          "name",
-          "note",
-          "scalable"
         ]
       },
       "RecipeList": {
@@ -3959,6 +4191,57 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recipes/import": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Read a recipe from another site",
+        "description": "Editors and admins. Fetches the page at `url` and reads the schema.org/Recipe data it holds as JSON-LD, to fill in a new recipe, which saves nothing. Its first photo is uploaded as the caller’s, as if they had added it; if it can’t be, the import goes on without it. Tags it names are added only if they exist. Only pages on the public internet are fetched. A page that can’t be imported is a 422 at `url`, saying why.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRecipeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recipe as the page gives it. `servings` is `null` when it doesn’t say.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRecipeResult"
                 }
               }
             }

@@ -11,9 +11,11 @@ import { registerDraftRoutes } from './drafts/routes.ts';
 import type { Env } from './env.ts';
 import { registerFavoriteRoutes } from './favorites/routes.ts';
 import { registerImageRoutes } from './images/routes.ts';
+import { registerImportRoutes } from './import/routes.ts';
 import { registerInvitationRoutes } from './invitations/routes.ts';
 import { jsonOnly } from './json-only.ts';
 import { registerNoteRoutes } from './notes/routes.ts';
+import type { Outbound } from './outbound/fetch.ts';
 import { registerPreferenceRoutes } from './preferences/routes.ts';
 import { validationHook } from './problems.ts';
 import { registerPublicLinkRoutes } from './public-links/routes.ts';
@@ -39,6 +41,8 @@ export interface V1Deps {
   env: AppSettings;
   search: SearchAccess;
   blobs: BlobStore;
+  /** How URL import fetches pages (ADR 0017). */
+  outbound: Outbound;
 }
 
 /** The settings route handlers need from the environment. */
@@ -66,6 +70,8 @@ export function createV1Router(deps: V1Deps) {
   registerSetupRoutes(v1, deps);
   registerAuditRoutes(v1, { db: deps.db });
   registerUserRoutes(v1, { db: deps.db });
+  // Before the routes on one recipe, whose `{id}` would otherwise take "import".
+  registerImportRoutes(v1, { db: deps.db, blobs: deps.blobs, outbound: deps.outbound });
   registerRecipeRoutes(v1, { db: deps.db });
   registerDraftRoutes(v1, { db: deps.db });
   registerRevisionRoutes(v1, { db: deps.db });

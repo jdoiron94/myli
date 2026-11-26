@@ -87,6 +87,11 @@ export {
   TOO_LARGE_DETAIL,
 } from './image.ts';
 export {
+  type ImportRecipeResult,
+  importRecipeRequestSchema,
+  importRecipeResultSchema,
+} from './import.ts';
+export {
   normalizeIngredientName,
   type ParsedIngredient,
   parseIngredient,
