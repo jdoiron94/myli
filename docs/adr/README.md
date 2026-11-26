@@ -20,6 +20,7 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0014](./0014-milkdown-kit-held-to-the-markdown-subset.md) | Markdown is edited with Milkdown's kit, held to the subset, not with Crepe | Accepted, amended by 0015 |
 | [0015](./0015-editor-reads-markdown-with-the-renderers-parser.md) | The markdown editor reads markdown with the renderer's parser | Accepted |
 | [0016](./0016-public-link-token-in-the-path.md) | A public link carries its token in the path | Accepted |
+| [0017](./0017-ssrf-guard-checks-the-connected-address.md) | The SSRF guard checks the address it connects to, on Node's own HTTP client | Accepted |
 
 ## Adding an ADR
 

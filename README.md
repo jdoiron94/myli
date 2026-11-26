@@ -84,6 +84,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 14. [Markdown is edited with Milkdown's kit, held to the subset, not with Crepe](docs/adr/0014-milkdown-kit-held-to-the-markdown-subset.md)
 15. [The markdown editor reads markdown with the renderer's parser](docs/adr/0015-editor-reads-markdown-with-the-renderers-parser.md)
 16. [A public link carries its token in the path](docs/adr/0016-public-link-token-in-the-path.md)
+17. [The SSRF guard checks the address it connects to, on Node's own HTTP client](docs/adr/0017-ssrf-guard-checks-the-connected-address.md)
 
 ## Getting started
 

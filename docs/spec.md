@@ -434,17 +434,25 @@ Different filters all apply. Excluding values leaves out recipes with any of the
 
 ### 3.7 Import and export
 
-**URL import (best effort)**
-- The user pastes a recipe page URL.
-- The server fetches it and pulls out schema.org/Recipe JSON-LD data.
-- A successful import opens a **new draft** for the user to review before publishing. Ingredient lines go through the normal parser.
-- If no structured data is found, the user sees a clear message. There is no fallback scraping.
+**URL import (best effort, editors and admins)**
+- On the New recipe page, whoever may create recipes pastes the address of a recipe's page.
+- The server fetches it and reads the schema.org/Recipe data it holds as JSON-LD: the structured data recipe sites publish for search engines.
+- A successful import fills in the New recipe form, to review and change before saving it, as with any new recipe. Nothing is saved until then, except the photo below. Ingredient lines go through the normal parser, as typed ones do.
+- **What's imported:**
+  - the title and description, as plain text
+  - ingredients, in one group
+  - steps; a section of them starts with its name, in bold
+  - equipment, servings and yield, prep, cook and total times, and nutrition
+  - the source: the page's address, its site's name and the recipe's author
+  - tags it names (cuisine, category, diet) that already exist, never new ones
+  - its first photo, uploaded as if the importer had added it. If it can't be fetched or isn't accepted, the import goes on without it.
+- If the page has no recipe data, can't be fetched, or isn't at a public address, the address field says so. There is no fallback scraping.
 - **SSRF guard:**
   - only `http` and `https` URLs
-  - private, loopback and link-local addresses are blocked
-  - the resolved address is re-checked on every redirect
-  - a limit on redirects
-  - limits on response size and timeout
+  - private, loopback, link-local and other special-purpose addresses are blocked, IPv4 and IPv6 alike. The check is on the address actually connected to, so a name that resolves elsewhere the second time can't get around it (ADR 0017).
+  - every redirect is checked again, up to 5
+  - pages up to 5 MB and photos up to the upload limit, counted after decompression, all within 10 seconds
+  - no cookies or credentials are sent
 
 **Downloads**
 - **Print view:** a print stylesheet; the browser handles PDF. A recipe's page has a Print button, for anyone who can see it, which opens the browser's print dialog.
