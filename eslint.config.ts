@@ -40,6 +40,27 @@ export default defineConfigWithVueTs(
     rules: { 'no-console': 'error' },
   },
   {
+    // Outbound requests go only through the SSRF guard, which checks every address they connect to
+    // (ADR 0017). Tests run servers of their own.
+    files: ['apps/api/src/**/*.ts'],
+    ignores: ['apps/api/src/outbound/**', 'apps/api/src/**/*.test.ts'],
+    rules: (() => {
+      const message = 'Fetch through fetchPublic() (src/outbound/fetch.ts), the SSRF guard.';
+      return {
+        'no-restricted-globals': ['error', { name: 'fetch', message }],
+        'no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              { name: 'node:http', importNames: ['default', 'Agent', 'get', 'request'], message },
+              ...['node:https', 'http', 'https', 'undici'].map((name) => ({ name, message })),
+            ],
+          },
+        ],
+      };
+    })(),
+  },
+  {
     // The shadcn-vue CLI writes new components that import its own young `cn` package. The app
     // uses clsx and tailwind-merge behind the same helper instead.
     files: ['apps/web/src/**'],
