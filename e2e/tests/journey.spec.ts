@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import type { Locator, Page } from '@playwright/test';
 import { checkPage } from './accessibility.ts';
 import { expect, test } from './fixtures.ts';
@@ -952,5 +953,22 @@ test('the recipe is shared through a public link, which opens for anyone until i
 
     await visitor.reload();
     await expect(heading(visitor, 'Link not found')).toBeVisible();
+  });
+});
+
+test('the recipe is downloaded as schema.org JSON-LD, for other recipe apps', async ({ page }) => {
+  await signInAsAdmin(page);
+  await page.goto(recipePath);
+  await expect(heading(page, 'Weeknight Bread')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Download' }).click();
+  await checkPage(page, { popup: true });
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'JSON-LD, for other recipe apps' }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe('weeknight-bread.jsonld');
+  expect(JSON.parse(await readFile(await download.path(), 'utf8'))).toMatchObject({
+    '@type': 'Recipe',
+    name: 'Weeknight Bread',
   });
 });
