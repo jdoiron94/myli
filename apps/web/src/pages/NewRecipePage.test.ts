@@ -2,8 +2,9 @@ import { VALIDATION_PROBLEM_TYPE } from '@myli/shared';
 import { screen, waitFor } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { ImportRecipeResult } from '@/recipes/import.ts';
 import type { Recipe } from '@/recipes/recipe.ts';
-import { answerRecipe, answerTags, sampleRecipe } from '@/recipes/testing.ts';
+import { answerRecipe, answerTags, sampleImage, sampleRecipe } from '@/recipes/testing.ts';
 import {
   apiServer,
   describedBy,
@@ -227,6 +228,92 @@ describe('the new recipe page', () => {
     await waitFor(() => {
       expect(router.currentRoute.value.name).toBe('home');
     });
+  });
+
+  it('fills in the form from a link, photo and all, for the recipe to be created from it', async () => {
+    const photo = sampleImage('photo-1');
+    const imported: ImportRecipeResult = {
+      recipe: {
+        title: 'Weeknight Bread',
+        description: 'A crusty loaf.',
+        source: { url: 'https://bakes.example/bread', title: 'Example Bakes', author: 'A. Baker' },
+        equipment: ['Loaf pan'],
+        yield: { qty: 1, unit: 'loaf' },
+        // The page didn't say.
+        servings: null,
+        prepMinutes: 20,
+        cookMinutes: 40,
+        totalMinutes: null,
+        difficulty: null,
+        nutrition: { ...created.nutrition, calories: 210 },
+        ingredientGroups: [
+          {
+            label: null,
+            ingredients: [
+              {
+                rawText: '3 cups all-purpose flour',
+                qty: 3,
+                qtyMax: null,
+                unit: 'cup',
+                name: 'all-purpose flour',
+                note: null,
+                scalable: true,
+              },
+            ],
+          },
+        ],
+        steps: [{ body: 'Mix and bake.', image: null }],
+        tagIds: [],
+        images: [{ id: photo.id, alt: '' }],
+        coverImageId: photo.id,
+      },
+      images: [photo],
+    };
+    const urls: unknown[] = [];
+    apiServer.use(
+      http.post('/api/v1/recipes/import', async ({ request }) => {
+        urls.push(await request.json());
+        return HttpResponse.json(imported);
+      }),
+    );
+    const { bodies, opened } = answerCreate();
+    const { user } = await openForm();
+
+    await user.type(field("Address of the recipe's page"), 'https://bakes.example/bread');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    const status = await screen.findByText(
+      'Filled in from Example Bakes. Check it before creating the recipe, and say how many it serves.',
+    );
+    expect(status.getAttribute('role')).toBe('status');
+    expect(field('Title')).toHaveProperty('value', 'Weeknight Bread');
+    expect(field('Servings')).toHaveProperty('value', '');
+    expect(urls).toEqual([{ url: 'https://bakes.example/bread' }]);
+
+    await user.type(field('Servings'), '8');
+    await user.click(createButton());
+    await opened();
+    expect(bodies).toEqual([{ ...imported.recipe, servings: 8, visibility: 'private' }]);
+  });
+
+  it('says at the address why a page can’t be imported', async () => {
+    apiServer.use(
+      http.post('/api/v1/recipes/import', () =>
+        problemResponse(422, 'The request is invalid.', {
+          type: VALIDATION_PROBLEM_TYPE,
+          errors: [{ in: 'body', pointer: '#/url', detail: 'This page has no recipe data.' }],
+        }),
+      ),
+    );
+    const { user } = await openForm();
+    const address = field("Address of the recipe's page");
+
+    await user.type(address, 'https://bakes.example/news');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(address);
+    });
+    expect(describedBy(address)[0]).toBe('This page has no recipe data.');
   });
 
   it("isn't for viewers, who can't create recipes", async () => {
