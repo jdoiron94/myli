@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.16.0](https://github.com/jdoiron94/myli/compare/v0.15.0...v0.16.0) (2026-11-26)
+
+
+### Features
+
+* **api:** an S3 blob store, passing the contract tests against Garage ([9580e1f](https://github.com/jdoiron94/myli/commit/9580e1fb95e27567c6a9359201c75a64d3cc513a))
+* **api:** choose where photos are kept, a directory or an S3 bucket ([7d9835a](https://github.com/jdoiron94/myli/commit/7d9835a1d8bf3b0b9231f2504135fbcf6968469c))
+* **api:** copy the photos between stores, to switch BLOB_STORE ([3f7ae12](https://github.com/jdoiron94/myli/commit/3f7ae12b21becdcedc77c82ddc5aa119a61db06b))
+* run Garage for photos with Compose's s3 profile ([7daeafe](https://github.com/jdoiron94/myli/commit/7daeafec69f65c2f81d9320045e2be339ea18fea))
+
+
+### Bug Fixes
+
+* **api:** say when Garage has the key already, and quiet the copy's store lines ([421fb5d](https://github.com/jdoiron94/myli/commit/421fb5d4a18cf35f8c37c0f8a233c02156345852))
+
 ## [0.15.0](https://github.com/jdoiron94/myli/compare/v0.14.0...v0.15.0) (2026-11-26)
 
 
