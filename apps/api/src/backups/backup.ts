@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { mkdir, open, readdir, rename, rm } from 'node:fs/promises';
+import { type FileHandle, mkdir, open, readdir, rename, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { z } from 'zod';
@@ -54,11 +54,14 @@ export function backupSettings(
 /** In UTC, to the second, so names sort as the times do and suit any file system. */
 const FILE_NAME = /^myli-backup-\d{4}-\d{2}-\d{2}T\d{6}Z\.zip$/;
 
-/** The name of a backup taken at `at`, such as `myli-backup-2026-11-26T033000Z.zip`. */
-export function backupFileName(at: Date): string {
+/** `at` in UTC, to the second, for a file name: `2026-11-26T033000Z`. */
+export function fileTimestamp(at: Date): string {
   const [date = '', time = ''] = at.toISOString().split('T');
-  return `myli-backup-${date}T${time.slice(0, 8).replaceAll(':', '')}Z.zip`;
+  return `${date}T${time.slice(0, 8).replaceAll(':', '')}Z`;
 }
+
+/** The name of a backup taken at `at`, such as `myli-backup-2026-11-26T033000Z.zip`. */
+export const backupFileName = (at: Date) => `myli-backup-${fileTimestamp(at)}.zip`;
 
 /** The names of the backups in `directory`, newest first. Other files there are left out. */
 export async function listBackups(directory: string): Promise<string[]> {
@@ -80,6 +83,13 @@ const ZIP_MAX_ENTRIES = 0xffff;
 interface ArchiveSummary {
   photos: number;
   missingPhotos: string[];
+}
+
+/** Writes all of `chunk` at the file's position: one write may take only part of it. */
+export async function writeAll(file: FileHandle, chunk: Uint8Array): Promise<void> {
+  for (let offset = 0; offset < chunk.length; ) {
+    offset += (await file.write(chunk, offset)).bytesWritten;
+  }
 }
 
 const json = (value: unknown) => new TextEncoder().encode(`${JSON.stringify(value, null, 2)}\n`);
@@ -176,7 +186,7 @@ async function writeBackup(
         if (bytes > ZIP_MAX_BYTES) {
           throw new Error('the backup is over 4 GB, more than zip can hold');
         }
-        await out.write(chunk);
+        await writeAll(out, chunk);
       }
       await out.sync();
     } finally {
