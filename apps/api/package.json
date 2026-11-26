@@ -8,6 +8,7 @@
     "start": "node src/main.ts",
     "seed": "node --env-file-if-exists=../../.env src/seed-demo.ts",
     "reindex": "node --env-file-if-exists=../../.env src/reindex-search.ts",
+    "backup": "node --env-file-if-exists=../../.env src/backup-now.ts",
     "db:generate": "drizzle-kit generate",
     "openapi:generate": "node scripts/generate-openapi.ts",
     "test:containers": "vitest run --config vitest.containers.config.ts",

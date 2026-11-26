@@ -141,7 +141,7 @@ Each release publishes both images to GitHub's container registry, privately: `g
 
 Then all you need is `compose.yaml` and the variables, which a Compose management tool can hold in place of `.env`, with the token as its credentials for `ghcr.io`.
 
-To upgrade, back up first (below), set `MYLI_VERSION` to the new release, and run `docker compose up --detach` again. The API applies any database migrations as it starts.
+To upgrade, back up first (`docker compose exec api node src/backup-now.ts`, below), set `MYLI_VERSION` to the new release, and run `docker compose up --detach` again. The API applies any database migrations as it starts.
 
 ### Trust myli's certificate on each device
 
@@ -242,6 +242,14 @@ services:
 
 Copy them off the machine too, with whatever you use for other files.
 
+To back up now, before an upgrade for one, while the stack runs:
+
+```sh
+docker compose exec api node src/backup-now.ts
+```
+
+It says where it saved the backup, which counts among the 7 kept.
+
 Compose keeps the rest of myli's data in volumes, named after the project (`myli` unless you choose another):
 
 | Volume | Contents |
@@ -286,6 +294,7 @@ pnpm openapi:generate   # refresh apps/api/openapi.json and the web app's API ty
 pnpm db:generate        # create a migration after changing the database schema
 pnpm seed               # demo accounts, one per role, and demo recipes, on a database with no users yet; prints the passwords
 pnpm reindex            # rebuild the search index, through the API that pnpm dev runs
+pnpm backup             # back up now, through the API that pnpm dev runs, into apps/api/data/backups
 ```
 
 The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.
