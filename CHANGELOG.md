@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.0](https://github.com/jdoiron94/myli/compare/v0.12.0...v0.13.0) (2026-11-26)
+
+
+### Features
+
+* **api:** empty a collection in one go ([cc72733](https://github.com/jdoiron94/myli/commit/cc72733c8d0d029e5c0950f10a8d17b7e11681a8))
+* **api:** give a collection's ingredients for its grocery list ([5f02f3a](https://github.com/jdoiron94/myli/commit/5f02f3adc866382ee053a0411019e3be3405c941))
+* **shared:** add up a grocery list ([3548d27](https://github.com/jdoiron94/myli/commit/3548d273959ac6d55e7835b68df95617a5c6c1fe))
+* **web:** a collection's grocery list, to tick off or print ([50af982](https://github.com/jdoiron94/myli/commit/50af9824ec8fb5580bb1465a9595bec9c3bf6f7b))
+* **web:** take every recipe out of a collection at once ([364b323](https://github.com/jdoiron94/myli/commit/364b3235aa75d82791eaca9c89c515a2af3c82bd))
+
+
+### Bug Fixes
+
+* **shared:** a grocery line takes the longer of two names used as often ([0f404b6](https://github.com/jdoiron94/myli/commit/0f404b6188f8b5a418be347cbb0685e1cb30d988))
+
 ## [0.12.0](https://github.com/jdoiron94/myli/compare/v0.11.0...v0.12.0) (2026-11-25)
 
 
