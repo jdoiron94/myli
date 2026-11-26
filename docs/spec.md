@@ -564,7 +564,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 **Operations**
 - **Configuration** comes from environment variables, validated with Zod at startup and documented in `.env.example`. An invalid config stops startup with a clear error.
   - Each secret can be read from a file instead, such as a Docker secret, by setting `NAME_FILE` to its path: `BETTER_AUTH_SECRET`, `MEILI_MASTER_KEY`, `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY`.
-- **Photos** are kept in a directory on the API's volume, or, with `BLOB_STORE=s3`, in an S3 bucket the `S3_*` variables name: AWS's, or any store that speaks its API.
+- **Photos** are kept in a directory on the API's volume, or, with `BLOB_STORE=s3`, in an S3 bucket the `S3_*` variables name: AWS's, or any store that speaks its API. A script copies them from one to the other, to switch.
 - **Compose services:**
   - `caddy`, the only service that publishes ports (80 and 443)
   - `api` (the job worker runs inside it)

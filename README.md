@@ -203,6 +203,27 @@ Compose's `s3` profile runs [Garage](https://garagehq.deuxfleurs.fr/), a store t
 
 Garage keeps the photos in the `garage-data` volume. It can't change a key's secret: to change `S3_SECRET_ACCESS_KEY`, choose a new `S3_ACCESS_KEY_ID` too.
 
+#### Switch with photos already uploaded
+
+The photos uploaded so far stay where they were kept until they're copied into the new store:
+
+1. Stop the API, so no photo is uploaded meanwhile:
+
+   ```sh
+   docker compose stop api
+   ```
+
+2. Change `BLOB_STORE` and the S3 variables in `.env`, as above.
+3. Copy the photos into the new store from the old one. With Garage, this starts it and sets it up first. It says how many it copied, and can run again, leaving what it copied already:
+
+   ```sh
+   docker compose run --rm api node src/copy-photos.ts
+   ```
+
+4. Start the stack again: `docker compose up --detach`.
+
+Nothing is deleted from the old store: once the photos show, free its space yourself. Going back to the `api-data` volume works the same way, with `BLOB_STORE=local`, and the S3 variables still set while the photos are copied from the bucket.
+
 ### Back up
 
 Compose keeps myli's data in volumes, named after the project (`myli` unless you choose another):
