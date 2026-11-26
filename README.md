@@ -4,7 +4,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 4 (polish) under way: import, exports and S3 storage done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports and keeping photos in S3 work today. The [roadmap](#roadmap) shows what's done and what's next.
+> **Status: Phase 4 (polish) under way: import, exports, S3 storage and backups done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, and nightly backups with a restore command work today. The [roadmap](#roadmap) shows what's done and what's next.
 
 ## Features
 
@@ -25,7 +25,7 @@ What myli does once the [roadmap](#roadmap) is done:
 - **Grocery lists:** a collection's recipes added up into one list to tick off or print, with quantities scaled, units converted and duplicates merged.
 - **Cook mode:** a large-type view of the whole recipe that keeps your screen awake.
 - **Access control:** invite-only accounts with admin, editor and viewer roles. Recipes can be private, shared with everyone on the instance, or shared through a read-only public link. Admins get an audit log.
-- **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and backups. Photos are kept on the server's disk, or in any bucket that speaks S3, such as Garage, which Compose can run.
+- **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and nightly backups of the database and every photo, restored with one command. Photos are kept on the server's disk, or in any bucket that speaks S3, such as Garage, which Compose can run.
 
 The full specification is in [`docs/spec.md`](docs/spec.md).
 
@@ -355,7 +355,7 @@ SMTP_FROM=myli <myli@example.com>
 | 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view | Done |
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
 | 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Done |
-| 4. Polish | URL import, exports, S3 storage for photos, backup and restore tooling | In progress: import, exports and S3 storage done |
+| 4. Polish | URL import, exports, S3 storage for photos, backup and restore tooling | In progress: import, exports, S3 storage and backups done |
 
 ## License
 
