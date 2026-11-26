@@ -10,6 +10,7 @@ import { createWorker } from './jobs/worker.ts';
 import { createLogger } from './logger.ts';
 import type { Mailer } from './mail/mailer.ts';
 import { checkSmtpServer, createSmtpMailer, smtpConfigFrom } from './mail/smtp.ts';
+import { fetchPublic } from './outbound/fetch.ts';
 import { backfillRevisions } from './revisions/revisions.ts';
 import { queueReindexIfEmpty } from './search/reindex.ts';
 import { createSearchService } from './search/service.ts';
@@ -91,7 +92,7 @@ const dailyJobs = scheduleDailyJobs({
   trashRetentionDays: env.TRASH_RETENTION_DAYS,
 });
 
-const app = createApp({ logger, auth, db, env, search, blobs });
+const app = createApp({ logger, auth, db, env, search, blobs, outbound: fetchPublic });
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
   logger.info({ address: info.address, port: info.port }, 'listening');

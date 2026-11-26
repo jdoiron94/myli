@@ -10,6 +10,7 @@ import type { AppEnv } from './context.ts';
 import type { Db } from './db/database.ts';
 import type { Env } from './env.ts';
 import type { Logger } from './logger.ts';
+import type { Outbound } from './outbound/fetch.ts';
 import { onError, onNotFound, problemResponse } from './problems.ts';
 import { requestLogging } from './request-logging.ts';
 import type { SearchAccess } from './search/service.ts';
@@ -22,12 +23,13 @@ export interface AppDeps {
   env: AppSettings & Pick<Env, 'TRUSTED_PROXIES'>;
   search: SearchAccess;
   blobs: BlobStore;
+  outbound: Outbound;
 }
 
 /**
  * Builds the Hono app without starting a server, so tests can call `app.request()` directly.
  */
-export function createApp({ logger, auth, db, env, search, blobs }: AppDeps) {
+export function createApp({ logger, auth, db, env, search, blobs, outbound }: AppDeps) {
   const app = new Hono<AppEnv>();
   // Every error response is RFC 9457 application/problem+json.
   app.onError(onError);
@@ -65,7 +67,7 @@ export function createApp({ logger, auth, db, env, search, blobs }: AppDeps) {
     auth.handler(withClientIp(c.req.raw, c.var.clientIp)),
   );
   app.use(`${API_BASE_PATH}/*`, sessionMiddleware(auth));
-  app.route(API_BASE_PATH, createV1Router({ db, auth, env, search, blobs }));
+  app.route(API_BASE_PATH, createV1Router({ db, auth, env, search, blobs, outbound }));
 
   return app;
 }
