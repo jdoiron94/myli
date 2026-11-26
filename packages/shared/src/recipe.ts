@@ -273,6 +273,18 @@ export const recipeContentSchema = z
 export type RecipeContent = z.output<typeof recipeContentSchema>;
 
 /**
+ * A recipe read from another site's page (spec §3.7), to fill in the New recipe form. Its servings
+ * are `null` when the page doesn't say, for whoever imports it to fill in.
+ */
+export const importedRecipeSchema = z
+  .object({ ...recipeContentShape, servings: recipeContentShape.servings.nullable() })
+  .refine(withinIngredientLimit, INGREDIENT_LIMIT_ISSUE)
+  .superRefine(checkPhotos)
+  .meta({ id: 'ImportedRecipe' });
+
+export type ImportedRecipe = z.output<typeof importedRecipeSchema>;
+
+/**
  * Publishing an existing recipe replaces all of it, lines, steps and tags included, and records a
  * revision. Its visibility is changed on its own, by its owner only.
  */

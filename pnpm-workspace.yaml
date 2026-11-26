@@ -9,6 +9,7 @@ catalog:
   '@types/node': 26.6.6
   # The API's server and the web app's client must be the same release.
   better-auth: 1.7.18
+  fast-check: 4.10.2
   # TypeScript 7 (the native compiler) ships no JS API, which vue-tsc and
   # typescript-eslint both depend on. Stay on 6.x until they support 7.
   typescript: 6.0.3
