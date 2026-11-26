@@ -69,6 +69,8 @@ export async function setUpGarage(setup: GarageSetup, logger: Logger): Promise<v
     throw new GarageSetupError(
       'Garage already has S3_ACCESS_KEY_ID, with another secret. It can’t change a key’s secret: choose a new S3_ACCESS_KEY_ID.',
     );
+  } else {
+    logger.info('Garage already has the API’s key');
   }
 
   let bucket = await admin.find(bucketInfo, 'GetBucketInfo', { globalAlias: setup.bucket });

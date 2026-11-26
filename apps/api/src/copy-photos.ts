@@ -30,8 +30,10 @@ const db = openDatabase(env.DATABASE_PATH);
 try {
   // The API may not have started on this database since it was upgraded.
   migrateDatabase(db);
-  const from = createBlobStore(env, logger, source);
-  const to = createBlobStore(env, logger);
+  // Which store is which, this says itself.
+  const quiet = logger.child({}, { level: 'warn' });
+  const from = createBlobStore(env, quiet, source);
+  const to = createBlobStore(env, quiet);
   say(
     `Copying the photos ${source === 's3' ? 'from the bucket into BLOB_DIR' : 'from BLOB_DIR into the bucket'}.`,
   );
