@@ -462,7 +462,12 @@ Different filters all apply. Excluding values leaves out recipes with any of the
   - as JSON, myli's own format, with its tags by name and a format version
   - as schema.org/Recipe JSON-LD, which other recipe apps import: its markdown as plain text, its cuisine and meal type tags as its cuisine and category, diets schema.org knows as its diets, and other tags but allergens as keywords
   - Neither holds its photos, whose addresses work only signed in to the instance.
-- **Full-instance export (admins):** all recipes, revisions, tags and images as one archive.
+- **Full-instance export (admins):** one zip archive, downloaded as it's made, recorded in the audit log:
+  - every recipe the admin may see, as published, with all its revisions, each in a JSON file of its own
+  - every tag, and each photo those recipes and revisions show, at its largest size
+  - a manifest, saying what it holds and any photo whose file was missing
+  - Other people's private recipes, and recipes in the trash, aren't in it: backups hold everything. Nor are ratings, comments, notes, favorites or collections, which belong to their readers.
+  - It's one-way: myli doesn't read it back.
 
 ## 4. Search architecture
 

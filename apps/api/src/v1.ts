@@ -76,7 +76,7 @@ export function createV1Router(deps: V1Deps) {
   registerRecipeRoutes(v1, { db: deps.db });
   registerDraftRoutes(v1, { db: deps.db });
   registerRevisionRoutes(v1, { db: deps.db });
-  registerExportRoutes(v1, { db: deps.db });
+  registerExportRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerTrashRoutes(v1, { db: deps.db, retentionDays: deps.env.TRASH_RETENTION_DAYS });
   registerImageRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerTagRoutes(v1, { db: deps.db });
