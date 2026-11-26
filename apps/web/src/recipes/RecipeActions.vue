@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { goWithNotice, pageNotice } from '@/lib/page-notice.ts';
+import ExportMenu from './ExportMenu.vue';
 import { favoriteQuery, useSetFavorite } from './favorites.ts';
 import PublicLinkDialog from './PublicLinkDialog.vue';
 import { publicLinkKey, publicLinkQuery } from './public-links.ts';
@@ -211,6 +212,7 @@ async function remove() {
         <PrinterIcon aria-hidden="true" />
         Print
       </Button>
+      <ExportMenu :recipe-id="recipe.id" />
       <Button
         variant="outline"
         size="sm"
