@@ -125,7 +125,7 @@ const withoutEmpty = (object: Record<string, unknown>) =>
 
 /** Stands in for an escaped character while the rest of the markdown is read. */
 const ESCAPED_BASE = 0xe000;
-const ESCAPED = /[-]/g;
+const ESCAPED = /[\uE000-\uE07F]/g;
 
 /**
  * The plain text markdown shows (spec §3.2's subset): its formatting taken out, a link as its text
