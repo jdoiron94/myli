@@ -278,7 +278,7 @@ describe('POST /api/v1/invitations/lookup', () => {
 });
 
 describe('POST /api/v1/invitations/accept', () => {
-  it('creates the invited user, verified, without signing them in; they can then sign in', async () => {
+  it('creates the invited user without signing them in; they can then sign in', async () => {
     const { t, admin } = await setUp();
     const { token } = await invite(t, admin.cookie);
 
@@ -294,7 +294,8 @@ describe('POST /api/v1/invitations/accept', () => {
       role: 'editor',
     });
     expect(usersWithEmail(t, 'grace@example.com')).toMatchObject([
-      { id: body.user.id, role: 'editor', emailVerified: true },
+      // Email is off, so the admin copied the link: nothing proved the address (ADR 0019).
+      { id: body.user.id, role: 'editor', emailVerified: false },
     ]);
     expect(invitations(t)).toMatchObject([{ acceptedAt: expect.any(Date) as unknown }]);
 

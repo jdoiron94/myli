@@ -66,11 +66,11 @@ describe('Better Auth', () => {
 });
 
 describe('createUserWithPassword', () => {
-  it('creates a verified user with the given role, who can then sign in', async () => {
+  it('creates an unverified user with the given role, who can then sign in', async () => {
     const t = createTestApp();
     const created = await userWithRole(t, 'editor');
     expect(created).toEqual({ id: created.id, name: ADA.name, email: ADA.email, role: 'editor' });
-    expect(t.db.select().from(user).get()).toMatchObject({ id: created.id, emailVerified: true });
+    expect(t.db.select().from(user).get()).toMatchObject({ id: created.id, emailVerified: false });
 
     const res = await signIn(t, ADA.email, ADA.password);
     expect(res.status).toBe(200);
@@ -109,14 +109,6 @@ describe('password rules on Better Auth endpoints', () => {
 
     expect((await change('An even better passphrase 2')).status).toBe(200);
     expect((await signIn(t, ADA.email, 'An even better passphrase 2')).status).toBe(200);
-  });
-
-  it('refuse a weak password on reset, before the token is even looked at', async () => {
-    const res = await authRequest(createTestApp(), '/reset-password', {
-      body: { newPassword: 'weak', token: 'not-a-real-token' },
-    });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ code: 'PASSWORD_TOO_WEAK' });
   });
 
   it('refuse to create a user with a weak password, even from server code', async () => {
@@ -217,6 +209,38 @@ describe('cross-site requests carrying the session cookie (CSRF)', () => {
 
     const session = await authRequest(t, '/get-session', { method: 'GET', headers: { cookie } });
     expect(await session.json()).toMatchObject({ user: { email: ADA.email } });
+  });
+});
+
+describe('Better Auth’s own verification, reset and email change', () => {
+  it('answer 404, signed in or not: myli makes its own links (ADR 0019)', async () => {
+    const t = createTestApp();
+    await userWithRole(t, 'viewer');
+    const { cookie } = sessionCookie(await signIn(t, ADA.email, ADA.password));
+    const requests: [method: string, path: string, body?: unknown][] = [
+      ['POST', '/send-verification-email', { email: ADA.email }],
+      ['GET', '/verify-email?token=some-token'],
+      ['POST', '/request-password-reset', { email: ADA.email }],
+      ['GET', '/reset-password/some-token?callbackURL=/'],
+      ['POST', '/reset-password', { newPassword: 'A new passphrase here 1', token: 'some-token' }],
+      ['POST', '/change-email', { newEmail: 'ada@elsewhere.example' }],
+    ];
+
+    const answers = async (headers: Record<string, string>) =>
+      Object.fromEntries(
+        await Promise.all(
+          requests.map(async ([method, path, body]) => [
+            `${method} ${path}`,
+            (await authRequest(t, path, { method, body, headers })).status,
+          ]),
+        ),
+      );
+
+    const allNotFound = Object.fromEntries(
+      requests.map(([method, path]) => [`${method} ${path}`, 404]),
+    );
+    expect(await answers({ cookie })).toEqual(allNotFound);
+    expect(await answers({})).toEqual(allNotFound);
   });
 });
 

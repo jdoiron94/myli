@@ -155,6 +155,12 @@ export const invitation = sqliteTable(
     role: text('role', { enum: ROLES }).notNull(),
     /** SHA-256 of the token in the link, as hex. The token itself is never stored. */
     tokenHash: text('token_hash').notNull().unique(),
+    /**
+     * Whether the current link went by email: set by the email job as it stores the hash it sends,
+     * cleared when an admin is given a link to copy. Accepting an emailed link verifies the address
+     * (ADR 0019); a copied one proves nothing about it.
+     */
+    linkEmailed: integer('link_emailed', { mode: 'boolean' }).notNull().default(false),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
     invitedBy: text('invited_by')
       .notNull()
@@ -205,6 +211,38 @@ export const job = sqliteTable(
  * DELETE. A migration that rebuilds this table drops them, so it must create them again;
  * `audit.test.ts` fails if they're missing.
  */
+export const USER_TOKEN_PURPOSES = ['verify_email', 'reset_password'] as const;
+
+export type UserTokenPurpose = (typeof USER_TOKEN_PURPOSES)[number];
+
+/**
+ * The secrets in verification and reset links (ADR 0019), as hashes. One per user and purpose:
+ * making a new one replaces the old, so only the newest link works. Using one deletes it.
+ */
+export const userToken = sqliteTable(
+  'user_token',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    purpose: text('purpose', { enum: USER_TOKEN_PURPOSES }).notNull(),
+    /** SHA-256 of the token in the link, as hex. The token itself is never stored. */
+    tokenHash: text('token_hash').notNull().unique(),
+    /** The address it was made for: a link verifies that address, not whatever the user has now. */
+    email: text('email').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    /** When it was asked for, which spaces out the emails one account gets. */
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check('user_token_purpose_check', sql`${table.purpose} in ${sqlList(USER_TOKEN_PURPOSES)}`),
+    uniqueIndex('user_token_user_purpose_idx').on(table.userId, table.purpose),
+  ],
+);
+
 export const auditEvent = sqliteTable(
   'audit_event',
   {

@@ -71,6 +71,12 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 ### Authentication
 - Better Auth is configured in `apps/api/src/auth/auth.ts`. Public sign-up is disabled. Create users only with `createUserWithPassword()` from `auth/users.ts`.
 - Passwords follow `passwordSchema` from `@myli/shared`. A Better Auth hook enforces it on every path that sets a password (create-user, change, reset), and request bodies that carry a password validate it with `passwordSchema` too, for field-level 422s.
+- **Verified addresses** (ADR 0019): `user.email_verified` is true only once myli has proven the address, by an emailed invitation (`invitation.link_emailed`, which its email job sets as it stores the hash it sends) or a verification link. `createUserWithPassword()` makes users unverified unless told otherwise. Better Auth's own verification, reset and email-change endpoints are blocked for every caller (`REPLACED_PATHS` in `auth.ts`).
+- **Verification and reset links** are `user_token` rows (`account/user-tokens.ts`), one per user and purpose, stored as hashes:
+  - A request makes one with `issueUserToken()`, replacing the old, and queues its email job in the same transaction. The job gives it a fresh token with `reissueUserToken()` before sending, as `invitationEmailJob` does.
+  - `useUserToken()` deletes it in the transaction that acts on the link, so it works once.
+  - Each account gets one email of each kind every five minutes at most (`emailedRecently()`).
+  - Tokens and their links come from `src/tokens.ts` (`newLinkToken()`, `tokenLink()`), which invitations use too: always in the fragment.
 - The admin plugin stores each user's single role (a CHECK constraint enforces it). Its HTTP endpoints (`/api/auth/admin/*`) are blocked for everyone, so role changes and bans can't skip the policy module or the audit log.
 - Role changes, deactivation and reactivation go only through `apps/api/src/users/manage.ts`, which writes the `role` and `banned` columns and deletes sessions directly. The check that the acting admin is still an active admin, the change and its audit event then share one transaction (ADR 0010). Don't use `auth.api.setRole`, `banUser` or `unbanUser` instead.
 - No role has any admin-plugin permission, and none needs one: the only plugin call is `createUser`, made without a session, which the plugin allows without checking permissions. Don't add permissions. The roles still have to be listed in `auth.ts`: without them, admins would get the plugin's defaults, impersonation and hard deletes included.

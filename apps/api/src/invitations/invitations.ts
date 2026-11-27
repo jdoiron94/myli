@@ -1,4 +1,10 @@
-import type { AcceptInvitationRequest, InvitationStatus, Role, User } from '@myli/shared';
+import {
+  type AcceptInvitationRequest,
+  INVITATION_ACCEPT_PATH,
+  type InvitationStatus,
+  type Role,
+  type User,
+} from '@myli/shared';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { type AuditOrigin, recordAuditEvent, recordAuditEventAfterwards } from '../audit/audit.ts';
@@ -9,8 +15,8 @@ import { invitation, user } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
 import { enqueueJob } from '../jobs/queue.ts';
 import type { Logger } from '../logger.ts';
+import { hashLinkToken, newLinkToken, tokenLink } from '../tokens.ts';
 import { invitationEmail } from './email.ts';
-import { hashInvitationToken, invitationLink, newInvitationToken } from './tokens.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -42,12 +48,12 @@ export const invitationEmailJob = defineJob({
       );
       return;
     }
-    const { token, tokenHash } = newInvitationToken();
+    const { token, tokenHash } = newLinkToken();
     const issued = db.transaction(
       (tx) => {
         const [row] = tx
           .update(invitation)
-          .set({ tokenHash })
+          .set({ tokenHash, linkEmailed: true })
           .where(and(eq(invitation.id, invitationId), isUsable(new Date())))
           .returning()
           .all();
@@ -71,7 +77,7 @@ export const invitationEmailJob = defineJob({
         to: row.email,
         inviterName,
         role: row.role,
-        link: invitationLink(publicUrl, token),
+        link: tokenLink(publicUrl, INVITATION_ACCEPT_PATH, token),
         expiresAt: row.expiresAt,
       }),
     );
@@ -96,7 +102,7 @@ export function createInvitation(
   audit: AuditOrigin,
 ): CreateInvitationResult {
   // With email on, nobody ever sees this token: the email job replaces it before it sends.
-  const { token, tokenHash } = newInvitationToken();
+  const { token, tokenHash } = newLinkToken();
   const createdAt = now();
   const result = db.transaction(
     (tx): CreateInvitationResult | InvitationRow => {
@@ -133,7 +139,7 @@ export function createInvitation(
   return {
     ok: true,
     invitation: result,
-    link: emailEnabled ? undefined : invitationLink(publicUrl, token),
+    link: emailEnabled ? undefined : tokenLink(publicUrl, INVITATION_ACCEPT_PATH, token),
   };
 }
 
@@ -187,7 +193,7 @@ export function resendInvitation(
   id: string,
   audit: AuditOrigin,
 ): ResendInvitationResult {
-  const { token, tokenHash } = newInvitationToken();
+  const { token, tokenHash } = newLinkToken();
   const sentAt = now();
   const result = db.transaction(
     (tx): ResendInvitationResult | InvitationRow => {
@@ -200,7 +206,7 @@ export function resendInvitation(
       if (emailTaken(tx, row.email)) return { ok: false, reason: 'user-exists' };
       const updated = tx
         .update(invitation)
-        .set({ tokenHash, expiresAt: expiryFrom(sentAt, ttlDays) })
+        .set({ tokenHash, linkEmailed: false, expiresAt: expiryFrom(sentAt, ttlDays) })
         .where(eq(invitation.id, id))
         .returning()
         .get();
@@ -220,7 +226,7 @@ export function resendInvitation(
   return {
     ok: true,
     invitation: result,
-    link: emailEnabled ? undefined : invitationLink(publicUrl, token),
+    link: emailEnabled ? undefined : tokenLink(publicUrl, INVITATION_ACCEPT_PATH, token),
   };
 }
 
@@ -255,7 +261,7 @@ export function findUsableInvitation(
   return db
     .select()
     .from(invitation)
-    .where(and(eq(invitation.tokenHash, hashInvitationToken(token)), isUsable(now())))
+    .where(and(eq(invitation.tokenHash, hashLinkToken(token)), isUsable(now())))
     .get();
 }
 
@@ -279,7 +285,7 @@ export async function acceptInvitation(
       const row = tx
         .select()
         .from(invitation)
-        .where(and(eq(invitation.tokenHash, hashInvitationToken(token)), isUsable(claimedAt)))
+        .where(and(eq(invitation.tokenHash, hashLinkToken(token)), isUsable(claimedAt)))
         .get();
       if (!row) return { ok: false, reason: 'unusable' };
       if (emailTaken(tx, row.email)) return { ok: false, reason: 'user-exists' };
@@ -300,6 +306,7 @@ export async function acceptInvitation(
       email: claim.email,
       password,
       role: claim.role,
+      emailVerified: claim.linkEmailed,
     });
     return { ok: true, user: created, invitationId: claim.id };
   } catch (error) {

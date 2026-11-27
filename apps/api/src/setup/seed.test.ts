@@ -52,14 +52,14 @@ describe('seedFirstAdmin', () => {
     expect(logs()).toEqual([]);
   });
 
-  it('creates the first admin, verified, who can sign in, and logs it without the password', async () => {
+  it('creates the first admin, unverified, who can sign in, and logs it without the password', async () => {
     const { t, seed, logs, rawLogs } = setUp();
 
     expect(await seed()).toBe('created');
 
     const [admin] = users(t);
     expect(users(t)).toMatchObject([
-      { name: 'Ada Lovelace', email: 'ada@example.com', role: 'admin', emailVerified: true },
+      { name: 'Ada Lovelace', email: 'ada@example.com', role: 'admin', emailVerified: false },
     ]);
     expect(logs()).toContainEqual(
       expect.objectContaining({

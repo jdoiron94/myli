@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { API_BASE_PATH } from '@myli/shared';
+import { registerAccountRoutes } from './account/routes.ts';
 import { registerAuditRoutes } from './audit/routes.ts';
 import type { Auth } from './auth/auth.ts';
 import type { BlobStore } from './blobs/store.ts';
@@ -88,14 +89,16 @@ export function createV1Router(deps: V1Deps) {
   registerCollectionRoutes(v1, { db: deps.db });
   registerPublicLinkRoutes(v1, { db: deps.db, blobs: deps.blobs });
   registerSearchRoutes(v1, { db: deps.db, search: deps.search });
+  // The same condition main.ts uses to create the mailer.
+  const emailEnabled = deps.env.SMTP_HOST !== undefined;
   registerInvitationRoutes(v1, {
     db: deps.db,
     auth: deps.auth,
     publicUrl: deps.env.PUBLIC_URL,
     ttlDays: deps.env.INVITATION_TTL_DAYS,
-    // The same condition main.ts uses to create the mailer.
-    emailEnabled: deps.env.SMTP_HOST !== undefined,
+    emailEnabled,
   });
+  registerAccountRoutes(v1, { db: deps.db, emailEnabled });
 
   return v1;
 }

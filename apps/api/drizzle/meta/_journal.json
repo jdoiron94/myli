@@ -169,6 +169,13 @@
       "when": 1795613024114,
       "tag": "0023_recipe_public_token",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1795788599471,
+      "tag": "0024_account_tokens",
+      "breakpoints": true
     }
   ]
 }

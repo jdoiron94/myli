@@ -1,3 +1,4 @@
+import { emailVerificationJob } from '../account/verification.ts';
 import { backupJob } from '../backups/backup.ts';
 import { deleteBlobsJob, discardUnsavedImageJob } from '../images/images.ts';
 import { sweepUnusedImagesJob } from '../images/sweep.ts';
@@ -10,6 +11,7 @@ import type { JobDefinition } from './define.ts';
 /** Every job type the worker runs. Add each new `defineJob(…)` here. */
 export const allJobs: readonly JobDefinition[] = [
   invitationEmailJob,
+  emailVerificationJob,
   indexRecipeJob,
   reindexRecipesJob,
   discardUnsavedImageJob,

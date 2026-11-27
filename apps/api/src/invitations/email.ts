@@ -1,4 +1,5 @@
 import type { Role } from '@myli/shared';
+import { formatExpiry } from '../mail/expiry.ts';
 import type { EmailMessage } from '../mail/mailer.ts';
 
 export interface InvitationEmailDetails {
@@ -15,19 +16,6 @@ const ROLE_PHRASES: Record<Role, string> = {
   viewer: 'a viewer',
 };
 
-// The instance has no time zone setting, so the expiry is given in UTC, and says so. A 24-hour
-// clock reads the same everywhere: "November 21, 2026 at 23:12 UTC".
-const EXPIRY_FORMAT = new Intl.DateTimeFormat('en', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-  timeZone: 'UTC',
-  timeZoneName: 'short',
-});
-
 /**
  * The email that carries an invitation link. Plain text only, so the inviter's name needs no
  * escaping. The subject is fixed: nothing user-written goes into a header.
@@ -42,7 +30,7 @@ export function invitationEmail(details: InvitationEmailDetails): EmailMessage {
       'Create your account here:',
       details.link,
       '',
-      `The link works once, until ${EXPIRY_FORMAT.format(details.expiresAt)}.`,
+      `The link works once, until ${formatExpiry(details.expiresAt)}.`,
       "If you weren't expecting this invitation, you can ignore this email.",
       '',
     ].join('\n'),
