@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.18.0](https://github.com/jdoiron94/myli/compare/v0.17.0...v0.18.0) (2026-11-27)
+
+
+### Features
+
+* **api:** email verification, with myli's own hashed links ([a557210](https://github.com/jdoiron94/myli/commit/a557210c0ee7508bb9fe35faf4695d72dfdd8f27))
+* change your password on the Account page ([5634f4b](https://github.com/jdoiron94/myli/commit/5634f4b2758cfac91e287c81f713bf51dd71a659))
+* **web:** the Account page, and the page a verification link opens ([5da8c20](https://github.com/jdoiron94/myli/commit/5da8c2016f6d5b1ba227e0d061aa3ee9a0cacd12))
+
 ## [0.17.0](https://github.com/jdoiron94/myli/compare/v0.16.0...v0.17.0) (2026-11-27)
 
 
