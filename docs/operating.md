@@ -216,6 +216,8 @@ server {
 
 nginx's error log can still name a request's path when it can't reach myli, so keep it private.
 
+myli limits sign-in attempts itself, but nothing else: limit requests per client in your proxy if you want to, as nginx's `limit_req` does.
+
 One thing doesn't work behind another proxy yet: myli's Caddy trusts no proxy in front of it to say who the client is. Every request seems to come from your proxy, or, from one on the same machine, from the Docker network Caddy is on. So the audit log records that one address for everyone, and sign-in's rate limiting counts the whole household's attempts together.
 
 ## Keep photos in S3

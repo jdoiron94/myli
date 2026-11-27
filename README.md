@@ -4,7 +4,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: every phase of the [roadmap](#roadmap) is done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, and nightly backups with a restore command all work, and [Running myli](docs/operating.md) covers running it.
+> **Status: Phase 5 (accounts) planned; every phase before it is done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, and nightly backups with a restore command all work, and [Running myli](docs/operating.md) covers running it.
 
 ## Features
 
@@ -116,6 +116,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 16. [A public link carries its token in the path](docs/adr/0016-public-link-token-in-the-path.md)
 17. [The SSRF guard checks the address it connects to, on Node's own HTTP client](docs/adr/0017-ssrf-guard-checks-the-connected-address.md)
 18. [Nightly backups in the worker: one zip of the database and the photos on disk](docs/adr/0018-nightly-backups-in-the-worker.md)
+19. [Email verification and password reset with myli's own tokens, sent from jobs](docs/adr/0019-account-emails-with-myli-tokens-sent-from-jobs.md)
 
 ## Roadmap
 
@@ -126,6 +127,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
 | 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Done |
 | 4. Polish | URL import, exports, S3 storage for photos, backup and restore tooling, an operator guide | Done |
+| 5. Accounts | An Account page, email verification, changing and resetting passwords, profile photos | Planned |
 
 ## License
 

@@ -90,7 +90,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - single-use and revocable
   - resending invalidates the previous token and issues a new one
 - **Links** look like `PUBLIC_URL/accept-invitation#<token>`. The token is in the fragment, which browsers never send to a server, so it stays out of access logs and Referer headers. The accept page sends it in a request body.
-- **Accepting:** the invitee follows the link. The accept page takes the token out of the address as soon as it has read it, checks it, and shows the invited email, role and expiry. The invitee chooses a name and a password, and the user is created through Better Auth's server API with the invited email and role, already verified. Accepting doesn't sign them in: they sign in next with the same email and password.
+- **Accepting:** the invitee follows the link. The accept page takes the token out of the address as soon as it has read it, checks it, and shows the invited email, role and expiry. The invitee chooses a name and a password, and the user is created through Better Auth's server API with the invited email and role. The address is verified if the link was emailed, since opening it proves the address is theirs; a link the admin copied proves nothing about it. Accepting doesn't sign them in: they sign in next with the same email and password.
   - The email can't be changed on the accept page: the account gets the address the invitation was sent to.
   - Someone already signed in is asked to sign out and open the link again, rather than creating a second account while signed in.
 - Unknown, expired, revoked and used links all get the same answer, so they can't be told apart.
@@ -105,9 +105,23 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Account basics**
 - email + password login
 - **Passwords:** 15 to 128 characters, with at least one lowercase letter, one uppercase letter, one number and one special character. A special character is anything but a letter or a number, and a space counts. Letters and numbers from any script count. The same rules apply everywhere a password is set: setup, invitations, changing it and resetting it.
-- email verification
-- password reset
-- rate limiting: Better Auth's built-in limiter on auth routes, and a general limiter on the rest of the API
+- **The Account page** shows the reader's name and address, whether the address is verified, and lets them change their password. Everyone has one, viewers included.
+- **Email verification** (ADR 0019): an address is verified once myli has proven it reaches its owner. That's when the account came from an invitation that was emailed, or when its owner opened a verification link.
+  - Accounts made at first-run setup, or from an invitation link the admin copied, start unverified. So do accounts from before verification existed, since every one was marked verified without proof.
+  - Signing in never needs a verified address. Only password reset by email does.
+  - When the server sends email, the Account page offers to send a verification link to an unverified address. Opening it verifies the address, without signing in.
+- **Changing the password** takes the current one, and signs out the account's other sessions.
+- **Password reset** (ADR 0019):
+  - "Forgot your password?" on the sign-in page. When the server sends email, it asks for the address, and emails a reset link if that's the verified address of an active account. The answer is the same either way, so it doesn't tell anyone whether an account exists.
+  - Setting a new password with the link signs the account out everywhere. A deactivated account can't be reset.
+  - Without email, the page says to ask whoever runs the server. They make a reset link from the command line, for any active account, and it works the same way.
+  - **Admins can't make reset links,** in the app or otherwise: with one, an admin could sign in as someone else and read their private recipes (§2).
+- **Links** for verification and resets are like invitations': a token of 32 random bytes in the link's fragment (`PUBLIC_URL/verify-email#<token>`, `PUBLIC_URL/reset-password#<token>`), with only its SHA-256 hash stored. An emailed link's token is made by its email job, never put in the job's payload.
+  - A verification link lasts a day, a reset link an hour.
+  - Each works once, and only the newest of each kind works.
+  - Unknown, expired and used links all get the same answer.
+  - Each account gets at most one of each kind of email every five minutes. Asking again sooner sends nothing. For a reset, the answer is the same anyway; asking for verification, the reader is told to wait.
+- **Rate limiting:** Better Auth's built-in limiter on its own routes, sign-in among them. Limiting the rest of the API, per client, is left to a reverse proxy in front of myli.
 - **When a session ends** (it expires, the user is deactivated, or they sign out on another device), the web app finds out from its next request. It goes to the sign-in page, which says they've been signed out and fills in their email, and back to the same page once they've signed in. Nothing the app had loaded stays behind.
 
 **User lifecycle**
@@ -153,6 +167,8 @@ There are three roles: **admin**, **editor** and **viewer**.
   - role changed
   - user deactivated or reactivated
   - successful and failed logins, and sign-outs
+  - an address verified
+  - a password changed, or reset with a link
   - recipe deleted, restored or purged
   - revision restored
   - comment deleted, by its author or an admin
@@ -507,7 +523,8 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | Table | Key columns |
 |---|---|
 | `user`, `session`, `account`, `verification` | Managed by Better Auth. `user` gains `role` and ban/deactivation fields from the admin plugin. |
-| `invitation` | `email`, `role`, `token_hash`, `expires_at`, `invited_by`, `accepted_at`, `revoked_at` |
+| `invitation` | `email`, `role`, `token_hash`, `link_emailed` (whether the current link went by email), `expires_at`, `invited_by`, `accepted_at`, `revoked_at` |
+| `user_token` | `user_id`, `purpose` (`verify_email` or `reset_password`; one per user and purpose), `token_hash`, `email`, `expires_at`, `created_at` |
 | `recipe` | `owner_id`, `visibility`, `public_token`, `version`, `title`, `description_md`, `yield_qty`, `yield_unit`, `servings`, `prep_min`, `cook_min`, `total_min`, `difficulty`, nutrition columns, `source_url`, `source_title`, `source_author`, `equipment` (JSON), `cover_image_id`, `deleted_at` |
 | `recipe_ingredient` | `recipe_id`, `group_label`, `group_position`, `position`, `raw_text`, `qty`, `qty_max` (the top of a range), `unit`, `name`, `normalized_name`, `note`, `scalable` |
 | `recipe_step` | `recipe_id`, `position`, `body_md`, `image_id` |
@@ -552,7 +569,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 - All input is validated with Zod at the API boundary.
 - All user markdown is sanitized when rendered.
 - Upload validation (§3.2) and the SSRF guard (§3.7).
-- Rate limiting (§3.1).
+- Rate limiting on sign-in, and at most one verification or reset email per account every five minutes (§3.1).
 - `pnpm audit` runs in CI, which lists any advisories in the run's summary. They never fail the build.
 
 **Accessibility and usability**
@@ -586,6 +603,8 @@ These were considered and deliberately excluded:
 - meal planning
 - forking or copying recipes
 - passkeys, two-factor authentication, OIDC/social login
+- changing one's email address, and emails saying a password was changed
+- a general rate limiter in the API: a reverse proxy in front of myli does that
 - PWA or offline support
 - cook-mode timers, voice control, saved progress, one-step-at-a-time view
 - automatic nutrition lookup
@@ -604,6 +623,7 @@ Each phase is delivered as small, atomic increments, each reviewed on its own (s
 | **2. Collaboration** | Drafts, revisions, compare and restore; optimistic concurrency; comments; ratings; collections; personal notes; public links; trash |
 | **3. Grocery lists** | A collection's grocery list: aggregation, normalization and dedup, servings per recipe, check-off, printing; emptying a collection |
 | **4. Best effort and polish** | URL import; JSON and JSON-LD export; full-instance export; backup and restore tooling; the S3 blob storage adapter, tested against Garage; finished documentation |
+| **5. Accounts** | The Account page; email verification; changing and resetting passwords; profile photos, with initials when there's none |
 
 Before Phase 2, saving a recipe changed its published version directly. Deleting one has always set `deleted_at`, so recipes deleted then are in the trash too, counted from when they were deleted.
 

@@ -31,6 +31,8 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
 - meal planner
 - forking or copying recipes
 - passkeys, 2FA, OIDC/social login
+- changing one's email address, or emails saying a password was changed
+- a general rate limiter in the API (a reverse proxy in front of myli does that; Better Auth's own limiter on its routes stays)
 - PWA or offline support
 - cook-mode timers, voice control, saved progress, one-step-at-a-time view (cook mode shows all steps on one page)
 - automatic nutrition lookup (nutrition is entered by hand)
