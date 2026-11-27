@@ -74,6 +74,7 @@ const NOT_CHECKS = {
   seed: 'writes demo accounts to a database',
   reindex: 'rebuilds the search index of a running instance',
   backup: 'backs up a running instance',
+  screenshots: 'retakes the README’s screenshots',
 };
 
 describe('every workflow', () => {

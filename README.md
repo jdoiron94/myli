@@ -29,6 +29,19 @@ What myli does once the [roadmap](#roadmap) is done:
 
 The full specification is in [`docs/spec.md`](docs/spec.md).
 
+## Screenshots
+
+<p>
+  <img src="docs/screenshots/home.png" width="49%" alt="The home page: the household's recipes as cards, each with its total time, difficulty, rating, allergens and tags.">
+  <img src="docs/screenshots/recipe.png" width="49%" alt="A recipe's page: its actions, times and servings, its ingredients in groups with a servings control and US or metric units, and its numbered steps.">
+</p>
+<p>
+  <img src="docs/screenshots/grocery-list.png" width="66%" alt="A collection's grocery list: the servings for each of its three recipes, and the ingredients to buy, added up, each with a checkbox.">
+  <img src="docs/screenshots/cook-mode.png" width="22%" alt="Cook mode on a phone, in the dark theme: the recipe's ingredients in large type, and a note that the screen stays on.">
+</p>
+
+The home page, a recipe, a collection's grocery list, and cook mode on a phone. `pnpm screenshots` takes them from the demo recipes.
+
 ## Quick start
 
 myli runs with Docker Compose. You need Docker with Docker Compose, and an address for the server that the household's devices can reach, such as `myli.home.arpa` or the server's IP address.

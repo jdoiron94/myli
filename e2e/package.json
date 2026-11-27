@@ -6,7 +6,8 @@
   "scripts": {
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
-    "test:containers": "node build-images.ts && playwright test --config playwright.containers.config.ts"
+    "test:containers": "node build-images.ts && playwright test --config playwright.containers.config.ts",
+    "screenshots": "node screenshots.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
