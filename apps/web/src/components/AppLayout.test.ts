@@ -86,13 +86,13 @@ describe('the account menu', () => {
     });
   });
 
-  it('offers viewers only signing out, since they can’t delete recipes', async () => {
+  it('offers viewers their account and signing out, but no trash, since they can’t delete recipes', async () => {
     const { user } = await renderApp('/', { signedInAs: 'viewer' });
 
     await user.click(screen.getByRole('button', { name: 'Account: Alan Turing' }));
 
     const items = within(await screen.findByRole('menu')).getAllByRole('menuitem');
-    expect(items.map((item) => item.textContent.trim())).toEqual(['Sign out']);
+    expect(items.map((item) => item.textContent.trim())).toEqual(['Account', 'Sign out']);
   });
 
   it('signs out, goes to the sign-in page and forgets what was fetched', async () => {

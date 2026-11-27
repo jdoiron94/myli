@@ -1007,3 +1007,21 @@ test('the recipe is downloaded for other recipe apps, and everything for safekee
     }
   });
 });
+
+test('someone looks after their own account', async ({ page }) => {
+  await signInAsAdmin(page);
+
+  await test.step('their Account page says whether their address is verified', async () => {
+    await page.getByRole('button', { name: `Account: ${ADMIN.name}` }).click();
+    await page.getByRole('menuitem', { name: 'Account' }).click();
+
+    await expect(heading(page, 'Account')).toBeFocused();
+    await expect(page.getByText(ADMIN.email)).toBeVisible();
+    // Setup doesn't verify it, and without SMTP nothing can.
+    await expect(page.getByText('Not verified')).toBeVisible();
+    await expect(
+      page.getByText("This server doesn't send email, so your address can't be verified."),
+    ).toBeVisible();
+    await checkPage(page);
+  });
+});
