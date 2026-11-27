@@ -1,6 +1,6 @@
 # Running myli
 
-This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate, keeping photos in S3, backing it up and upgrading it. [Developing myli](development.md) covers working on its code.
+This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate or putting it behind a proxy of yours, keeping photos in S3, backing it up and upgrading it. [Developing myli](development.md) covers working on its code.
 
 ## Install
 
@@ -159,11 +159,64 @@ Get `myli-root.crt` onto each device in a way you trust, such as AirDrop, a cabl
 - **Windows:** in a terminal run as administrator, `certutil -addstore -f Root myli-root.crt`
 - **Linux:** on Debian and Ubuntu, `sudo cp myli-root.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates`. Firefox and Chrome on Linux keep their own lists: import the file in their certificate settings, as an authority that identifies websites.
 
+Behind a proxy of your own whose certificate devices trust already, they needn't trust this one: see [Behind another reverse proxy](#behind-another-reverse-proxy).
+
 A device that trusts this certificate trusts it for every site, not only myli. Whoever has the `caddy-data` volume could pretend to be any site to that device, so guard the volume like the server's other secrets.
 
-## Public links
+## Behind another reverse proxy
 
-A recipe's public link holds its secret in its address, as `https://myli.home.arpa/p/<token>` ([ADR 0016](adr/0016-public-link-token-in-the-path.md)). myli never logs it, nor sends it to other sites. If you put a proxy of your own in front of myli, keep it from logging paths under `/p/` and `/api/v1/public/`: anyone who reads those logs could open the recipes.
+myli's Caddy serves HTTPS itself, so myli needs no other proxy. If you run one already, for other services or for a certificate every device trusts without being told, such as Let's Encrypt's, it can pass myli's requests on to Caddy:
+
+- `PUBLIC_URL` is the address people open, at your proxy.
+- Your proxy connects to Caddy's HTTPS port (its HTTP port only redirects), with `PUBLIC_URL`'s host name both in the TLS handshake (SNI) and in the `Host` header: Caddy serves that name alone. Caddy's certificate is from its own authority, so have the proxy skip verifying it, or trust Caddy's root certificate. With a certificate of the proxy's own that devices trust, they needn't trust Caddy's.
+- It lets request bodies through up to 10 MB, the largest photo myli takes.
+- It passes responses on as they come, for the instance's export, which is made as it downloads.
+- It keeps paths under `/p/` and `/api/v1/public/` out of its logs. A recipe's public link holds its secret in its address, as `https://myli.home.arpa/p/<token>` ([ADR 0016](adr/0016-public-link-token-in-the-path.md)), and anyone who reads those logs could open the recipes. myli itself never logs it, nor sends it to other sites.
+
+For a proxy on the same machine, publish Caddy on the loopback address only, at a port of its own, in a `compose.override.yaml` beside `compose.yaml`:
+
+```yaml
+services:
+  caddy:
+    ports: !override
+      - 127.0.0.1:8443:443   # 443 is PUBLIC_URL's port, which Caddy listens on inside
+```
+
+With nginx, for `PUBLIC_URL=https://myli.example.com`:
+
+```nginx
+# Public links hold their secret in their path.
+map $request_uri $myli_loggable {
+    ~^/(p|api/v1/public)/ 0;
+    default 1;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name myli.example.com;
+    ssl_certificate     /etc/letsencrypt/live/myli.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/myli.example.com/privkey.pem;
+
+    access_log /var/log/nginx/access.log combined if=$myli_loggable;
+    client_max_body_size 10m;
+
+    location / {
+        proxy_pass https://127.0.0.1:8443;
+        proxy_set_header Host $http_host;
+        proxy_ssl_server_name on;
+        proxy_ssl_name $host;
+        # The instance's export, as it's made.
+        proxy_buffering off;
+        # Caddy offers HTTP/3 on its own port, which browsers can't reach.
+        proxy_hide_header Alt-Svc;
+    }
+}
+```
+
+nginx's error log can still name a request's path when it can't reach myli, so keep it private.
+
+One thing doesn't work behind another proxy yet: myli's Caddy trusts no proxy in front of it to say who the client is. Every request seems to come from your proxy, or, from one on the same machine, from the Docker network Caddy is on. So the audit log records that one address for everyone, and sign-in's rate limiting counts the whole household's attempts together.
 
 ## Keep photos in S3
 
