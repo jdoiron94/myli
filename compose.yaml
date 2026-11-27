@@ -1,5 +1,5 @@
-# myli with Docker Compose: Caddy serving the app over HTTPS, the API, and Meilisearch. See the
-# README's "Getting started".
+# myli with Docker Compose: Caddy serving the app over HTTPS, the API, and Meilisearch. See
+# "Install" in docs/operating.md.
 #
 # Settings come from the environment, or from .env next to this file (.env.example lists them).
 # PUBLIC_URL, BETTER_AUTH_SECRET and MEILI_MASTER_KEY are required. ADMIN_PASSWORD, SMTP_PASSWORD
@@ -87,7 +87,7 @@ services:
       # The database, and the photos unless they're kept in S3: all of the instance's data.
       - api-data:/data
       # The nightly backups of all that. To keep them on another disk, mount a directory there
-      # instead (the README's "Back up and restore").
+      # instead ("Back up and restore" in docs/operating.md).
       - backups:/backups
     networks: [proxy, backend]
     depends_on:
@@ -123,8 +123,8 @@ services:
       retries: 3
 
   # Optional (`docker compose --profile s3 up`): Garage, a store that speaks S3, for photos, on this
-  # machine. Set BLOB_STORE=s3, the S3_* variables and Garage's secrets as the README's "Keep photos
-  # in S3" shows. Only the API can reach it, on the backend network.
+  # machine. Set BLOB_STORE=s3, the S3_* variables and Garage's secrets as "Keep photos in S3" in
+  # docs/operating.md shows. Only the API can reach it, on the backend network.
   garage:
     <<: *hardened
     profiles: [s3]

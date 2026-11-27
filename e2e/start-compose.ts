@@ -24,7 +24,7 @@ if (!PROJECT || !PUBLIC_URL || !HTTP_PORT || !PROXY_SUBNET) {
   throw new Error('PROJECT, PUBLIC_URL, HTTP_PORT and PROXY_SUBNET must be set');
 }
 
-/** Garage, set up as the README's "Keep photos in S3" says, or photos in the API's volume. */
+/** Garage, set up as "Keep photos in S3" in docs/operating.md says, or photos in the API's volume. */
 const blobStore =
   BLOB_STORE === 's3'
     ? {
