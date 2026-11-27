@@ -27,7 +27,7 @@ function compose(...args: string[]) {
 // Compose reads .env too, and gives Meilisearch the same master key the API reads from it.
 const envFile = `${root}.env`;
 if (!existsSync(envFile)) {
-  fail('copy .env.example to .env and set what it says is required (README, "Development").');
+  fail('copy .env.example to .env and set what it says is required (docs/development.md).');
 }
 if (!(process.env.MEILI_MASTER_KEY ?? parseEnv(readFileSync(envFile, 'utf8')).MEILI_MASTER_KEY)) {
   fail('set MEILI_MASTER_KEY in .env: Meilisearch starts with it, and the API uses it.');

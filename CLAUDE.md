@@ -414,13 +414,15 @@ Run these from the repo root:
   - It logs to stderr, so stdout holds only the accounts and the number of recipes.
 - `pnpm reindex`: rebuilds the search index (`reindex-search.ts`). It queues `reindexRecipesJob` for the running API's worker and waits for it, printing failed attempts; stopping it doesn't stop the rebuild. It reads `.env`, like `pnpm dev`. In the API's container: `docker compose exec api node src/reindex-search.ts`.
 - `pnpm backup`: backs up now (`backup-now.ts`), as the nightly backup does, into `BACKUP_DIR`. Like `pnpm reindex`, it queues `backupJob` for the running API's worker and follows it (`followJob()`, `jobs/wait.ts`), then prints where it saved the backup. In the API's container: `docker compose exec api node src/backup-now.ts`.
-- **Restoring a backup**: `restore-backup.ts` with the API stopped, given a backup's name in `BACKUP_DIR` or a path; without one, it lists them. In the API's container: `docker compose run --rm api node src/restore-backup.ts <name>` (README's "Back up and restore").
-- **Copying the photos** to switch `BLOB_STORE`: `copy-photos.ts` copies every size of every photo into the store `BLOB_STORE` names from the other one (`copyPhotos()`, `blobs/copy.ts`), leaving what's there and deleting nothing. In the API's container, with the API stopped: `docker compose run --rm api node src/copy-photos.ts` (README's "Keep photos in S3").
-- `docker compose up --detach --build`: the whole stack, as deployed (README's "Getting started"). It reads `.env`, where `PUBLIC_URL` must be `https://` for Caddy, unlike `pnpm dev`'s; pass another file with `--env-file` to keep both.
+- **Restoring a backup**: `restore-backup.ts` with the API stopped, given a backup's name in `BACKUP_DIR` or a path; without one, it lists them. In the API's container: `docker compose run --rm api node src/restore-backup.ts <name>` ("Back up and restore" in `docs/operating.md`).
+- **Copying the photos** to switch `BLOB_STORE`: `copy-photos.ts` copies every size of every photo into the store `BLOB_STORE` names from the other one (`copyPhotos()`, `blobs/copy.ts`), leaving what's there and deleting nothing. In the API's container, with the API stopped: `docker compose run --rm api node src/copy-photos.ts` ("Keep photos in S3" in `docs/operating.md`).
+- `docker compose up --detach --build`: the whole stack, as deployed ("Install" in `docs/operating.md`). It reads `.env`, where `PUBLIC_URL` must be `https://` for Caddy, unlike `pnpm dev`'s; pass another file with `--env-file` to keep both.
 - `pnpm db:generate`: generates a SQL migration from changes to the Drizzle schema. Name it with `--name <what_changed>` (no `--` separator: pnpm passes arguments straight through, and drizzle-kit rejects a literal `--`).
 
 ## Docs
 
 - `docs/spec.md` is the product spec. Update it in the same increment whenever behavior changes.
 - `docs/adr/` holds architecture decisions in MADR format. When a decision changes, add a new ADR that supersedes the old one. Don't rewrite history.
-- `README.md` lists the ADRs and shows how far the roadmap has got. A new ADR goes in its list as well as in `docs/adr/README.md`'s table, and a group that finishes part of a phase updates the roadmap's status and the status line at the top.
+- `README.md` is the front page: what myli is, a quick start, the architecture, the ADRs and how far the roadmap has got. A new ADR goes in its list as well as in `docs/adr/README.md`'s table, and a group that finishes part of a phase updates the roadmap's status and the status line at the top.
+- `docs/operating.md` is the guide for whoever runs myli. A change an operator would notice (a variable, a volume, a command, a step in an upgrade) updates it in the same increment.
+- `docs/development.md` is the guide for working on myli's code: the tools, the commands, CI and releases.

@@ -1,6 +1,6 @@
 /**
  * Copies the photos into the store BLOB_STORE names from the other one, to switch where they're
- * kept (the README's "Keep photos in S3"). With BLOB_STORE=s3, from BLOB_DIR into the bucket; with
+ * kept ("Keep photos in S3" in docs/operating.md). With BLOB_STORE=s3, from BLOB_DIR into the bucket; with
  * BLOB_STORE=local, from the bucket, which the S3_* variables still name, into BLOB_DIR. Run it
  * with the API stopped, so no photo is uploaded meanwhile:
  *

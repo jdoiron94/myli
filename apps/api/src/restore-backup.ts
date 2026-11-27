@@ -1,6 +1,6 @@
 /**
  * Restores a backup (ADR 0018): its database, and any photos it holds into the store BLOB_STORE
- * names. With the API stopped, so nothing is written meanwhile (the README's "Back up and restore"):
+ * names. With the API stopped, so nothing is written meanwhile ("Back up and restore" in docs/operating.md):
  *
  *   docker compose stop api
  *   docker compose run --rm api node src/restore-backup.ts myli-backup-2026-11-26T033000Z.zip
