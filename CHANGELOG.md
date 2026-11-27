@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.17.0](https://github.com/jdoiron94/myli/compare/v0.16.0...v0.17.0) (2026-11-27)
+
+
+### Features
+
+* **api:** back up now from the command line, before an upgrade say ([89074ee](https://github.com/jdoiron94/myli/commit/89074ee103a247b4a689a77c20f6d99b7e25e3bf))
+* **api:** back up the database and every photo, every night ([d5ca161](https://github.com/jdoiron94/myli/commit/d5ca16182081a2d6567dfba5e76b3f0a9b3dfbb1))
+* **api:** leave photos kept in S3 out of backups ([1e207aa](https://github.com/jdoiron94/myli/commit/1e207aaa10219ef7d51e91dba9771937673d804c))
+* **api:** restore a backup from the command line ([94f007b](https://github.com/jdoiron94/myli/commit/94f007b2e28c82e7d48c65ec66306fac3584d0ca))
+
 ## [0.16.0](https://github.com/jdoiron94/myli/compare/v0.15.0...v0.16.0) (2026-11-26)
 
 
