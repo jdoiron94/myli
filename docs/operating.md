@@ -80,7 +80,7 @@ Set all three to create the first admin as the API starts, if no user exists yet
 
 ### Email
 
-Email is off unless `SMTP_HOST` is set. Without it, admins copy invitation links and pass them on however they like.
+Email is off unless `SMTP_HOST` is set. With it, myli emails invitation links, and the links people ask for on their Account page to verify their address. Without it, admins copy invitation links and pass them on however they like, and addresses can't be verified.
 
 | Variable | Default | What it's for |
 |---|---|---|
@@ -434,9 +434,9 @@ The device doesn't trust Caddy's certificate authority yet: [trust it](#trust-my
 
 The API can't reach Meilisearch. Everything else works meanwhile, and the API keeps trying: its log says `search is unavailable, retrying in the background`, then `search is ready`. Check `docker compose ps meilisearch` and `docker compose logs meilisearch`. Once search is back, an index found empty is rebuilt by itself; if search misses recipes after that, [rebuild the index](#rebuild-the-search-index).
 
-### Invitation emails don't arrive
+### Emails don't arrive
 
-Without `SMTP_HOST`, myli sends no email: copy the invitation's link instead, as the Invitations page offers. With it, the API's log says, as it starts, `could not connect or log in to the SMTP server; sending email will fail until this is fixed` when the server refuses. Each email is sent in the background: the log says `invitation email sent`, with the server's message ID, once the server takes it, or `job failed, will retry` with the reason, and after a few minutes of retries, `job failed for the last time, dead-lettered`. Once the server has taken it, look in the server's own logs and the recipient's spam folder. Resending the invitation sends a new link, and stops the old one.
+Without `SMTP_HOST`, myli sends no email: copy the invitation's link instead, as the Invitations page offers. With it, the API's log says, as it starts, `could not connect or log in to the SMTP server; sending email will fail until this is fixed` when the server refuses. Each email is sent in the background: the log says `invitation email sent` or `verification email sent`, with the server's message ID, once the server takes it, or `job failed, will retry` with the reason, and after a few minutes of retries, `job failed for the last time, dead-lettered`. Once the server has taken it, look in the server's own logs and the recipient's spam folder. Resending the invitation sends a new link, and stops the old one; so does asking for another verification link, five minutes after the last.
 
 ### Photos don't show
 
