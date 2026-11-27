@@ -18,6 +18,7 @@ pnpm db:generate        # create a migration after changing the database schema
 pnpm seed               # demo accounts, one per role, and demo recipes, on a database with no users yet; prints the passwords
 pnpm reindex            # rebuild the search index, through the API that pnpm dev runs
 pnpm backup             # back up now, through the API that pnpm dev runs, into apps/api/data/backups
+pnpm reset-password <email>   # print a reset link for an account, as the operator does without email
 pnpm screenshots        # retake the README's screenshots (docs/screenshots) from the demo recipes, in Chromium
 ```
 

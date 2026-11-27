@@ -44,8 +44,9 @@ export function emailedRecently(
 
 /**
  * Makes the user's token of this kind, for `email`, replacing any they had, so only the newest
- * link works. Returns its row's ID and the token, for a link. A caller whose email job will send
- * the link throws the token away: the job gives the row a new one before it sends.
+ * link works. Returns its row's ID, the token, for a link, and when it expires. A caller whose
+ * email job will send the link throws the token away: the job gives the row a new one before it
+ * sends.
  */
 export function issueUserToken(
   tx: Db | Tx,
@@ -55,12 +56,12 @@ export function issueUserToken(
     purpose,
     at,
   }: { userId: string; email: string; purpose: UserTokenPurpose; at: Date },
-): { id: string; token: string } {
+): { id: string; token: string; expiresAt: Date } {
   const { token, tokenHash } = newLinkToken();
   tx.delete(userToken)
     .where(and(eq(userToken.userId, userId), eq(userToken.purpose, purpose)))
     .run();
-  const { id } = tx
+  const { id, expiresAt } = tx
     .insert(userToken)
     .values({
       userId,
@@ -70,9 +71,9 @@ export function issueUserToken(
       expiresAt: new Date(at.getTime() + USER_TOKEN_LIFETIMES_MS[purpose]),
       createdAt: at,
     })
-    .returning({ id: userToken.id })
+    .returning({ id: userToken.id, expiresAt: userToken.expiresAt })
     .get();
-  return { id, token };
+  return { id, token, expiresAt };
 }
 
 /**
