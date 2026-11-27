@@ -187,7 +187,7 @@ myli is a self-hosted recipe app that runs with Docker Compose. It is built for 
   - The audit log records it. Before a request reaches Better Auth, `withClientIp()` sets `X-Forwarded-For` to exactly that address (or removes it), so the IP Better Auth stores on sessions and rate-limits by is the same one.
   - Never read `X-Forwarded-For` or the socket's address anywhere else. Don't use Better Auth's own `trustedProxies` option: it reads only the header, so it can't tell who sent it.
 - The API logs through pino, never `console` (ESLint enforces this). Inside a request, use `c.var.logger`, which tags every line with the request ID. Never log query strings, headers, request bodies or secrets.
-- Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example`, with its default or, if it's required, an empty value. A test fails if the two differ.
+- Configuration comes from env vars, validated with Zod at startup in `apps/api/src/env.ts`. Every new var goes into that schema and into `.env.example`, with its default or, if it's required, an empty value, and gets a row in the tables of "Configuration" in `docs/operating.md`, its default in backticks (or a word, like `none`, when it has none). Tests fail if any of the three differ.
   - Secrets can come from a file instead, for Docker secrets: `NAME_FILE` holds the path (`FILE_VARIABLES` in `env.ts`). A new secret goes into that list, and its `NAME_FILE=` line into `.env.example`.
   - Setting both `NAME` and `NAME_FILE` is an error. A problem with a file names its path, never its contents.
 

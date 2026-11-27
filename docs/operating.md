@@ -1,6 +1,6 @@
 # Running myli
 
-This guide is for whoever runs myli for a household: installing it, trusting its certificate, keeping photos in S3, and backing it up. [Developing myli](development.md) covers working on its code.
+This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate, keeping photos in S3, and backing it up. [Developing myli](development.md) covers working on its code.
 
 ## Install
 
@@ -16,7 +16,7 @@ myli runs with Docker Compose: Caddy serves it over HTTPS and passes `/api` to t
    - `PUBLIC_URL`: `https://` and the server's address, like `https://myli.home.arpa`.
    - `BETTER_AUTH_SECRET` and `MEILI_MASTER_KEY`: generate each with `openssl rand -base64 32`.
 
-   [`.env.example`](../.env.example) explains every variable. Leave the `_FILE` variables empty: Compose hands the secrets to the containers as files itself. Keep `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY` listed, even empty, or Compose won't start.
+   [Configuration](#configuration) explains every variable, as `.env.example` does. Leave the `_FILE` variables empty: Compose hands the secrets to the containers as files itself. Keep `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY` listed, even empty, or Compose won't start.
 
 3. Build the images and start the stack. It's ready when `docker compose ps` shows every service healthy.
 
@@ -53,6 +53,92 @@ Each release publishes both images to GitHub's container registry, privately: `g
 Then all you need is `compose.yaml` and the variables, which a Compose management tool can hold in place of `.env`, with the token as its credentials for `ghcr.io`.
 
 To upgrade, back up first (`docker compose exec api node src/backup-now.ts`, below), set `MYLI_VERSION` to the new release, and run `docker compose up --detach` again. The API applies any database migrations as it starts.
+
+## Configuration
+
+myli reads its settings from environment variables. Compose takes them from `.env` beside `compose.yaml`, or from a Compose management tool that holds them in its place. An empty value counts as unset. While one is missing or invalid, the API won't start, and its log names each. [`.env.example`](../.env.example) lists them all, with their defaults, as do the tables below.
+
+**Secrets** (`BETTER_AUTH_SECRET`, `MEILI_MASTER_KEY`, `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY`) reach the API as files. Compose hands each to the container as a secret, and points the API at it with the variable's `_FILE` twin, such as `BETTER_AUTH_SECRET_FILE`. Leave those empty in `.env`. Outside Compose, set either a secret or its `_FILE` variable, never both. Keep `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY` listed, even empty, or Compose won't start.
+
+### Required
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `PUBLIC_URL` | required | The address people open myli at: `https://` and the server's name or address, with a port only if it isn't 443, like `https://myli.home.arpa`. Caddy serves it, sign-in only accepts requests from it, and emailed links point to it. |
+| `BETTER_AUTH_SECRET` | required | Signs session cookies. At least 32 characters: `openssl rand -base64 32`. Changing it signs everyone out. |
+| `MEILI_MASTER_KEY` | required | Meilisearch's master key, which Compose starts it with. At least 16 characters: `openssl rand -base64 32`. The API uses it only as it starts, to make a key of its own. |
+
+### The first admin
+
+Set all three to create the first admin as the API starts, if no user exists yet, for an install where no one opens the setup screen. Users who exist already are never changed.
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `ADMIN_NAME` | none | Their name. |
+| `ADMIN_EMAIL` | none | Their email address, which they sign in with. |
+| `ADMIN_PASSWORD` | none | 15 to 128 characters, with a lowercase letter, an uppercase letter, a number and a special character. Empty it once the admin exists. |
+
+### Email
+
+Email is off unless `SMTP_HOST` is set. Without it, admins copy invitation links and pass them on however they like.
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `SMTP_HOST` | none | The SMTP server's host name or IP address. |
+| `SMTP_PORT` | 587, 465 or 25 | The server's port. By default, the one `SMTP_SECURITY` usually takes. |
+| `SMTP_SECURITY` | `starttls` | How the connection is encrypted. `starttls` upgrades to TLS once connected, and refuses to send if the server can't (port 587). `tls` is TLS from the first byte (port 465). `none` is no encryption, for a relay on the same machine (port 25). Server certificates are always verified. |
+| `SMTP_USER` | none | The login, if the server needs one. Set both or neither. |
+| `SMTP_PASSWORD` | none | Its password. |
+| `SMTP_FROM` | none | The sender, required with `SMTP_HOST`: an address, optionally with a name, like `myli <myli@example.com>`. |
+
+### Photos
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `BLOB_STORE` | `local` | Where photos are kept: `local`, in the `api-data` volume, or `s3`, in a bucket ([Keep photos in S3](#keep-photos-in-s3)). |
+| `S3_ENDPOINT` | none | With `s3`, the store's address, like `http://garage:3900`. Empty for AWS. |
+| `S3_REGION` | `us-east-1` | The region requests are signed for. |
+| `S3_BUCKET` | none | Required with `s3`: the bucket, which must exist already. |
+| `S3_ACCESS_KEY_ID` | none | Required with `s3`: the key, allowed to read, write and delete objects in the bucket. |
+| `S3_SECRET_ACCESS_KEY` | none | Required with `s3`: the key's secret. |
+
+### Upkeep
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `BACKUP_KEEP` | `7` | How many nightly backups are kept, from 0 to 365. 0 turns them off ([Back up and restore](#back-up-and-restore)). |
+| `TRASH_RETENTION_DAYS` | `30` | Days a deleted recipe stays in the trash before it's deleted for good, with its history and photos, from 1 to 365. Lowering it purges what's now past it straight away. |
+| `INVITATION_TTL_DAYS` | `7` | Days an invitation link works, from 1 to 90. |
+| `LOG_LEVEL` | `info` | The least the API logs: `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. |
+
+### Compose
+
+Only Compose reads these. Its own variables work in `.env` too, such as `COMPOSE_PROFILES=s3`.
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `MYLI_IMAGE_PREFIX` | none | Where the images come from: a registry, ending in a slash, like `ghcr.io/jdoiron94/` for the published releases. Empty for the images `docker compose up --build` builds here. |
+| `MYLI_VERSION` | `latest` | The images' version, like `0.17.0`. |
+| `MYLI_HTTP_PORT` | `80` | The host's port for HTTP, which only redirects to HTTPS. |
+| `MYLI_HTTPS_PORT` | `443` | The host's port for HTTPS, which must be `PUBLIC_URL`'s. |
+| `MYLI_PROXY_SUBNET` | `10.89.0.0/29` | The network Caddy and the API share. The API believes what addresses in it say about who the client is. Change it if it clashes with a network on the host. |
+| `MYLI_GARAGE_RPC_SECRET` | none | With the `s3` profile, the secret Garage's nodes share: `openssl rand -hex 32`. |
+| `MYLI_GARAGE_ADMIN_TOKEN` | none | With the `s3` profile, the token for Garage's admin API: `openssl rand -base64 32`. |
+
+### Set by the image
+
+The API's image and `compose.yaml` set these, so their values in `.env` are ignored there. The defaults apply where the API runs on its own, as in development.
+
+| Variable | Default | What it's for |
+|---|---|---|
+| `NODE_ENV` | `production` | The runtime mode: `development`, `test` or `production`. |
+| `HOST` | `0.0.0.0` | The address the API listens on. |
+| `PORT` | `3000` | The port it listens on. |
+| `DATABASE_PATH` | `./data/myli.db` | The SQLite database, created on first start. `/data/myli.db` in the image, on the `api-data` volume. |
+| `BLOB_DIR` | `./data/blobs` | Photos, with `BLOB_STORE=local`. `/data/blobs` in the image. |
+| `BACKUP_DIR` | none | Backups: a `backups` directory next to the database unless set. `/backups` in the image, on the `backups` volume. |
+| `MEILI_URL` | `http://localhost:7700` | Meilisearch. `http://meilisearch:7700` in Compose. |
+| `TRUSTED_PROXIES` | none | The proxies allowed to say who the client is, in `X-Forwarded-For`: addresses or ranges, comma-separated. `MYLI_PROXY_SUBNET` in Compose. |
 
 ## Trust myli's certificate on each device
 
