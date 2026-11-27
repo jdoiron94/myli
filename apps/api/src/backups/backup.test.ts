@@ -25,7 +25,7 @@ it('backs up the database and every photo in one zip, naming photos the store ha
   const [lost = '', kept = ''] = photoKeys(db);
   await blobs.delete(lost);
 
-  queueBackup(db, { directory, keep: 7 }, takenAt);
+  queueBackup(db, { directory, keep: 7, photos: true }, takenAt);
   await worker.runOnce();
 
   // Nothing half-written left beside it.
@@ -42,6 +42,7 @@ it('backs up the database and every photo in one zip, naming photos the store ha
     format: 'myli.backup',
     formatVersion: 1,
     takenAt: takenAt.toISOString(),
+    includesPhotos: true,
     photos: 1,
     missingPhotos: [lost],
   });
@@ -50,13 +51,29 @@ it('backs up the database and every photo in one zip, naming photos the store ha
   ]);
 });
 
+it('leaves the photos out when they’re kept in S3, never reading the store', async () => {
+  const sample = await sampleInstance();
+  const directory = tempDir();
+  // A bucket that any read of would fail the backup.
+  const blobs = { ...sample.blobs, get: () => Promise.reject(new Error('read the bucket')) };
+
+  queueBackup(sample.db, { directory, keep: 7, photos: false }, takenAt);
+  await workerFor({ ...sample, blobs }).runOnce();
+
+  const entries = unzipSync(readFileSync(join(directory, backupFileName(takenAt))));
+  expect(Object.keys(entries)).toEqual(['myli.db', 'manifest.json']);
+  expect(JSON.parse(new TextDecoder().decode(entries['manifest.json']))).toEqual(
+    expect.objectContaining({ includesPhotos: false, photos: 0, missingPhotos: [] }),
+  );
+});
+
 it('keeps the newest backups, leaving other files, and doesn’t save again one it saved', async () => {
   const { db, worker, directory } = await instance();
   const olderNames = [21, 22, 23, 24, 25].map((day) =>
     backupFileName(new Date(`2026-11-${String(day)}T03:30:00Z`)),
   );
   for (const name of [...olderNames, 'notes.txt']) writeFileSync(join(directory, name), 'older');
-  const payload = { takenAt: takenAt.toISOString(), directory, keep: 3 };
+  const payload = { takenAt: takenAt.toISOString(), directory, keep: 3, photos: true };
 
   enqueueJob(db, backupJob, payload);
   await worker.runOnce();
@@ -75,7 +92,7 @@ it('keeps the newest backups, leaving other files, and doesn’t save again one 
 
 it('skips a backup on startup when there is one from the last day', async () => {
   const { db, worker, directory } = await instance();
-  const settings = { directory, keep: 7 };
+  const settings = { directory, keep: 7, photos: true };
   const ifNoneSince = new Date(takenAt.getTime() - DAY_MS);
   const recent = backupFileName(new Date(ifNoneSince.getTime() + 1000));
   writeFileSync(join(directory, recent), 'recent');

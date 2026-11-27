@@ -152,9 +152,9 @@ export interface RestoreResult {
 }
 
 /**
- * Restores the backup at `file` (ADR 0018), with the API stopped: its photos into `blobs`, then
- * its database at `databasePath`, migrated, with a rebuild of the search index queued for when
- * the API starts. The database it replaces, if any, is moved aside, named after `now`, never
+ * Restores the backup at `file` (ADR 0018), with the API stopped: any photos it holds into
+ * `blobs`, then its database at `databasePath`, migrated, with a rebuild of the search index
+ * queued for when the API starts. The database it replaces, if any, is moved aside, named after `now`, never
  * deleted. Photos already in the store stay, and those it puts are the same files, since keys
  * never change. Throws a `RestoreError`, leaving the database as it was, if the file isn't a
  * backup it can restore.

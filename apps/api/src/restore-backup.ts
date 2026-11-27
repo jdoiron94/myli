@@ -1,6 +1,6 @@
 /**
- * Restores a backup (ADR 0018): its database, and its photos into the store BLOB_STORE names. With
- * the API stopped, so nothing is written meanwhile (the README's "Back up and restore"):
+ * Restores a backup (ADR 0018): its database, and any photos it holds into the store BLOB_STORE
+ * names. With the API stopped, so nothing is written meanwhile (the README's "Back up and restore"):
  *
  *   docker compose stop api
  *   docker compose run --rm api node src/restore-backup.ts myli-backup-2026-11-26T033000Z.zip
@@ -44,9 +44,14 @@ if (name === undefined) {
       blobs,
       now: new Date(),
     });
-    say(
-      `Restored the database as it was at ${manifest.takenAt}, and ${String(photos)} photo files.`,
-    );
+    if (manifest.includesPhotos) {
+      say(
+        `Restored the database as it was at ${manifest.takenAt}, and ${String(photos)} photo files.`,
+      );
+    } else {
+      say(`Restored the database as it was at ${manifest.takenAt}.`);
+      say('Its photos were kept in S3, which backups leave out: they’re read from the bucket.');
+    }
     if (manifest.missingPhotos.length > 0) {
       say(
         `${String(manifest.missingPhotos.length)} photo files were missing already when it was taken.`,

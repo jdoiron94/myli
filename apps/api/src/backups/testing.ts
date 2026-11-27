@@ -56,13 +56,13 @@ export function workerFor(
   });
 }
 
-/** Backs up `instance` into `directory`, as the job does. The backup's path. */
+/** Backs up `instance` into `directory`, as the job does, photos included. The backup's path. */
 export async function takeBackup(
   instance: Awaited<ReturnType<typeof sampleInstance>>,
   directory: string,
   takenAt: Date,
 ): Promise<string> {
-  queueBackup(instance.db, { directory, keep: 7 }, takenAt);
+  queueBackup(instance.db, { directory, keep: 7, photos: true }, takenAt);
   await workerFor(instance).runOnce();
   return join(directory, backupFileName(takenAt));
 }

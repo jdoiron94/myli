@@ -86,8 +86,8 @@ services:
     volumes:
       # The database, and the photos unless they're kept in S3: all of the instance's data.
       - api-data:/data
-      # The nightly backups, of both. To keep them on another disk, mount a directory there instead
-      # (the README's "Back up and restore").
+      # The nightly backups of all that. To keep them on another disk, mount a directory there
+      # instead (the README's "Back up and restore").
       - backups:/backups
     networks: [proxy, backend]
     depends_on:

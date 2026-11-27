@@ -25,7 +25,7 @@ What myli does once the [roadmap](#roadmap) is done:
 - **Grocery lists:** a collection's recipes added up into one list to tick off or print, with quantities scaled, units converted and duplicates merged.
 - **Cook mode:** a large-type view of the whole recipe that keeps your screen awake.
 - **Access control:** invite-only accounts with admin, editor and viewer roles. Recipes can be private, shared with everyone on the instance, or shared through a read-only public link. Admins get an audit log.
-- **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and nightly backups of the database and every photo, restored with one command. Photos are kept on the server's disk, or in any bucket that speaks S3, such as Garage, which Compose can run.
+- **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and nightly backups of the database and the photos on the server's disk, restored with one command. Photos are kept on the server's disk, or in any bucket that speaks S3, such as Garage, which Compose can run.
 
 The full specification is in [`docs/spec.md`](docs/spec.md).
 
@@ -87,7 +87,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 15. [The markdown editor reads markdown with the renderer's parser](docs/adr/0015-editor-reads-markdown-with-the-renderers-parser.md)
 16. [A public link carries its token in the path](docs/adr/0016-public-link-token-in-the-path.md)
 17. [The SSRF guard checks the address it connects to, on Node's own HTTP client](docs/adr/0017-ssrf-guard-checks-the-connected-address.md)
-18. [Nightly backups in the worker: one zip of the database and every photo](docs/adr/0018-nightly-backups-in-the-worker.md)
+18. [Nightly backups in the worker: one zip of the database and the photos on disk](docs/adr/0018-nightly-backups-in-the-worker.md)
 
 ## Getting started
 
@@ -227,9 +227,9 @@ Nothing is deleted from the old store: once the photos show, free its space your
 
 ### Back up and restore
 
-myli backs itself up every night at 03:30, server time, and when the API starts if its last backup is more than a day old. Each backup is one zip file: the database, copied as it was at one moment, and every photo it names, whether they're kept in the `api-data` volume or in an S3 bucket. The API's log says `backup saved` for each, with its size.
+myli backs itself up every night at 03:30, server time, and when the API starts if its last backup is more than a day old. Each backup is one zip file: the database, copied as it was at one moment, and every photo it names, when they're kept in the `api-data` volume. Photos kept in an S3 bucket are left out, to the bucket's own safeguards, such as versioning or replication on AWS. The API's log says `backup saved` for each, with its size.
 
-The newest 7 are kept in the `backups` volume. Set `BACKUP_KEEP` in `.env` to keep more or fewer, or to 0 to turn backups off. Each is a full copy, so seven take about seven times the space of the photos.
+The newest 7 are kept in the `backups` volume. Set `BACKUP_KEEP` in `.env` to keep more or fewer, or to 0 to turn backups off. Each is a full copy, so seven take about seven times the space of the photos they hold.
 
 That volume is on the same disk as everything else. To keep backups on another, mount a directory from it at `/backups` instead, in a `compose.override.yaml` beside `compose.yaml`, and make it writable by uid 1000, the API's user (`sudo chown 1000:1000 /mnt/backups/myli`):
 
@@ -258,7 +258,9 @@ docker compose run --rm api node src/restore-backup.ts myli-backup-2026-11-26T03
 docker compose start api
 ```
 
-It checks the backup before it changes anything, then puts its photos in the store `BLOB_STORE` names and its database in place. The database it replaces is kept beside it, renamed `myli.db.before-restore-<time>`, until you delete it. Photos uploaded since the backup stay in the store, unseen. The API rebuilds the search index as it starts. Everyone is signed out who signed in since the backup, and every change since is gone. Restore with the version of myli that made the backup, or a newer one: an older one doesn't know a newer database.
+It checks the backup before it changes anything, then puts any photos it holds in the store `BLOB_STORE` names, and its database in place. The database it replaces is kept beside it, renamed `myli.db.before-restore-<time>`, until you delete it. Photos uploaded since the backup stay in the store, unseen. The API rebuilds the search index as it starts. Everyone is signed out who signed in since the backup, and every change since is gone. Restore with the version of myli that made the backup, or a newer one: an older one doesn't know a newer database.
+
+A backup taken while photos were kept in S3 holds none: restore it with the same S3 settings, and the restored database finds them in the bucket. Photos deleted from the bucket since the backup, such as those of recipes purged from the trash meanwhile, stay gone unless the bucket keeps old versions.
 
 To move myli to another machine, set it up there as in [Getting started](#getting-started), with the same `.env`, and before you start it, restore a backup from the directory you copied it to:
 
@@ -270,10 +272,10 @@ Compose keeps the rest of myli's data in volumes, named after the project (`myli
 
 | Volume | Contents |
 |---|---|
-| `myli_api-data` | The database and the photos, all of which the backups hold. With `BLOB_STORE=s3`, the photos are in the bucket instead, and the backups hold them too. |
+| `myli_api-data` | The database and the photos, all of which the backups hold. With `BLOB_STORE=s3`, the photos are in the bucket instead, which the backups leave out. |
 | `myli_backups` | The backups. |
 | `myli_caddy-data` | The certificate authority, which the backups don't hold. Without it, Caddy creates a new one, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then. |
-| `myli_garage-data` | With Garage (the `s3` profile), the photos, which the backups hold. |
+| `myli_garage-data` | With Garage (the `s3` profile), the photos, which the backups don't hold. It's their only copy: archive it as Caddy's below, with the stack stopped (`docker compose stop`), or keep it on a disk that's backed up. |
 | `myli_meilisearch-data` | The search index, which is rebuilt from the database. No need to back it up: an empty index is rebuilt when the API starts. |
 
 Caddy's certificate authority doesn't change once it's created, so archive its volume once:
