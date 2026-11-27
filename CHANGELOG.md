@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.19.0](https://github.com/jdoiron94/myli/compare/v0.18.0...v0.19.0) (2026-11-27)
+
+
+### Features
+
+* **api:** password reset links, emailed only to verified addresses ([7869d0b](https://github.com/jdoiron94/myli/commit/7869d0ba401d774d32841d1c74ee16e270d1d46d))
+* **api:** reset-password.ts, a reset link from whoever runs the server ([123cc68](https://github.com/jdoiron94/myli/commit/123cc68fb55fd13c7f2e95d17354f1aae95971bd))
+* **web:** forgot-password and reset-password pages ([ece2eb2](https://github.com/jdoiron94/myli/commit/ece2eb2d7540c9f80e2d917319540a8958fb5f04))
+
 ## [0.18.0](https://github.com/jdoiron94/myli/compare/v0.17.0...v0.18.0) (2026-11-27)
 
 
