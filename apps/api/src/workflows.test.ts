@@ -74,6 +74,7 @@ const NOT_CHECKS = {
   seed: 'writes demo accounts to a database',
   reindex: 'rebuilds the search index of a running instance',
   backup: 'backs up a running instance',
+  'reset-password': 'makes a reset link for an account',
   screenshots: 'retakes the README’s screenshots',
 };
 

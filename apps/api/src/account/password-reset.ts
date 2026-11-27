@@ -7,7 +7,7 @@ import type { Db } from '../db/database.ts';
 import { account, session, user, userToken } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
 import { enqueueJob } from '../jobs/queue.ts';
-import { hashLinkToken } from '../tokens.ts';
+import { hashLinkToken, tokenLink } from '../tokens.ts';
 import { passwordResetEmail } from './email.ts';
 import { emailUserTokenLink } from './link-email.ts';
 import { emailedRecently, issueUserToken, useUserToken } from './user-tokens.ts';
@@ -54,6 +54,40 @@ export function requestPasswordReset(
     enqueueJob(tx, passwordResetEmailJob, { tokenId: id });
     return 'queued';
   });
+}
+
+export type OperatorResetLink =
+  | { ok: true; link: string; expiresAt: Date }
+  | { ok: false; reason: 'no-account' | 'deactivated' };
+
+/**
+ * A reset link for whoever runs the server to pass on, for any active account, verified or not
+ * (ADR 0019): `reset-password.ts` prints it. It works as an emailed one does, and replaces any sent
+ * before. Run beside the API, so its transaction takes the write lock as it begins.
+ */
+export function operatorResetLink(
+  db: Db,
+  { email, publicUrl, at }: { email: string; publicUrl: string; at: Date },
+): OperatorResetLink {
+  return db.transaction(
+    (tx): OperatorResetLink => {
+      const row = tx
+        .select({ id: user.id, banned: user.banned })
+        .from(user)
+        .where(eq(user.email, email))
+        .get();
+      if (!row) return { ok: false, reason: 'no-account' };
+      if (row.banned) return { ok: false, reason: 'deactivated' };
+      const { token, expiresAt } = issueUserToken(tx, {
+        userId: row.id,
+        email,
+        purpose: 'reset_password',
+        at,
+      });
+      return { ok: true, link: tokenLink(publicUrl, PASSWORD_RESET_PATH, token), expiresAt };
+    },
+    { behavior: 'immediate' },
+  );
 }
 
 /** Whether `token` is a reset link that works now, without using it up. */

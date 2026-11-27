@@ -384,6 +384,18 @@ docker compose up --detach
 
 - **From before 0.16.0:** list `S3_SECRET_ACCESS_KEY` in `.env`, even empty, or Compose won't start.
 
+## Reset someone's password
+
+Anyone whose address is verified resets their own password from the sign-in page, with a link myli emails them. Without `SMTP_HOST`, or for someone whose address isn't verified, make them a link yourself, while the stack runs:
+
+```sh
+docker compose exec api node src/reset-password.ts someone@example.com
+```
+
+It prints a link that works once, for an hour, and replaces any reset link sent before. Give it only to them, the way you would a password: whoever opens it can choose the account's password. Setting one signs the account out everywhere. Admins can't make these links in the app, since with one they could sign in as someone else and read their private recipes.
+
+It works for any account that isn't deactivated, your own included, if you're the only admin and forgot yours.
+
 ## Rebuild the search index
 
 The search index is kept in step with the database as recipes change, and rebuilt by itself when it's found empty. Should search ever miss a recipe, rebuild it while the stack runs. Search keeps working meanwhile:
