@@ -1,9 +1,14 @@
+import { execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { join } from 'node:path';
 import {
   type BrowserContext,
   type BrowserContextOptions,
   test as base,
   expect,
 } from '@playwright/test';
+import { devDataDir } from '../browsers.ts';
+import { composeProject } from '../images.ts';
 
 export { expect };
 
@@ -46,6 +51,8 @@ export interface Options {
   searchAvailable: boolean;
   /** Where the API keeps photos: in a directory, or, in one Compose stack, in Garage. */
   blobStore: 'local' | 's3';
+  /** What the tests run against: the dev servers (start-api.ts) or a Compose stack. */
+  stack: 'dev' | 'compose';
 }
 
 interface Fixtures {
@@ -53,13 +60,22 @@ interface Fixtures {
   newContext: (options?: BrowserContextOptions) => Promise<BrowserContext>;
   /** The Content Security Policy violations in the test's pages. The test fails if there are any. */
   cspViolations: string[];
+  /**
+   * Makes a reset link for the account with this address, as whoever runs the server does without
+   * email: with the API's `reset-password.ts`, on the dev servers' database or in the stack's API
+   * container. Returns the link it prints.
+   */
+  operatorResetLink: (email: string) => string;
 }
+
+const RESET_SCRIPT = join(import.meta.dirname, '../../apps/api/src/reset-password.ts');
 
 /** Playwright's `test`, failing when a page it opens breaks the Content Security Policy. */
 export const test = base.extend<Fixtures & Options>({
   clientAddress: ['127.0.0.1', { option: true }],
   searchAvailable: [false, { option: true }],
   blobStore: ['local', { option: true }],
+  stack: ['dev', { option: true }],
   cspViolations: [
     // eslint-disable-next-line no-empty-pattern -- Playwright requires a destructuring pattern.
     async ({}, use) => {
@@ -72,6 +88,42 @@ export const test = base.extend<Fixtures & Options>({
   context: async ({ context, cspViolations }, use) => {
     await watch(context, cspViolations);
     await use(context);
+  },
+  operatorResetLink: async ({ stack, browserName, baseURL }, use) => {
+    await use((email) => {
+      const output =
+        stack === 'compose'
+          ? execFileSync(
+              'docker',
+              [
+                'compose',
+                '--project-name',
+                composeProject(browserName),
+                'exec',
+                '-T',
+                'api',
+                'node',
+                'src/reset-password.ts',
+                email,
+              ],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+            )
+          : execFileSync(process.execPath, [RESET_SCRIPT, email], {
+              encoding: 'utf8',
+              stdio: ['ignore', 'pipe', 'pipe'],
+              // As start-api.ts runs the API: its database, and nothing from the shell or `.env`.
+              env: {
+                PATH: process.env.PATH,
+                PUBLIC_URL: baseURL,
+                DATABASE_PATH: join(devDataDir(browserName), 'myli.db'),
+                BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
+                MEILI_MASTER_KEY: randomBytes(32).toString('base64'),
+              },
+            });
+      const link = /^https?:\/\/\S+#[\w-]{43}$/m.exec(output)?.[0];
+      if (link === undefined) throw new Error(`reset-password.ts printed no link: ${output}`);
+      return link;
+    });
   },
   newContext: async ({ browser, cspViolations }, use) => {
     const opened: BrowserContext[] = [];

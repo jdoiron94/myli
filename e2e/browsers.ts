@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { devices, type PlaywrightTestConfig } from '@playwright/test';
 
 /** The browsers every run uses, against the dev servers and against the images. */
@@ -6,6 +8,12 @@ export const BROWSERS = [
   // Firefox lacks some CSS that Chromium has (`text-wrap: pretty`, found in increment 16f).
   { name: 'firefox', device: devices['Desktop Firefox'] },
 ] as const;
+
+/**
+ * Where the dev servers' run keeps one browser's database and photos (start-api.ts), so its tests
+ * can run the API's commands on them, as whoever runs the server would.
+ */
+export const devDataDir = (browser: string) => join(tmpdir(), `myli-e2e-${browser}`);
 
 /** One web server's settings. Playwright doesn't export the type. */
 export type WebServer = Exclude<NonNullable<PlaywrightTestConfig['webServer']>, unknown[]>;

@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { BROWSERS, COMMON_CONFIG, type WebServer } from './browsers.ts';
+import { BROWSERS, COMMON_CONFIG, devDataDir, type WebServer } from './browsers.ts';
 
 /**
  * Each browser gets its own API, database and Vite dev server, because first-run setup happens
@@ -24,7 +24,7 @@ export default defineConfig({
     {
       name: `${name} API`,
       command: 'node start-api.ts',
-      env: { PORT: String(apiPort), PUBLIC_URL: webUrl },
+      env: { PORT: String(apiPort), PUBLIC_URL: webUrl, DATA_DIR: devDataDir(name) },
       url: `http://127.0.0.1:${String(apiPort)}/healthz`,
       reuseExistingServer: false,
       // Playwright kills web servers outright unless told otherwise, which would leave the

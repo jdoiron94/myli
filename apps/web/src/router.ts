@@ -2,6 +2,7 @@ import {
   can,
   EMAIL_VERIFICATION_PATH,
   INVITATION_ACCEPT_PATH,
+  PASSWORD_RESET_PATH,
   PUBLIC_RECIPE_PATH,
   type RoleAction,
   type User,
@@ -96,6 +97,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Sign in', access: 'signed-out' },
   },
   {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: () => import('./pages/ForgotPasswordPage.vue'),
+    meta: { title: 'Forgot password', access: 'signed-out' },
+  },
+  {
     path: '/setup',
     name: 'setup',
     component: () => import('./pages/SetupPage.vue'),
@@ -115,6 +122,14 @@ export const routes: RouteRecordRaw[] = [
     name: 'verify-email',
     component: () => import('./pages/VerifyEmailPage.vue'),
     meta: { title: 'Verify email', access: 'public' },
+  },
+  {
+    // Open to anyone with the link, signed in or not: the link stands in for the password, and
+    // whoever is signed in here may be someone else (ADR 0019).
+    path: PASSWORD_RESET_PATH,
+    name: 'reset-password',
+    component: () => import('./pages/ResetPasswordPage.vue'),
+    meta: { title: 'Reset password', access: 'public' },
   },
   {
     // Open to anyone with the link, signed in or not: the token is the permission (ADR 0016).

@@ -1,6 +1,7 @@
 /**
  * Starts the API for one browser's end-to-end run, on an empty database that's deleted afterwards.
- * Playwright runs it as a web server (see playwright.config.ts) with PORT and PUBLIC_URL set.
+ * Playwright runs it as a web server (see playwright.config.ts) with PORT, PUBLIC_URL and DATA_DIR
+ * set: the browser's own directory (`devDataDir()`), where its tests find the database too.
  *
  * The API gets only the variables below, never the shell's or the repo's `.env`: no first admin,
  * so the run starts at first-run setup, and no SMTP, so invitation links are shown. Meilisearch
@@ -10,13 +11,12 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { type AddressInfo, createServer } from 'node:net';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const { PORT, PUBLIC_URL, PATH } = process.env;
-if (!PORT || !PUBLIC_URL) throw new Error('PORT and PUBLIC_URL must be set');
+const { PORT, PUBLIC_URL, DATA_DIR, PATH } = process.env;
+if (!PORT || !PUBLIC_URL || !DATA_DIR) throw new Error('PORT, PUBLIC_URL and DATA_DIR must be set');
 
 /** A port nothing listens on: opened, then closed again. */
 async function freePort(): Promise<number> {
@@ -28,7 +28,10 @@ async function freePort(): Promise<number> {
 }
 
 const noMeilisearch = `http://127.0.0.1:${String(await freePort())}`;
-const dataDir = mkdtempSync(join(tmpdir(), 'myli-e2e-'));
+const dataDir = DATA_DIR;
+// Empty, even if a run that was killed left its data behind.
+rmSync(dataDir, { recursive: true, force: true });
+mkdirSync(dataDir, { recursive: true });
 const api = spawn(process.execPath, [join(import.meta.dirname, '../apps/api/src/main.ts')], {
   stdio: 'inherit',
   env: {
