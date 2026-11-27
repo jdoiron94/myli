@@ -80,7 +80,7 @@ Set all three to create the first admin as the API starts, if no user exists yet
 
 ### Email
 
-Email is off unless `SMTP_HOST` is set. With it, myli emails invitation links, and the links people ask for on their Account page to verify their address. Without it, admins copy invitation links and pass them on however they like, and addresses can't be verified.
+Email is off unless `SMTP_HOST` is set. With it, myli emails invitation links, and the links people ask for to verify their address or reset their password. Without it, admins copy invitation links and pass them on however they like, addresses can't be verified, and you make reset links yourself ([Reset someone's password](#reset-someones-password)).
 
 | Variable | Default | What it's for |
 |---|---|---|
@@ -374,6 +374,7 @@ docker compose up --detach
 
 ### Upgrading from older releases
 
+- **From before 0.18.0:** every account's address became unverified, since none had been proven, so nobody can reset their password by email yet. Signing in is unaffected. With email, each person verifies their address once from their Account page; until then, or without email, make reset links yourself ([Reset someone's password](#reset-someones-password)).
 - **From before 0.17.0,** which had no backups: instead of step 1, stop the stack and archive the `api-data` volume, then go on with step 2. The new `compose.yaml` adds the `backups` volume, and the API backs up as it starts.
 
   ```sh
@@ -448,7 +449,9 @@ The API can't reach Meilisearch. Everything else works meanwhile, and the API ke
 
 ### Emails don't arrive
 
-Without `SMTP_HOST`, myli sends no email: copy the invitation's link instead, as the Invitations page offers. With it, the API's log says, as it starts, `could not connect or log in to the SMTP server; sending email will fail until this is fixed` when the server refuses. Each email is sent in the background: the log says `invitation email sent` or `verification email sent`, with the server's message ID, once the server takes it, or `job failed, will retry` with the reason, and after a few minutes of retries, `job failed for the last time, dead-lettered`. Once the server has taken it, look in the server's own logs and the recipient's spam folder. Resending the invitation sends a new link, and stops the old one; so does asking for another verification link, five minutes after the last.
+Without `SMTP_HOST`, myli sends no email: copy the invitation's link instead, as the Invitations page offers. With it, the API's log says, as it starts, `could not connect or log in to the SMTP server; sending email will fail until this is fixed` when the server refuses. Each email is sent in the background: the log says `invitation email sent`, `verification email sent` or `password reset email sent`, with the server's message ID, once the server takes it, or `job failed, will retry` with the reason, and after a few minutes of retries, `job failed for the last time, dead-lettered`. Once the server has taken it, look in the server's own logs and the recipient's spam folder. Resending the invitation sends a new link, and stops the old one; so does asking for another verification or reset link, five minutes after the last.
+
+A reset email goes only to the verified address of an active account, at most every five minutes, though the page says the same either way. Each request logs `password reset asked for` with an `outcome`: `queued` when an email is on its way, or why none is: `no-account`, `deactivated`, `unverified` or `too-soon`. For an unverified address, make the link yourself ([Reset someone's password](#reset-someones-password)).
 
 ### Photos don't show
 
