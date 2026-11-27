@@ -4,11 +4,11 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 4 (polish) under way: import, exports, S3 storage and backups done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, and nightly backups with a restore command work today. The [roadmap](#roadmap) shows what's done and what's next.
+> **Status: every phase of the [roadmap](#roadmap) is done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, and nightly backups with a restore command all work, and [Running myli](docs/operating.md) covers running it.
 
 ## Features
 
-What myli does once the [roadmap](#roadmap) is done:
+What myli does:
 
 - **Structured recipes:** ingredient groups, parsed quantities and units, ordered steps with markdown and photos, prep, cook and total times, difficulty, and nutrition entered by hand.
 - **Scaling:** any serving size, shown as readable fractions, in metric or imperial.
@@ -125,7 +125,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 | 1. MVP | Recipes, ingredients, steps, tags, images, scaling, search, favorites, cook mode, print view | Done |
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
 | 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Done |
-| 4. Polish | URL import, exports, S3 storage for photos, backup and restore tooling | In progress: import, exports, S3 storage and backups done |
+| 4. Polish | URL import, exports, S3 storage for photos, backup and restore tooling, an operator guide | Done |
 
 ## License
 
