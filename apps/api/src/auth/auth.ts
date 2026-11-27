@@ -136,7 +136,13 @@ export function createAuth({ db, env, logger, passwordHashing }: AuthDeps) {
         }
         // Every path that sets a password, over HTTP or from server code, follows the same rules.
         const weakPassword = checkNewPassword(ctx.path, ctx.body);
-        return weakPassword ? Promise.reject(weakPassword) : Promise.resolve();
+        if (weakPassword) return Promise.reject(weakPassword);
+        // Changing the password signs out the account's other sessions, whatever the request asks
+        // (spec §3.1): someone changing it because it leaked shouldn't have to know to ask.
+        if (ctx.path === '/change-password' && typeof ctx.body === 'object' && ctx.body !== null) {
+          return Promise.resolve({ context: { body: { ...ctx.body, revokeOtherSessions: true } } });
+        }
+        return Promise.resolve();
       }),
     },
     // Better Auth decides this from process.env.NODE_ENV, which can be unset in production.

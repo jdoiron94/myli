@@ -130,7 +130,7 @@ export interface paths {
                     before?: number;
                     limit?: number;
                     /** @description Only events of this kind. */
-                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
+                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "password.changed" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
                 };
                 header?: never;
                 path?: never;
@@ -5186,7 +5186,7 @@ export interface components {
         AuditEvent: {
             id: number;
             /** @enum {string} */
-            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
+            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "password.changed" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
             /** @description Who did it. `null` when nobody was signed in, as for a failed sign-in. */
             actor: {
                 id: string;

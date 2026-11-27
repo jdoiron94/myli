@@ -1,7 +1,7 @@
 import { API_BASE_PATH, AUTH_BASE_PATH } from '@myli/shared';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
-import { auditSignIns, auditSignOuts } from './audit/auth-events.ts';
+import { auditPasswordChanges, auditSignIns, auditSignOuts } from './audit/auth-events.ts';
 import type { Auth } from './auth/auth.ts';
 import { sessionMiddleware } from './auth/session.ts';
 import type { BlobStore } from './blobs/store.ts';
@@ -60,9 +60,10 @@ export function createApp({ logger, auth, db, env, search, blobs, outbound }: Ap
   app.use(clientAddress(trustedProxies(env.TRUSTED_PROXIES)));
 
   // Better Auth answers its own routes, in its own format rather than problem details (ADR 0005).
-  // Sign-ins and sign-outs pass through the audit log on the way.
+  // Sign-ins, sign-outs and password changes pass through the audit log on the way.
   app.post(`${AUTH_BASE_PATH}/sign-in/email`, auditSignIns(db));
   app.post(`${AUTH_BASE_PATH}/sign-out`, auditSignOuts(db, auth));
+  app.post(`${AUTH_BASE_PATH}/change-password`, auditPasswordChanges(db));
   app.on(['GET', 'POST'], `${AUTH_BASE_PATH}/*`, (c) =>
     auth.handler(withClientIp(c.req.raw, c.var.clientIp)),
   );

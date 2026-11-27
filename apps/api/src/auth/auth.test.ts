@@ -212,6 +212,32 @@ describe('cross-site requests carrying the session cookie (CSRF)', () => {
   });
 });
 
+describe('changing the password', () => {
+  it('signs out the account’s other sessions, even when asked not to, and keeps this one', async () => {
+    const t = createTestApp();
+    await userWithRole(t, 'viewer');
+    const other = sessionCookie(await signIn(t, ADA.email, ADA.password)).cookie;
+    const { cookie } = sessionCookie(await signIn(t, ADA.email, ADA.password));
+
+    const res = await authRequest(t, '/change-password', {
+      body: {
+        currentPassword: ADA.password,
+        newPassword: 'An even better passphrase 2',
+        revokeOtherSessions: false,
+      },
+      headers: { cookie },
+    });
+
+    expect(res.status).toBe(200);
+    const sessionWith = async (sent: string) =>
+      (await authRequest(t, '/get-session', { method: 'GET', headers: { cookie: sent } })).json();
+    expect(await sessionWith(other)).toBeNull();
+    expect(await sessionWith(sessionCookie(res).cookie)).toMatchObject({
+      user: { email: ADA.email },
+    });
+  });
+});
+
 describe('Better Auth’s own verification, reset and email change', () => {
   it('answer 404, signed in or not: myli makes its own links (ADR 0019)', async () => {
     const t = createTestApp();

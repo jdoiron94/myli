@@ -176,6 +176,13 @@
       "when": 1795788599471,
       "tag": "0024_account_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1795789563162,
+      "tag": "0025_audit_password_changed",
+      "breakpoints": true
     }
   ]
 }
