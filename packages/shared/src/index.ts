@@ -9,9 +9,14 @@ export const AUTH_BASE_PATH = '/api/auth';
 
 export {
   confirmEmailVerificationRequestSchema,
+  confirmPasswordResetRequestSchema,
   EMAIL_VERIFICATION_PATH,
   emailVerificationStatusSchema,
   emailVerifiedSchema,
+  PASSWORD_RESET_PATH,
+  passwordResetAvailabilitySchema,
+  passwordResetRequestSchema,
+  passwordResetSchema,
 } from './account.ts';
 export {
   AUDIT_ACTIONS,

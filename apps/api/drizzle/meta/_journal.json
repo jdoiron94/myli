@@ -183,6 +183,13 @@
       "when": 1795789563162,
       "tag": "0025_audit_password_changed",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1795817236089,
+      "tag": "0026_audit_password_reset",
+      "breakpoints": true
     }
   ]
 }

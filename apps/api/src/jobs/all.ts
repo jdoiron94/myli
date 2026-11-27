@@ -1,3 +1,4 @@
+import { passwordResetEmailJob } from '../account/password-reset.ts';
 import { emailVerificationJob } from '../account/verification.ts';
 import { backupJob } from '../backups/backup.ts';
 import { deleteBlobsJob, discardUnsavedImageJob } from '../images/images.ts';
@@ -12,6 +13,7 @@ import type { JobDefinition } from './define.ts';
 export const allJobs: readonly JobDefinition[] = [
   invitationEmailJob,
   emailVerificationJob,
+  passwordResetEmailJob,
   indexRecipeJob,
   reindexRecipesJob,
   discardUnsavedImageJob,

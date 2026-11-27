@@ -98,7 +98,7 @@ export function createV1Router(deps: V1Deps) {
     ttlDays: deps.env.INVITATION_TTL_DAYS,
     emailEnabled,
   });
-  registerAccountRoutes(v1, { db: deps.db, emailEnabled });
+  registerAccountRoutes(v1, { db: deps.db, auth: deps.auth, emailEnabled });
 
   return v1;
 }
