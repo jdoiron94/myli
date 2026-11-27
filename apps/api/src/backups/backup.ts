@@ -12,8 +12,8 @@ import { enqueueUnlessWaiting } from '../jobs/queue.ts';
 import type { Logger } from '../logger.ts';
 
 /**
- * Backups (ADR 0018): a zip of the database, as `VACUUM INTO` copies it, and every photo it names,
- * from whichever store keeps them, in `BACKUP_DIR`. The newest `BACKUP_KEEP` are kept.
+ * Backups (ADR 0018): a zip of the database, as `VACUUM INTO` copies it, and every photo it names
+ * when they're kept on this machine, in `BACKUP_DIR`. The newest `BACKUP_KEEP` are kept.
  */
 
 /** Bumped when what a backup holds changes, so a restore can tell an older one. */
@@ -28,6 +28,8 @@ export const backupManifestSchema = z.object({
   format: z.literal('myli.backup'),
   formatVersion: z.number().int(),
   takenAt: z.iso.datetime(),
+  /** False when the photos were kept in S3, which backups leave to the bucket. */
+  includesPhotos: z.boolean(),
   photos: z.number().int(),
   /** Keys the database names that the store didn't have. */
   missingPhotos: z.array(z.string()),
@@ -42,13 +44,23 @@ export interface BackupSettings {
   directory: string;
   /** How many to keep, newest first. */
   keep: number;
+  /**
+   * Whether backups hold the photos: only when they're kept on this machine. A bucket's are left to
+   * the bucket, rather than downloaded in full every night.
+   */
+  photos: boolean;
 }
 
-/** Where backups go and how many are kept, or `null` when they're off (`BACKUP_KEEP=0`). */
+/** Where backups go, how many are kept and what they hold, or `null` when they're off. */
 export function backupSettings(
-  env: Pick<Env, 'BACKUP_DIR' | 'BACKUP_KEEP' | 'DATABASE_PATH'>,
+  env: Pick<Env, 'BACKUP_DIR' | 'BACKUP_KEEP' | 'BLOB_STORE' | 'DATABASE_PATH'>,
 ): BackupSettings | null {
-  return env.BACKUP_KEEP === 0 ? null : { directory: backupDirectory(env), keep: env.BACKUP_KEEP };
+  if (env.BACKUP_KEEP === 0) return null;
+  return {
+    directory: backupDirectory(env),
+    keep: env.BACKUP_KEEP,
+    photos: env.BLOB_STORE === 'local',
+  };
 }
 
 /** In UTC, to the second, so names sort as the times do and suit any file system. */
@@ -81,6 +93,7 @@ const ZIP_MAX_BYTES = 0xffff_ffff;
 const ZIP_MAX_ENTRIES = 0xffff;
 
 interface ArchiveSummary {
+  includesPhotos: boolean;
   photos: number;
   missingPhotos: string[];
 }
@@ -152,11 +165,14 @@ async function* backupArchive(
   yield* chunks.splice(0);
 }
 
-/** Writes the backup to `name` in `directory`, through a hidden file renamed once complete. */
+/**
+ * Writes the backup to `name` in `directory`, through a hidden file renamed once complete, with
+ * the photos if `photos`.
+ */
 async function writeBackup(
   directory: string,
   name: string,
-  takenAt: Date,
+  { takenAt, photos }: { takenAt: Date; photos: boolean },
   { db, blobs, logger }: { db: Db; blobs: BlobStore; logger: Logger },
 ) {
   const file = join(directory, name);
@@ -168,12 +184,12 @@ async function writeBackup(
     // Both synchronous, one after the other, so the photos are the ones this copy names. None of
     // them can be deleted meanwhile: only a job deletes photos, and the worker runs one at a time.
     db.$client.prepare('VACUUM INTO ?').run(snapshot);
-    const keys = photoKeys(db);
+    const keys = photos ? photoKeys(db) : [];
     if (keys.length + 2 > ZIP_MAX_ENTRIES) {
       throw new Error(`a backup can’t hold ${String(keys.length)} photo files, more than zip can`);
     }
 
-    const summary: ArchiveSummary = { photos: 0, missingPhotos: [] };
+    const summary: ArchiveSummary = { includesPhotos: photos, photos: 0, missingPhotos: [] };
     let bytes = 0;
     const out = await open(partial, 'w');
     try {
@@ -204,9 +220,9 @@ async function writeBackup(
 }
 
 /**
- * Backs up the database and its photos into `directory`, named after `takenAt`, then deletes all
- * but the newest `keep` backups there. With `ifNoneSince`, it's skipped if a backup there is from
- * then or later. Run again after a backup it saved, it saves none.
+ * Backs up the database, and its photos if `photos`, into `directory`, named after `takenAt`, then
+ * deletes all but the newest `keep` backups there. With `ifNoneSince`, it's skipped if a backup
+ * there is from then or later. Run again after a backup it saved, it saves none.
  */
 export const backupJob = defineJob({
   type: 'backup.create',
@@ -214,9 +230,13 @@ export const backupJob = defineJob({
     takenAt: z.iso.datetime(),
     directory: z.string().min(1),
     keep: z.number().int().min(1),
+    photos: z.boolean(),
     ifNoneSince: z.iso.datetime().optional(),
   }),
-  async handle({ takenAt, directory, keep, ifNoneSince }, { services: { db, blobs }, logger }) {
+  async handle(
+    { takenAt, directory, keep, photos, ifNoneSince },
+    { services: { db, blobs }, logger },
+  ) {
     await mkdir(directory, { recursive: true });
     const backups = await listBackups(directory);
     const [newest] = backups;
@@ -232,7 +252,12 @@ export const backupJob = defineJob({
     const name = backupFileName(new Date(takenAt));
     // Otherwise saved already, by a run that stopped before it was marked done, or before a restore.
     if (!backups.includes(name)) {
-      await writeBackup(directory, name, new Date(takenAt), { db, blobs, logger });
+      await writeBackup(
+        directory,
+        name,
+        { takenAt: new Date(takenAt), photos },
+        { db, blobs, logger },
+      );
     }
 
     const older = (await listBackups(directory)).slice(keep);

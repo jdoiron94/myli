@@ -59,6 +59,7 @@ test('starts Caddy and the API without errors, with search ready', async ({ brow
 
 test('backs up the instance on its first start, onto the backups volume', async ({
   browserName,
+  blobStore,
 }) => {
   const api = container(browserName, 'api');
   const backups = () =>
@@ -68,6 +69,22 @@ test('backs up the instance on its first start, onto the backups volume', async 
   await expect
     .poll(backups, { timeout: 10_000 })
     .toEqual([expect.stringMatching(/^node \/backups\/myli-backup-[\dT-]+Z\.zip$/)]);
+  // Photos only from the API's own volume: those in Garage are left to the bucket.
+  const manifest = docker([
+    'exec',
+    api,
+    'node',
+    '--input-type=module',
+    '-e',
+    `import { readdirSync, readFileSync } from 'node:fs';
+    import { strFromU8, unzipSync } from 'fflate';
+    const [name] = readdirSync('/backups').filter((file) => file.endsWith('.zip'));
+    const zip = unzipSync(readFileSync('/backups/' + name), {
+      filter: (file) => file.name === 'manifest.json',
+    });
+    console.log(strFromU8(zip['manifest.json']));`,
+  ]);
+  expect(JSON.parse(manifest)).toMatchObject({ includesPhotos: blobStore === 'local' });
 });
 
 test('sets up Garage before the API starts, with the s3 profile', ({ browserName, blobStore }) => {

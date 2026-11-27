@@ -15,7 +15,7 @@ it('queues a backup, a trash purge and a photo sweep on startup and every day at
   const nextDay = new Date(2026, 10, 17, 3, 30);
   const daysBefore = (date: Date, days: number) =>
     new Date(date.getTime() - days * DAY_MS).toISOString();
-  const backups = { directory: '/backups', keep: 7 };
+  const backups = { directory: '/backups', keep: 7, photos: true };
   /** What's queued at `date`. */
   const dailyAt = (date: Date, onStartup = false) => [
     {
