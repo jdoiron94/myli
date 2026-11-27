@@ -8,7 +8,7 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0002](./0002-sqlite-as-source-of-truth.md) | SQLite as the source of truth | Accepted |
 | [0003](./0003-meilisearch-with-transactional-outbox.md) | Meilisearch as a separate search service, synced through a transactional outbox | Accepted |
 | [0004](./0004-blob-storage-abstraction-without-minio.md) | Blob storage behind an interface, local volume by default, no MinIO | Accepted |
-| [0005](./0005-better-auth-instance-roles-and-invitations.md) | Better Auth with instance-wide roles and custom invitations, no multi-tenancy | Accepted, amended by 0009 |
+| [0005](./0005-better-auth-instance-roles-and-invitations.md) | Better Auth with instance-wide roles and custom invitations, no multi-tenancy | Accepted, amended by 0009, 0010 and 0019 |
 | [0006](./0006-structured-steps-and-milkdown.md) | Structured steps, with markdown edited in Milkdown | Accepted, amended by 0014 |
 | [0007](./0007-revision-snapshots-and-optimistic-concurrency.md) | Revision snapshots and optimistic concurrency | Accepted |
 | [0008](./0008-run-typescript-with-node-type-stripping.md) | Run the API's TypeScript directly on Node, without a build step | Accepted |
@@ -22,6 +22,7 @@ This directory records significant architectural decisions, using [MADR 4](https
 | [0016](./0016-public-link-token-in-the-path.md) | A public link carries its token in the path | Accepted |
 | [0017](./0017-ssrf-guard-checks-the-connected-address.md) | The SSRF guard checks the address it connects to, on Node's own HTTP client | Accepted |
 | [0018](./0018-nightly-backups-in-the-worker.md) | Nightly backups in the worker: one zip of the database and the photos on disk | Accepted |
+| [0019](./0019-account-emails-with-myli-tokens-sent-from-jobs.md) | Email verification and password reset with myli's own tokens, sent from jobs | Accepted |
 
 ## Adding an ADR
 
