@@ -1,6 +1,6 @@
 # Running myli
 
-This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate, keeping photos in S3, and backing it up. [Developing myli](development.md) covers working on its code.
+This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate, keeping photos in S3, backing it up and upgrading it. [Developing myli](development.md) covers working on its code.
 
 ## Install
 
@@ -52,7 +52,7 @@ Each release publishes both images to GitHub's container registry, privately: `g
 
 Then all you need is `compose.yaml` and the variables, which a Compose management tool can hold in place of `.env`, with the token as its credentials for `ghcr.io`.
 
-To upgrade, back up first (`docker compose exec api node src/backup-now.ts`, below), set `MYLI_VERSION` to the new release, and run `docker compose up --detach` again. The API applies any database migrations as it starts.
+To move to a newer release, see [Upgrade](#upgrade).
 
 ## Configuration
 
@@ -281,6 +281,53 @@ Caddy's certificate authority doesn't change once it's created, so archive its v
 docker run --rm -v myli_caddy-data:/data:ro -v "$PWD:/backup" alpine \
   tar -czf /backup/myli-caddy-data.tar.gz -C /data .
 ```
+
+## Upgrade
+
+Each release's notes, on the [releases page](https://github.com/jdoiron94/myli/releases) and in [`CHANGELOG.md`](../CHANGELOG.md), say what changed. Read those of every release since yours: whatever a release needs you to do is under **⚠ BREAKING CHANGES**, and the notes below cover older releases. You can skip releases: the API brings the database up to date in one go.
+
+1. Back up, while the stack runs:
+
+   ```sh
+   docker compose exec api node src/backup-now.ts
+   ```
+
+2. Move to the new release:
+   - **With published images,** set `MYLI_VERSION` to it, and take its `compose.yaml` from its tag in this repository, or paste it into your Compose management tool. Then pull the images and start the stack:
+
+     ```sh
+     docker compose pull
+     docker compose up --detach
+     ```
+
+   - **With images built here,** check out its tag and rebuild:
+
+     ```sh
+     git fetch --tags && git checkout v0.17.0
+     docker compose up --detach --build
+     ```
+
+3. The API applies the database's migrations as it starts. It's done when `docker compose ps` shows every service healthy, and `docker compose logs api` shows no errors.
+
+To go back to the release you came from, restore the backup from step 1 with that release: the newer one may have changed the database in ways the older one doesn't know. Everything changed since the backup is lost. Stop the API, set `MYLI_VERSION` back (or check out the older tag and run `docker compose build`), restore, and start the stack:
+
+```sh
+docker compose stop api
+docker compose run --rm api node src/restore-backup.ts myli-backup-2026-11-26T033000Z.zip
+docker compose up --detach
+```
+
+### Upgrading from older releases
+
+- **From before 0.17.0,** which had no backups: instead of step 1, stop the stack and archive the `api-data` volume, then go on with step 2. The new `compose.yaml` adds the `backups` volume, and the API backs up as it starts.
+
+  ```sh
+  docker compose stop
+  docker run --rm -v myli_api-data:/data:ro -v "$PWD:/backup" alpine \
+    tar -czf /backup/myli-api-data.tar.gz -C /data .
+  ```
+
+- **From before 0.16.0:** list `S3_SECRET_ACCESS_KEY` in `.env`, even empty, or Compose won't start.
 
 ## Rebuild the search index
 
