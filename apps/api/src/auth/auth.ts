@@ -35,6 +35,19 @@ const adminPluginRoles = {
   viewer: noPermissions,
 } satisfies Record<Role, unknown>;
 
+/**
+ * Better Auth's own email verification, password reset and email change. myli has its own
+ * verification and reset links, made and emailed by jobs (ADR 0019), and doesn't offer changing an
+ * address, which would make one verified for another address stand for this one.
+ */
+const REPLACED_PATHS = [
+  '/send-verification-email',
+  '/verify-email',
+  '/request-password-reset',
+  '/reset-password',
+  '/change-email',
+];
+
 /** The Better Auth endpoints that set a password, and the body field that carries it. */
 const PASSWORD_FIELDS: Readonly<Record<string, string>> = {
   '/sign-up/email': 'password',
@@ -114,6 +127,11 @@ export function createAuth({ db, env, logger, passwordHashing }: AuthDeps) {
         // going through the policy module or the audit log. Block them for every caller. Server
         // code can still use them through `auth.api.*`, which has no `ctx.request`.
         if (ctx.request && ctx.path.startsWith('/admin/')) {
+          return Promise.reject(new APIError('NOT_FOUND'));
+        }
+        // Blocked over HTTP and from server code alike: nothing calls them. `/reset-password`
+        // also covers `/reset-password/:token`.
+        if (REPLACED_PATHS.some((path) => ctx.path === path || ctx.path.startsWith(`${path}/`))) {
           return Promise.reject(new APIError('NOT_FOUND'));
         }
         // Every path that sets a password, over HTTP or from server code, follows the same rules.

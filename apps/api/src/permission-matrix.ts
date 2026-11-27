@@ -16,6 +16,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { eq } from 'drizzle-orm';
+import { issueUserToken } from './account/user-tokens.ts';
 import { createUserWithPassword } from './auth/users.ts';
 import {
   comment as commentTable,
@@ -142,6 +143,23 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
   if (!result.ok) throw new Error(`could not create an invitation: ${result.reason}`);
   if (result.link === undefined) throw new Error('expected a link: email is off here');
   return { id: result.invitation.id, token: new URL(result.link).hash.slice(1) };
+}
+
+/** A working verification link's token, for a new user made directly in the database. */
+async function verificationToken(t: TestApp): Promise<string> {
+  const email = `unverified-${randomUUID()}@example.com`;
+  const created = await createUserWithPassword(t.auth, {
+    name: 'Unverified User',
+    email,
+    password: 'An unverified password 1',
+    role: 'viewer',
+  });
+  return issueUserToken(t.db, {
+    userId: created.id,
+    email,
+    purpose: 'verify_email',
+    at: new Date(),
+  }).token;
 }
 
 /** A cuisine tag's ID, created if there isn't one with this name. */
@@ -728,6 +746,30 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     path: '/me/preferences',
     access: 'signed-in',
     send: (t, cookie) => request(t, 'PUT', '/me/preferences', cookie, { unitSystem: 'metric' }),
+  },
+  {
+    method: 'get',
+    path: '/me/email-verification',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'GET', '/me/email-verification', cookie),
+  },
+  {
+    // Email is off in the test app, so signed-in callers get 409, which still counts as getting
+    // through.
+    method: 'post',
+    path: '/me/email-verification',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'POST', '/me/email-verification', cookie),
+  },
+  {
+    // The link proves the address, whoever opens it, signed in or not.
+    method: 'post',
+    path: '/email-verification/confirm',
+    access: 'public',
+    send: async (t, cookie) =>
+      request(t, 'POST', '/email-verification/confirm', cookie, {
+        token: await verificationToken(t),
+      }),
   },
 ];
 

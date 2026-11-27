@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { asc } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createMemoryBlobStore } from '../blobs/memory.ts';
-import { invitation, job } from '../db/schema.ts';
+import { invitation, job, user } from '../db/schema.ts';
 import { allJobs } from '../jobs/all.ts';
 import { createWorker } from '../jobs/worker.ts';
 import { createLogger } from '../logger.ts';
@@ -152,6 +152,22 @@ describe('invitations with email on', () => {
     expect(invitations(t)).toMatchObject([{ tokenHash: sha256(token) }]);
     expect(t.db.$client.serialize().includes(token)).toBe(false);
     expect(jobs(t)).toMatchObject([{ status: 'succeeded' }]);
+  });
+
+  it('creates the account verified when its emailed link is accepted (ADR 0019)', async () => {
+    const { t, admin, worker, sent } = await setUp();
+    await invite(t, admin.cookie);
+    await worker.runOnce();
+
+    const res = await send(t, 'POST', '/invitations/accept', undefined, {
+      token: tokenIn(sent[0]?.text ?? ''),
+      name: 'Grace Hopper',
+      password: 'An invitee password 1',
+    });
+
+    expect(res.status).toBe(201);
+    const created = t.db.select().from(user).where(eq(user.email, 'grace@example.com')).get();
+    expect(created).toMatchObject({ emailVerified: true });
   });
 
   it('stores the new hash before sending, so the link already works as the email leaves', async () => {

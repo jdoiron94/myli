@@ -44,7 +44,7 @@ describe('GET /api/v1/setup', () => {
 });
 
 describe('POST /api/v1/setup', () => {
-  it('creates the first admin, verified, who can sign in; then setup is no longer needed', async () => {
+  it('creates the first admin, unverified, who can sign in; then setup is no longer needed', async () => {
     const t = createTestApp();
 
     const res = await postSetup(t);
@@ -56,7 +56,7 @@ describe('POST /api/v1/setup', () => {
       email: 'ada@example.com',
       role: 'admin',
     });
-    expect(users(t)).toMatchObject([{ id: admin.id, role: 'admin', emailVerified: true }]);
+    expect(users(t)).toMatchObject([{ id: admin.id, role: 'admin', emailVerified: false }]);
     expect(claims(t)).toEqual([]);
     expect(await setupStatus(t)).toEqual({ needed: false });
 

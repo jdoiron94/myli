@@ -47,6 +47,7 @@ export async function runSetup(
   if (claim !== 'claimed') return { ok: false, reason: claim };
 
   try {
+    // Unverified: whoever ran setup typed the address in, and nothing has proven it (ADR 0019).
     const admin = await createUserWithPassword(auth, { ...request, role: 'admin' });
     return { ok: true, user: admin };
   } finally {

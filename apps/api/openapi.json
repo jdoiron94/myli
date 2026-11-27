@@ -244,6 +244,7 @@
               "sign_in.succeeded",
               "sign_in.failed",
               "sign_out.succeeded",
+              "email.verified",
               "recipe.deleted",
               "recipe.restored",
               "recipe.purged",
@@ -4012,6 +4013,54 @@
           "name",
           "password"
         ]
+      },
+      "EmailVerificationStatus": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Whether myli has proven the address reaches its owner (spec §3.1)."
+          },
+          "emailEnabled": {
+            "type": "boolean",
+            "description": "Whether this server sends email, which verifying an address needs."
+          }
+        },
+        "required": [
+          "email",
+          "verified",
+          "emailEnabled"
+        ]
+      },
+      "EmailVerified": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "The address that is now verified."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ConfirmEmailVerificationRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "token"
+        ]
       }
     },
     "parameters": {}
@@ -4162,6 +4211,7 @@
                 "sign_in.succeeded",
                 "sign_in.failed",
                 "sign_out.succeeded",
+                "email.verified",
                 "recipe.deleted",
                 "recipe.restored",
                 "recipe.purged",
@@ -9254,6 +9304,160 @@
           },
           "409": {
             "description": "A user with this email already exists.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/email-verification": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Whether your address is verified",
+        "description": "Any signed-in user's own address, whether myli has proven it reaches them, and whether this server can send a link to verify it.",
+        "responses": {
+          "200": {
+            "description": "Your address and whether it is verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailVerificationStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Send a link to verify your address",
+        "description": "Emails a link to your address that verifies it, once, within a day. Only the newest link works, and one is sent at most every five minutes. Send `Content-Type: application/json` even though there is no body.",
+        "responses": {
+          "202": {
+            "description": "The email is on its way."
+          },
+          "409": {
+            "description": "Your address is verified already, or this server doesn't send email.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A link was sent less than five minutes ago.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/email-verification/confirm": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Verify an address with its link",
+        "description": "Public: the link proves the address, so it needs no signing in. The token is sent in the body, never the URL, so it stays out of logs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEmailVerificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The address is verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailVerified"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The link is invalid, expired, replaced by a newer one, or already used.",
             "content": {
               "application/problem+json": {
                 "schema": {

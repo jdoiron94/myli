@@ -16,6 +16,7 @@ export const AUDIT_ACTIONS = [
   'sign_in.succeeded',
   'sign_in.failed',
   'sign_out.succeeded',
+  'email.verified',
   'recipe.deleted',
   'recipe.restored',
   'recipe.purged',

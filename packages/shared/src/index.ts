@@ -8,6 +8,12 @@ export const API_BASE_PATH = '/api/v1';
 export const AUTH_BASE_PATH = '/api/auth';
 
 export {
+  confirmEmailVerificationRequestSchema,
+  EMAIL_VERIFICATION_PATH,
+  emailVerificationStatusSchema,
+  emailVerifiedSchema,
+} from './account.ts';
+export {
   AUDIT_ACTIONS,
   AUDIT_PAGE_SIZE_MAX,
   AUDIT_TARGET_TYPES,
