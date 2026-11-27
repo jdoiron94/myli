@@ -1,6 +1,6 @@
 # Running myli
 
-This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate or putting it behind a proxy of yours, keeping photos in S3, backing it up and upgrading it. [Developing myli](development.md) covers working on its code.
+This guide is for whoever runs myli for a household: installing and configuring it, trusting its certificate or putting it behind a proxy of yours, keeping photos in S3, backing it up and upgrading it, and what to do when something goes wrong. [Developing myli](development.md) covers working on its code.
 
 ## Install
 
@@ -389,3 +389,61 @@ The search index is kept in step with the database as recipes change, and rebuil
 ```sh
 docker compose exec api node src/reindex-search.ts
 ```
+
+## Troubleshooting
+
+Start with `docker compose ps`: every service should be running, and healthy. A service's log says what's wrong with it, as `docker compose logs caddy`. The API writes one JSON object per line, and its errors have a `level` of 50 or more:
+
+```sh
+docker compose logs --no-log-prefix api | grep -E '"level":(50|60)'
+```
+
+`LOG_LEVEL=debug` logs more, such as every background job that succeeds.
+
+### Compose won't start: "environment variable … required by secret … is not set"
+
+Every secret's variable must be listed in `.env`, even empty: `ADMIN_PASSWORD`, `SMTP_PASSWORD` and `S3_SECRET_ACCESS_KEY`, and with the `s3` profile, `MYLI_GARAGE_RPC_SECRET` and `MYLI_GARAGE_ADMIN_TOKEN`. Add the one it names.
+
+### Compose won't start: a network's addresses overlap another's
+
+Docker says a pool of addresses overlaps one it has already: the network Caddy and the API share, `10.89.0.0/29` unless set, clashes with one on the host. Set `MYLI_PROXY_SUBNET` to a free one of the same size, such as `10.89.5.0/29`.
+
+### Compose won't start: a port is taken
+
+Docker says port 80 or 443 is already allocated or in use: something else listens on it. Stop it, set `MYLI_HTTP_PORT` and `MYLI_HTTPS_PORT` to free ports, with the HTTPS port in `PUBLIC_URL` too, or put myli [behind it](#behind-another-reverse-proxy).
+
+### Caddy keeps restarting
+
+Its log says why, such as `PUBLIC_URL must start with https://`. With Compose, `PUBLIC_URL` is `https://` and the server's address, with no path. Change it in `.env`, then run `docker compose up --detach` again.
+
+### The API keeps restarting
+
+Its log starts with `Invalid environment configuration:` and names each variable that's missing or invalid, without its value. Change them in `.env`, then run `docker compose up --detach` again.
+
+### The browser can't connect, with an SSL or TLS error
+
+Such as `ERR_SSL_PROTOCOL_ERROR` or `SSL_ERROR_INTERNAL_ERROR_ALERT`. Caddy serves `PUBLIC_URL` alone, not the server's other names or its IP address: open myli at exactly that address, and check the device finds the server by that name.
+
+### The browser warns that the connection isn't private, or cook mode doesn't keep the screen on
+
+The device doesn't trust Caddy's certificate authority yet: [trust it](#trust-mylis-certificate-on-each-device). If the `caddy-data` volume was lost, Caddy created a new authority, which every device has to trust again. Browsers that have seen myli won't let anyone click past the warning until then.
+
+### Search says "Search is unavailable right now"
+
+The API can't reach Meilisearch. Everything else works meanwhile, and the API keeps trying: its log says `search is unavailable, retrying in the background`, then `search is ready`. Check `docker compose ps meilisearch` and `docker compose logs meilisearch`. Once search is back, an index found empty is rebuilt by itself; if search misses recipes after that, [rebuild the index](#rebuild-the-search-index).
+
+### Invitation emails don't arrive
+
+Without `SMTP_HOST`, myli sends no email: copy the invitation's link instead, as the Invitations page offers. With it, the API's log says, as it starts, `could not connect or log in to the SMTP server; sending email will fail until this is fixed` when the server refuses. Each email is sent in the background: the log says `invitation email sent`, with the server's message ID, once the server takes it, or `job failed, will retry` with the reason, and after a few minutes of retries, `job failed for the last time, dead-lettered`. Once the server has taken it, look in the server's own logs and the recipient's spam folder. Resending the invitation sends a new link, and stops the old one.
+
+### Photos don't show
+
+After a change to `BLOB_STORE`, the photos are still in the store they were kept in: [copy them over](#switch-with-photos-already-uploaded). Otherwise, the API's log has the store's errors.
+
+### Backups stop appearing
+
+The API's log says `backup saved` for each one. A backup that fails says `job failed, will retry`, with the reason: often a full disk, or a directory mounted at `/backups` that uid 1000, the API's user, can't write to (`sudo chown 1000:1000 /mnt/backups/myli`). A backup over 4 GB, or with more than 65,535 photo files, fails too: zip can't hold it as myli writes it ([ADR 0018](adr/0018-nightly-backups-in-the-worker.md)).
+
+### "Something went wrong on myli's server"
+
+The API hit an error it didn't expect. Its log, filtered for errors as above, has the details, at the time it happened.
