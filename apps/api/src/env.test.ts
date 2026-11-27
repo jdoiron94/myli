@@ -366,4 +366,25 @@ describe('.env.example', () => {
     for (const name of Object.keys(REQUIRED)) expect(example[name], name).toBe('');
     expect(loadEnv({ ...example, ...REQUIRED })).toEqual(loadEnv(REQUIRED));
   });
+
+  it('matches the configuration reference in docs/operating.md, default for default', () => {
+    const guide = readFileSync(new URL('../../../docs/operating.md', import.meta.url), 'utf8');
+    const [, section = ''] = /^## Configuration\n([\s\S]*?)^## /m.exec(guide) ?? [];
+    const reference = Object.fromEntries(
+      [...section.matchAll(/^\| `([A-Z][A-Z0-9_]*)` \| ([^|]*) \|/gm)].map(([, name, cell]) => [
+        name,
+        cell,
+      ]),
+    );
+    // The secrets' files are explained together, not one by one.
+    const shown = Object.entries(example).filter(([name]) => !name.endsWith('_FILE'));
+    expect(reference).toEqual(
+      Object.fromEntries(
+        shown.map(([name, value]) => [
+          name,
+          value === '' ? expect.not.stringMatching(/^`/) : `\`${value}\``,
+        ]),
+      ),
+    );
+  });
 });
