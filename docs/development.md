@@ -18,6 +18,7 @@ pnpm db:generate        # create a migration after changing the database schema
 pnpm seed               # demo accounts, one per role, and demo recipes, on a database with no users yet; prints the passwords
 pnpm reindex            # rebuild the search index, through the API that pnpm dev runs
 pnpm backup             # back up now, through the API that pnpm dev runs, into apps/api/data/backups
+pnpm screenshots        # retake the README's screenshots (docs/screenshots) from the demo recipes, in Chromium
 ```
 
 The API docs are at http://localhost:5173/api/docs/ while `pnpm dev` runs.
