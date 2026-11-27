@@ -22,6 +22,7 @@ import {
   comment as commentTable,
   image as imageTable,
   recipe as recipeTable,
+  type UserTokenPurpose,
 } from './db/schema.ts';
 import { insertRecipeImage, testImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
@@ -145,21 +146,16 @@ async function openInvitation(t: TestApp): Promise<{ id: string; token: string }
   return { id: result.invitation.id, token: new URL(result.link).hash.slice(1) };
 }
 
-/** A working verification link's token, for a new user made directly in the database. */
-async function verificationToken(t: TestApp): Promise<string> {
-  const email = `unverified-${randomUUID()}@example.com`;
+/** A working link's token, of this kind, for a new user made directly in the database. */
+async function linkToken(t: TestApp, purpose: UserTokenPurpose): Promise<string> {
+  const email = `linked-${randomUUID()}@example.com`;
   const created = await createUserWithPassword(t.auth, {
-    name: 'Unverified User',
+    name: 'Linked User',
     email,
-    password: 'An unverified password 1',
+    password: 'A linked user password 1',
     role: 'viewer',
   });
-  return issueUserToken(t.db, {
-    userId: created.id,
-    email,
-    purpose: 'verify_email',
-    at: new Date(),
-  }).token;
+  return issueUserToken(t.db, { userId: created.id, email, purpose, at: new Date() }).token;
 }
 
 /** A cuisine tag's ID, created if there isn't one with this name. */
@@ -768,7 +764,34 @@ export const ENDPOINTS: readonly EndpointCase[] = [
     access: 'public',
     send: async (t, cookie) =>
       request(t, 'POST', '/email-verification/confirm', cookie, {
-        token: await verificationToken(t),
+        token: await linkToken(t, 'verify_email'),
+      }),
+  },
+  {
+    // Someone who forgot their password isn't signed in.
+    method: 'get',
+    path: '/password-reset',
+    access: 'public',
+    send: (t, cookie) => request(t, 'GET', '/password-reset', cookie),
+  },
+  {
+    // Email is off in the test app, so every caller gets 409, which still counts as getting
+    // through.
+    method: 'post',
+    path: '/password-reset',
+    access: 'public',
+    send: (t, cookie) =>
+      request(t, 'POST', '/password-reset', cookie, { email: 'anyone@example.com' }),
+  },
+  {
+    // The link stands in for the password, whoever opens it, signed in or not.
+    method: 'post',
+    path: '/password-reset/confirm',
+    access: 'public',
+    send: async (t, cookie) =>
+      request(t, 'POST', '/password-reset/confirm', cookie, {
+        token: await linkToken(t, 'reset_password'),
+        newPassword: 'A new linked password 2',
       }),
   },
 ];

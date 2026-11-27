@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { passwordSchema } from './password.ts';
+import { emailSchema } from './user.ts';
 
 /**
  * The web app's page that a verification link opens. Like an invitation's, the link is
@@ -19,7 +21,7 @@ export const emailVerificationStatusSchema = z
   })
   .meta({ id: 'EmailVerificationStatus' });
 
-/** The secret part of a link to verify an address. Checked by looking it up, never by format. */
+/** The secret part of a link. Checked by looking it up, never by format. */
 const linkTokenSchema = z.string().min(1).max(200);
 
 export const confirmEmailVerificationRequestSchema = z
@@ -29,3 +31,29 @@ export const confirmEmailVerificationRequestSchema = z
 export const emailVerifiedSchema = z
   .object({ email: z.email().describe('The address that is now verified.') })
   .meta({ id: 'EmailVerified' });
+
+/** The web app's page that a reset link opens, as `EMAIL_VERIFICATION_PATH` is a verification link's. */
+export const PASSWORD_RESET_PATH = '/reset-password';
+
+/** What someone who forgot their password can do on this server. */
+export const passwordResetAvailabilitySchema = z
+  .object({
+    emailEnabled: z
+      .boolean()
+      .describe(
+        'Whether this server emails reset links. Without email, whoever runs it makes one (spec §3.1).',
+      ),
+  })
+  .meta({ id: 'PasswordResetAvailability' });
+
+export const passwordResetRequestSchema = z
+  .object({ email: emailSchema })
+  .meta({ id: 'PasswordResetRequest' });
+
+export const confirmPasswordResetRequestSchema = z
+  .object({ token: linkTokenSchema, newPassword: passwordSchema })
+  .meta({ id: 'ConfirmPasswordResetRequest' });
+
+export const passwordResetSchema = z
+  .object({ email: z.email().describe('The address of the account whose password was reset.') })
+  .meta({ id: 'PasswordReset' });

@@ -6,38 +6,20 @@ import type { Db } from '../db/database.ts';
 import { user } from '../db/schema.ts';
 import { defineJob } from '../jobs/define.ts';
 import { enqueueJob } from '../jobs/queue.ts';
-import { tokenLink } from '../tokens.ts';
 import { verificationEmail } from './email.ts';
-import { emailedRecently, issueUserToken, reissueUserToken, useUserToken } from './user-tokens.ts';
+import { emailUserTokenLink } from './link-email.ts';
+import { emailedRecently, issueUserToken, useUserToken } from './user-tokens.ts';
 
-/**
- * Emails a verification link (ADR 0019). The payload is only the token row's ID: the handler
- * gives the row a fresh token, stores its hash, and only then sends the link, as invitations do.
- * A row that was used or replaced since gets no email.
- */
+/** Emails a verification link (ADR 0019), made as `emailUserTokenLink()` makes every account link. */
 export const emailVerificationJob = defineJob({
   type: 'email_verification.email',
   payload: z.object({ tokenId: z.string() }),
-  async handle({ tokenId }, { services: { db, mailer, publicUrl }, logger }) {
-    if (!mailer) {
-      // Only when SMTP was turned off after the job was queued.
-      logger.warn({ tokenId }, 'email is off, so the verification email was not sent');
-      return;
-    }
-    const issued = reissueUserToken(db, tokenId, new Date());
-    if (!issued) {
-      logger.info({ tokenId }, 'verification link was used, replaced or expired; no email sent');
-      return;
-    }
-    const { messageId } = await mailer.send(
-      verificationEmail({
-        to: issued.row.email,
-        link: tokenLink(publicUrl, EMAIL_VERIFICATION_PATH, issued.token),
-        expiresAt: issued.row.expiresAt,
-      }),
-    );
-    logger.info({ tokenId, messageId }, 'verification email sent');
-  },
+  handle: ({ tokenId }, context) =>
+    emailUserTokenLink(tokenId, context, {
+      kind: 'verification',
+      path: EMAIL_VERIFICATION_PATH,
+      message: verificationEmail,
+    }),
 });
 
 /** Whether the user's address is verified. */

@@ -130,7 +130,7 @@ export interface paths {
                     before?: number;
                     limit?: number;
                     /** @description Only events of this kind. */
-                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "password.changed" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
+                    action?: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "password.changed" | "password.reset" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
                 };
                 header?: never;
                 path?: never;
@@ -5111,6 +5111,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How to reset a forgotten password
+         * @description Public: whether this server emails reset links. Without email, whoever runs it makes one from the command line.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description What someone who forgot their password can do. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PasswordResetAvailability"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Ask for a reset link
+         * @description Public. Emails a link that sets a new password, once, within an hour, if the address is the verified address of an active account and none was sent to it in the last five minutes. The answer is the same either way, so it tells no one whether an account exists.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordResetRequest"];
+                };
+            };
+            responses: {
+                /** @description Asked for. An email goes out only as described above. */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description This server doesn't send email. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with a reset link
+         * @description Public: the link stands in for the current password. Sets the account's new password and signs it out everywhere. The token is sent in the body, never the URL, so it stays out of logs.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmPasswordResetRequest"];
+                };
+            };
+            responses: {
+                /** @description The password is reset, and every session of the account has ended. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PasswordReset"];
+                    };
+                };
+                /** @description The link is invalid, expired, replaced by a newer one or already used, or its account was deactivated. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5186,7 +5365,7 @@ export interface components {
         AuditEvent: {
             id: number;
             /** @enum {string} */
-            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "password.changed" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
+            action: "setup.completed" | "invitation.created" | "invitation.resent" | "invitation.revoked" | "invitation.accepted" | "user.role_changed" | "user.deactivated" | "user.reactivated" | "sign_in.succeeded" | "sign_in.failed" | "sign_out.succeeded" | "email.verified" | "password.changed" | "password.reset" | "recipe.deleted" | "recipe.restored" | "recipe.purged" | "revision.restored" | "comment.deleted" | "public_link.created" | "public_link.revoked" | "tag.renamed" | "tag.merged" | "tag.deleted" | "instance.exported";
             /** @description Who did it. `null` when nobody was signed in, as for a failed sign-in. */
             actor: {
                 id: string;
@@ -6106,6 +6285,25 @@ export interface components {
         };
         ConfirmEmailVerificationRequest: {
             token: string;
+        };
+        PasswordResetAvailability: {
+            /** @description Whether this server emails reset links. Without email, whoever runs it makes one (spec §3.1). */
+            emailEnabled: boolean;
+        };
+        PasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        PasswordReset: {
+            /**
+             * Format: email
+             * @description The address of the account whose password was reset.
+             */
+            email: string;
+        };
+        ConfirmPasswordResetRequest: {
+            token: string;
+            newPassword: components["schemas"]["Password"];
         };
     };
     responses: never;

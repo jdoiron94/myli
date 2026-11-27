@@ -246,6 +246,7 @@
               "sign_out.succeeded",
               "email.verified",
               "password.changed",
+              "password.reset",
               "recipe.deleted",
               "recipe.restored",
               "recipe.purged",
@@ -4062,6 +4063,61 @@
         "required": [
           "token"
         ]
+      },
+      "PasswordResetAvailability": {
+        "type": "object",
+        "properties": {
+          "emailEnabled": {
+            "type": "boolean",
+            "description": "Whether this server emails reset links. Without email, whoever runs it makes one (spec §3.1)."
+          }
+        },
+        "required": [
+          "emailEnabled"
+        ]
+      },
+      "PasswordResetRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PasswordReset": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "The address of the account whose password was reset."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ConfirmPasswordResetRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "newPassword": {
+            "$ref": "#/components/schemas/Password"
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ]
       }
     },
     "parameters": {}
@@ -4214,6 +4270,7 @@
                 "sign_out.succeeded",
                 "email.verified",
                 "password.changed",
+                "password.reset",
                 "recipe.deleted",
                 "recipe.restored",
                 "recipe.purged",
@@ -9460,6 +9517,160 @@
           },
           "404": {
             "description": "The link is invalid, expired, replaced by a newer one, or already used.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/password-reset": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "How to reset a forgotten password",
+        "description": "Public: whether this server emails reset links. Without email, whoever runs it makes one from the command line.",
+        "responses": {
+          "200": {
+            "description": "What someone who forgot their password can do.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetAvailability"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Ask for a reset link",
+        "description": "Public. Emails a link that sets a new password, once, within an hour, if the address is the verified address of an active account and none was sent to it in the last five minutes. The answer is the same either way, so it tells no one whether an account exists.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Asked for. An email goes out only as described above."
+          },
+          "409": {
+            "description": "This server doesn't send email.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/password-reset/confirm": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Set a new password with a reset link",
+        "description": "Public: the link stands in for the current password. Sets the account's new password and signs it out everywhere. The token is sent in the body, never the URL, so it stays out of logs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPasswordResetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The password is reset, and every session of the account has ended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordReset"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The link is invalid, expired, replaced by a newer one or already used, or its account was deactivated.",
             "content": {
               "application/problem+json": {
                 "schema": {
