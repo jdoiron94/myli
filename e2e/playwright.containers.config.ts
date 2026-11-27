@@ -39,6 +39,7 @@ export default defineConfig<Options>({
       clientAddress,
       searchAvailable: true,
       blobStore,
+      stack: 'compose',
     },
   })),
   webServer: stacks.map(

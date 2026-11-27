@@ -1043,3 +1043,41 @@ test('someone looks after their own account', async ({ page }) => {
     await expect(heading(page, 'Recipes')).toBeVisible();
   });
 });
+
+test('someone who forgot their password resets it with a link from whoever runs myli', async ({
+  page,
+  operatorResetLink,
+}) => {
+  await test.step('the sign-in page sends them to ask whoever runs myli, which has no email', async () => {
+    await page.goto('/login');
+    await page.getByRole('link', { name: 'Forgot your password?' }).click();
+
+    await expect(heading(page, 'Forgot your password?')).toBeFocused();
+    await expect(
+      page.getByText(
+        "This server doesn't send email. Ask whoever runs myli to make you a reset link.",
+      ),
+    ).toBeVisible();
+    await checkPage(page);
+  });
+
+  await test.step('the link they make sets a new password, which they sign in with', async () => {
+    const newPassword = 'Horse staple 4 battery!';
+    await page.goto(operatorResetLink(MEMBER.email));
+
+    await expect(heading(page, 'Reset your password')).toBeVisible();
+    // The token is out of the address as soon as the page has it.
+    await expect(page).toHaveURL(/\/reset-password$/);
+    await page.getByLabel('New password', { exact: true }).fill(newPassword);
+    await checkPage(page);
+    await page.getByRole('button', { name: 'Reset password' }).click();
+
+    await expect(
+      page.getByText(
+        "Your password is reset, and you've been signed out everywhere. Sign in with your new password.",
+      ),
+    ).toBeVisible();
+    await signIn(page, { email: MEMBER.email, password: newPassword });
+    await expect(heading(page, 'Recipes')).toBeVisible();
+  });
+});

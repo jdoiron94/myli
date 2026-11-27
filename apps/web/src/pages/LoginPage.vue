@@ -2,7 +2,7 @@
 import { emailSchema } from '@myli/shared';
 import { useForm } from 'vee-validate';
 import { computed, useTemplateRef } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { z } from 'zod';
 import { failureMessage } from '@/api/failure.ts';
 import { AuthProblem } from '@/auth/client.ts';
@@ -119,5 +119,11 @@ const failure = computed(() => {
         </Button>
       </FieldGroup>
     </form>
+    <RouterLink
+      :to="{ name: 'forgot-password' }"
+      class="mt-4 inline-block text-sm underline underline-offset-4"
+    >
+      Forgot your password?
+    </RouterLink>
   </div>
 </template>
