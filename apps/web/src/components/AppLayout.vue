@@ -10,6 +10,7 @@ import {
   TagsIcon,
   TrashIcon,
   UserCogIcon,
+  UserRoundIcon,
 } from '@lucide/vue';
 import { can } from '@myli/shared';
 import { useQuery } from '@tanstack/vue-query';
@@ -42,7 +43,10 @@ const ADMIN_PAGES = [
   { name: 'tags', icon: TagsIcon },
   { name: 'export', icon: ArchiveIcon },
 ] as const;
-const ACCOUNT_PAGES = [{ name: 'trash', icon: TrashIcon }] as const;
+const ACCOUNT_PAGES = [
+  { name: 'account', icon: UserRoundIcon },
+  { name: 'trash', icon: TrashIcon },
+] as const;
 
 function allowed(pages: readonly { name: string; icon: Component }[]) {
   return pages

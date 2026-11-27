@@ -1,5 +1,6 @@
 import {
   can,
+  EMAIL_VERIFICATION_PATH,
   INVITATION_ACCEPT_PATH,
   PUBLIC_RECIPE_PATH,
   type RoleAction,
@@ -77,6 +78,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Grocery list', permission: 'personal.write' },
   },
   {
+    path: '/account',
+    name: 'account',
+    component: () => import('./pages/AccountPage.vue'),
+    meta: { title: 'Account' },
+  },
+  {
     path: '/trash',
     name: 'trash',
     component: () => import('./pages/TrashPage.vue'),
@@ -101,6 +108,13 @@ export const routes: RouteRecordRaw[] = [
     name: 'accept-invitation',
     component: () => import('./pages/AcceptInvitationPage.vue'),
     meta: { title: 'Accept invitation', access: 'public' },
+  },
+  {
+    // Open to anyone with the link, signed in or not: it proves the address (ADR 0019).
+    path: EMAIL_VERIFICATION_PATH,
+    name: 'verify-email',
+    component: () => import('./pages/VerifyEmailPage.vue'),
+    meta: { title: 'Verify email', access: 'public' },
   },
   {
     // Open to anyone with the link, signed in or not: the token is the permission (ADR 0016).
