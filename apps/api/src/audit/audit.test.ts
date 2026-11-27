@@ -489,6 +489,47 @@ describe('sign-in events', () => {
   });
 });
 
+describe('password events', () => {
+  /** The password `signedInAs` gives everyone (testing.ts). */
+  const SIGNED_IN_PASSWORD = 'A test password, long enough 1';
+
+  function changePassword(t: TestApp, cookie: string, currentPassword: string) {
+    return send(t, 'POST', `${AUTH_BASE_PATH}/change-password`, {
+      origin: t.publicUrl,
+      cookie,
+      remoteAddress: '203.0.113.7',
+      userAgent: 'Safari',
+      body: { currentPassword, newPassword: 'A brand new passphrase 2' },
+    });
+  }
+
+  it('records a changed password, by its user', async () => {
+    const { t } = await setUp();
+    const member = await signedInAs(t, 'viewer');
+
+    expect((await changePassword(t, member.cookie, SIGNED_IN_PASSWORD)).status).toBe(200);
+
+    expect(events(t, 'password.changed')).toMatchObject([
+      {
+        actorId: member.user.id,
+        targetType: 'user',
+        targetId: member.user.id,
+        ip: '203.0.113.7',
+        userAgent: 'Safari',
+      },
+    ]);
+  });
+
+  it('records nothing when the current password is wrong', async () => {
+    const { t } = await setUp();
+    const member = await signedInAs(t, 'viewer');
+
+    expect((await changePassword(t, member.cookie, 'Not the password at all 3')).status).toBe(400);
+
+    expect(events(t, 'password.changed')).toEqual([]);
+  });
+});
+
 describe('sign-out events', () => {
   function signOut(t: TestApp, options: RequestOptions = {}) {
     return send(t, 'POST', `${AUTH_BASE_PATH}/sign-out`, { origin: t.publicUrl, ...options });

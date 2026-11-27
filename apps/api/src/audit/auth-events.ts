@@ -87,6 +87,28 @@ export function auditSignIns(db: Db): MiddlewareHandler<AppEnv> {
 }
 
 /**
+ * Records a password change, by the account's user. Goes in front of Better Auth's handler for
+ * `POST /change-password`, which answers 200 with the user only once it has changed it.
+ */
+export function auditPasswordChanges(db: Db): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    await next();
+    if (c.res.status !== 200) return;
+    const body = successBody.safeParse(await json(c.res));
+    if (!body.success) return;
+
+    const userId = body.data.user.id;
+    recordAuditEventAfterwards(c.var.logger, 'password.changed', () => {
+      recordAuditEvent(
+        db,
+        { actorId: userId, ip: c.var.clientIp, userAgent: userAgent(c) },
+        { action: 'password.changed', target: { type: 'user', id: userId } },
+      );
+    });
+  };
+}
+
+/**
  * Records a sign-out that ended a session. Goes in front of Better Auth's handler for
  * `POST /sign-out`, which answers 200 whether or not there was a session, so this looks the
  * session up first.

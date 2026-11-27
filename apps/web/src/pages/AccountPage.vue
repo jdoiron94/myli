@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query';
-import { ref } from 'vue';
+import { useForm } from 'vee-validate';
+import { ref, useId, useTemplateRef } from 'vue';
+import { z } from 'zod';
 import { emailVerificationQuery, useSendVerificationLink } from '@/account/email-verification.ts';
+import { useChangePassword } from '@/account/password.ts';
 import { failureMessage } from '@/api/failure.ts';
 import { useRetry } from '@/api/retry.ts';
+import { AuthProblem } from '@/auth/client.ts';
 import { sessionQuery } from '@/auth/session.ts';
+import FormTextField from '@/components/FormTextField.vue';
+import PasswordField from '@/components/PasswordField.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FieldGroup } from '@/components/ui/field';
+import { focusFirstInvalidField, formSchema, newPasswordSchema } from '@/lib/forms.ts';
 
 // The router waits for the session before showing a page that needs one.
 const { data: user } = useQuery(sessionQuery);
@@ -30,6 +38,53 @@ async function send(email: string) {
     sendFailure.value = failureMessage(error);
   }
 }
+
+const { handleSubmit, isSubmitting, resetForm, setErrors } = useForm({
+  validationSchema: formSchema(
+    z.object({
+      currentPassword: z.string().min(1, 'Enter your current password.'),
+      newPassword: newPasswordSchema,
+    }),
+  ),
+  initialValues: { currentPassword: '', newPassword: '' },
+});
+const form = useTemplateRef('form');
+const changePassword = useChangePassword();
+const passwordChanged = ref(false);
+const passwordFailure = ref<string>();
+
+const changeOnSubmit = handleSubmit(
+  async (passwords) => {
+    passwordChanged.value = false;
+    passwordFailure.value = undefined;
+    try {
+      await changePassword.mutateAsync(passwords);
+    } catch (error) {
+      if (error instanceof AuthProblem && error.code === 'INVALID_PASSWORD') {
+        setErrors({ currentPassword: "That isn't your current password." });
+        focusFirstInvalidField(form.value);
+      } else if (error instanceof AuthProblem && error.status === 429) {
+        passwordFailure.value = 'Too many attempts. Wait a moment, then try again.';
+      } else {
+        passwordFailure.value = failureMessage(error);
+      }
+      return;
+    }
+    resetForm();
+    passwordChanged.value = true;
+  },
+  () => {
+    focusFirstInvalidField(form.value);
+  },
+);
+
+/** One change at a time. */
+function submit(event: Event) {
+  event.preventDefault();
+  if (!isSubmitting.value) void changeOnSubmit(event);
+}
+
+const passwordHeadingId = useId();
 </script>
 
 <template>
@@ -37,7 +92,7 @@ async function send(email: string) {
     Account
   </h1>
   <p class="mt-2 text-muted-foreground">
-    Your name and email address.
+    Your name and email address, and your password.
   </p>
   <dl
     v-if="user"
@@ -106,4 +161,69 @@ async function send(email: string) {
   >
     {{ sendFailure }}
   </p>
+
+  <section
+    class="mt-10"
+    :aria-labelledby="passwordHeadingId"
+  >
+    <h2
+      :id="passwordHeadingId"
+      class="text-lg font-semibold"
+    >
+      Change password
+    </h2>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Changing it signs you out on your other devices.
+    </p>
+    <form
+      ref="form"
+      class="mt-4 max-w-sm"
+      novalidate
+      @submit="submit"
+    >
+      <FieldGroup>
+        <!-- For password managers, which save the new password with the account's address. -->
+        <input
+          v-if="user"
+          hidden
+          readonly
+          autocomplete="username"
+          :value="user.email"
+        >
+        <FormTextField
+          name="currentPassword"
+          label="Current password"
+          type="password"
+          autocomplete="current-password"
+        />
+        <PasswordField
+          name="newPassword"
+          label="New password"
+        />
+        <Button
+          type="submit"
+          class="aria-disabled:opacity-50"
+          :aria-disabled="isSubmitting ? true : undefined"
+        >
+          Change password
+        </Button>
+      </FieldGroup>
+    </form>
+    <!-- Always there, so screen readers announce what it says as it changes. -->
+    <p
+      role="status"
+      class="mt-4 text-sm"
+    >
+      <template v-if="passwordChanged">
+        Your password is changed. You've been signed out on your other devices.
+      </template>
+    </p>
+    <p
+      v-if="passwordFailure"
+      role="alert"
+      class="mt-2 text-sm text-destructive"
+    >
+      {{ passwordFailure }}
+    </p>
+  </section>
 </template>

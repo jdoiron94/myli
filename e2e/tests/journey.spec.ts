@@ -1024,4 +1024,22 @@ test('someone looks after their own account', async ({ page }) => {
     ).toBeVisible();
     await checkPage(page);
   });
+
+  await test.step('they change their password, and sign in with the new one', async () => {
+    const newPassword = 'A fresh 3 battery horse!';
+    await page.getByLabel('Current password').fill(ADMIN.password);
+    await page.getByLabel('New password', { exact: true }).fill(newPassword);
+    await page.getByRole('button', { name: 'Change password' }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'password is changed' })).toHaveText(
+      "Your password is changed. You've been signed out on your other devices.",
+    );
+    await checkPage(page);
+
+    await page.getByRole('button', { name: `Account: ${ADMIN.name}` }).click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await page.getByRole('textbox', { name: 'Email' }).fill(ADMIN.email);
+    await signIn(page, { email: ADMIN.email, password: newPassword });
+    await expect(heading(page, 'Recipes')).toBeVisible();
+  });
 });
