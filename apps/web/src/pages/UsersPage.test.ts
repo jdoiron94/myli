@@ -7,6 +7,7 @@ import { apiServer, problemResponse, renderApp, testUsers } from '@/testing.ts';
 
 const ME: UserAccount = {
   ...testUsers.admin,
+  avatar: null,
   deactivated: false,
   createdAt: '2026-01-05T09:00:00.000Z',
 };
@@ -15,6 +16,7 @@ const KATHERINE: UserAccount = {
   name: 'Katherine Johnson',
   email: 'katherine@example.com',
   role: 'editor',
+  avatar: null,
   deactivated: false,
   createdAt: '2026-02-10T09:00:00.000Z',
 };
@@ -23,6 +25,7 @@ const MARGARET: UserAccount = {
   name: 'Margaret Hamilton',
   email: 'margaret@example.com',
   role: 'viewer',
+  avatar: null,
   deactivated: true,
   createdAt: '2026-03-01T09:00:00.000Z',
 };

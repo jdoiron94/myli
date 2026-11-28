@@ -1,8 +1,24 @@
-import { eq } from 'drizzle-orm';
+import { eq, getTableName, type SQL, sql } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db, Tx } from '../db/database.ts';
 import { image } from '../db/schema.ts';
 import { deleteBlobsJob } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
+
+/**
+ * The profile photo of the user `userId` refers to, as a column to select beside them: its image's
+ * ID, or `null`. One query names everyone it shows with what goes beside their name.
+ */
+export function avatarColumn(userId: SQLiteColumn): SQL<string | null> {
+  // Every name spelled out with its table: in a query on one table, drizzle writes its columns
+  // without one, and in here `id` would then mean the photo's own.
+  const name = (table: string, column: SQLiteColumn) =>
+    sql`${sql.identifier(table)}.${sql.identifier(column.name)}`;
+  const owner = name(getTableName(userId.table), userId);
+  return sql<
+    string | null
+  >`(select ${name('avatar', image.id)} from ${image} as ${sql.identifier('avatar')} where ${name('avatar', image.avatarOf)} = ${owner})`;
+}
 
 /** The user's profile photo: its image's ID, or `null` when they have none. */
 export function avatarOf(db: Db, userId: string): string | null {

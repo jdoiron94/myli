@@ -401,7 +401,9 @@ describe('the recipe page', () => {
   });
 
   it("links editors to editing someone else's shared recipe", async () => {
-    answerRecipe(sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name } }));
+    answerRecipe(
+      sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name, avatar: null } }),
+    );
     answerTags();
     const { router, user } = await renderApp('/recipes/recipe-bread', { signedInAs: 'editor' });
     await heading();

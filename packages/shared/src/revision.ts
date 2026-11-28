@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { recipeSchema } from './recipe.ts';
+import { personSchema } from './user.ts';
 
 /** One entry in a recipe's history (spec §3.3). */
 export const recipeRevisionSummarySchema = z
   .object({
     number: z.int().positive().describe('Its place in the history, from 1.'),
-    author: z.object({ id: z.string(), name: z.string() }),
+    author: personSchema,
     message: z.string().nullable(),
     createdAt: z.iso.datetime(),
   })

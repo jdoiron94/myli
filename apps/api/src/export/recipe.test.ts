@@ -18,7 +18,7 @@ const NO_NUTRITION = {
 /** A saved recipe with `content`, as the API reads it. */
 const recipe = (content: Partial<Recipe> = {}): Recipe => ({
   id: 'recipe-1',
-  owner: { id: 'user-1', name: 'Ann' },
+  owner: { id: 'user-1', name: 'Ann', avatar: null },
   visibility: 'shared',
   title: 'Weeknight Bread',
   description: '',

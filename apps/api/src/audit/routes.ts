@@ -29,7 +29,7 @@ function toAuditEvent(row: AuditEventRow) {
     action: row.action,
     actor:
       row.actorId !== null && row.actorName !== null
-        ? { id: row.actorId, name: row.actorName }
+        ? { id: row.actorId, name: row.actorName, avatar: row.actorAvatar }
         : null,
     target:
       row.targetType !== null && row.targetId !== null

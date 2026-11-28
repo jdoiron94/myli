@@ -7,6 +7,7 @@ import {
   type Visibility,
 } from '@myli/shared';
 import { and, asc, eq, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import {
@@ -441,13 +442,13 @@ export function loadRecipe(
   { includeDeleted = false } = {},
 ): Recipe | undefined {
   const found = db
-    .select({ row: recipe, ownerName: user.name })
+    .select({ row: recipe, ownerName: user.name, ownerAvatar: avatarColumn(recipe.ownerId) })
     .from(recipe)
     .innerJoin(user, eq(user.id, recipe.ownerId))
     .where(includeDeleted ? eq(recipe.id, id) : live(id))
     .get();
   if (!found) return undefined;
-  const { row, ownerName } = found;
+  const { row, ownerName, ownerAvatar } = found;
 
   const lines = db
     .select()
@@ -503,7 +504,7 @@ export function loadRecipe(
 
   return {
     id: row.id,
-    owner: { id: row.ownerId, name: ownerName },
+    owner: { id: row.ownerId, name: ownerName, avatar: ownerAvatar },
     visibility: row.visibility,
     title: row.title,
     description: row.descriptionMd,

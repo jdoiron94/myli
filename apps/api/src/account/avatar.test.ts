@@ -3,13 +3,26 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { image, job } from '../db/schema.ts';
 import { insertRecipeImage, uploadImage } from '../images/testing.ts';
-import { insertRecipe, sampleRecipeRequest } from '../recipes/testing.ts';
+import {
+  ifMatch,
+  insertRecipe,
+  sampleRecipeContent,
+  sampleRecipeRequest,
+} from '../recipes/testing.ts';
 import { createTestApp, signedInAs, type TestApp } from '../testing.ts';
 
-function send(t: TestApp, method: string, path: string, cookie?: string, body?: unknown) {
+function send(
+  t: TestApp,
+  method: string,
+  path: string,
+  cookie?: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+) {
   return t.app.request(`/api/v1${path}`, {
     method,
     headers: {
+      ...headers,
       ...(method !== 'GET' && { 'content-type': 'application/json' }),
       ...(cookie !== undefined && { cookie }),
     },
@@ -137,5 +150,82 @@ describe('profile photos', () => {
       errors: expect.arrayContaining([expect.objectContaining({ pointer: '#/images/0/id' })]),
     });
     expect(await avatarOf(t, editor.cookie)).toEqual({ imageId: photo.id });
+  });
+
+  it('goes beside its owner’s name wherever the API names them', async () => {
+    const t = createTestApp();
+    const admin = await signedInAs(t, 'admin');
+    const editor = await signedInAs(t, 'editor');
+    const photo = await uploadImage(t, editor.cookie);
+    await setAvatar(t, editor.cookie, photo.id);
+    // The answers are checked by their schemas already: only who's named is under test.
+    interface Named {
+      id: string;
+      name: string;
+      avatar: string | null;
+    }
+    const json = async <T>(res: Response | Promise<Response>) => (await (await res).json()) as T;
+    const read = <T>(path: string, cookie = editor.cookie) => json<T>(send(t, 'GET', path, cookie));
+
+    const { recipe } = await json<{ recipe: { id: string; owner: Named } }>(
+      send(t, 'POST', '/recipes', editor.cookie, sampleRecipeRequest()),
+    );
+    const path = `/recipes/${recipe.id}`;
+    const comment = await json<{ author: Named }>(
+      send(t, 'POST', `${path}/comments`, editor.cookie, { body: 'Lovely.' }),
+    );
+    const { draft } = await json<{ draft: { author: Named } }>(
+      send(
+        t,
+        'PUT',
+        `${path}/draft`,
+        editor.cookie,
+        sampleRecipeContent(),
+        ifMatch(t.db, recipe.id),
+      ),
+    );
+    const {
+      revisions: [revision],
+    } = await read<{ revisions: { author: Named }[] }>(`${path}/revisions`);
+    const { users } = await read<{ users: Named[] }>('/users', admin.cookie);
+    // Answered from the change itself (`returning`).
+    const { user: promoted } = await json<{ user: Named }>(
+      send(t, 'PUT', `/users/${editor.user.id}/role`, admin.cookie, { role: 'admin' }),
+    );
+    const { events } = await read<{ events: { actor: Named | null }[] }>(
+      '/audit-events',
+      admin.cookie,
+    );
+    await send(t, 'DELETE', path, editor.cookie, undefined, ifMatch(t.db, recipe.id));
+    const {
+      recipes: [trashed],
+    } = await read<{ recipes: { owner: Named }[] }>('/trash');
+
+    const named = ({ id, name, avatar }: Named) => ({ id, name, avatar });
+    const actors = new Map(
+      events.flatMap(({ actor }) => (actor ? [[actor.id, named(actor)]] : [])),
+    );
+    const withPhoto = { id: editor.user.id, name: editor.user.name, avatar: photo.id };
+    const without = { id: admin.user.id, name: admin.user.name, avatar: null };
+    expect({
+      'recipe owner': recipe.owner,
+      'comment author': comment.author,
+      'draft author': draft.author,
+      'revision author': revision?.author,
+      'trashed recipe owner': trashed?.owner,
+      users: users.map(named),
+      'role change': named(promoted),
+      'audit actors': [...actors.values()],
+    }).toEqual({
+      'recipe owner': withPhoto,
+      'comment author': withPhoto,
+      'draft author': withPhoto,
+      'revision author': withPhoto,
+      'trashed recipe owner': withPhoto,
+      users: [without, withPhoto],
+      'role change': withPhoto,
+      // Newest first: the admin's role change, then the editor's sign-in.
+      'audit actors': [without, withPhoto],
+    });
   });
 });

@@ -1,5 +1,6 @@
 import type { AuditAction, AuditTargetType } from '@myli/shared';
 import { and, desc, eq, lt } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { auditEvent, user } from '../db/schema.ts';
 import type { Logger } from '../logger.ts';
@@ -75,7 +76,10 @@ export function recordAuditEventAfterwards(
   }
 }
 
-export type AuditEventRow = typeof auditEvent.$inferSelect & { actorName: string | null };
+export type AuditEventRow = typeof auditEvent.$inferSelect & {
+  actorName: string | null;
+  actorAvatar: string | null;
+};
 
 /** A page of events, newest first, and the `before` value for the next page. */
 export function listAuditEvents(
@@ -83,7 +87,11 @@ export function listAuditEvents(
   query: { before?: number | undefined; limit: number; action?: AuditAction | undefined },
 ): { events: AuditEventRow[]; nextBefore: number | null } {
   const rows = db
-    .select({ event: auditEvent, actorName: user.name })
+    .select({
+      event: auditEvent,
+      actorName: user.name,
+      actorAvatar: avatarColumn(auditEvent.actorId),
+    })
     .from(auditEvent)
     .leftJoin(user, eq(user.id, auditEvent.actorId))
     .where(
@@ -98,7 +106,7 @@ export function listAuditEvents(
     .all();
   const events = rows
     .slice(0, query.limit)
-    .map(({ event, actorName }) => ({ ...event, actorName }));
+    .map(({ event, actorName, actorAvatar }) => ({ ...event, actorName, actorAvatar }));
   const last = events.at(-1);
   return { events, nextBefore: rows.length > query.limit && last ? last.id : null };
 }

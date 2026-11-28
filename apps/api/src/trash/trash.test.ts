@@ -78,7 +78,7 @@ describe('GET /trash', () => {
         id: recipes.editorsShared,
         title: 'editorsShared',
         visibility: 'shared',
-        owner: { id: editor.user.id, name: editor.user.name },
+        owner: { id: editor.user.id, name: editor.user.name, avatar: null },
         deletedAt: '2026-11-16T10:02:00.000Z',
         purgeAt: '2026-12-16T10:02:00.000Z',
         version: 2,

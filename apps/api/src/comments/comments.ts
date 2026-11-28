@@ -1,5 +1,6 @@
 import type { Comment, PolicyComment } from '@myli/shared';
 import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db } from '../db/database.ts';
 import { comment, recipe, user } from '../db/schema.ts';
@@ -9,6 +10,7 @@ const columns = {
   id: comment.id,
   authorId: comment.authorId,
   authorName: user.name,
+  authorAvatar: avatarColumn(comment.authorId),
   bodyMd: comment.bodyMd,
   createdAt: comment.createdAt,
   editedAt: comment.editedAt,
@@ -22,13 +24,14 @@ function toComment(row: {
   id: string;
   authorId: string;
   authorName: string;
+  authorAvatar: string | null;
   bodyMd: string;
   createdAt: Date;
   editedAt: Date | null;
 }): Comment {
   return {
     id: row.id,
-    author: { id: row.authorId, name: row.authorName },
+    author: { id: row.authorId, name: row.authorName, avatar: row.authorAvatar },
     body: row.bodyMd,
     createdAt: row.createdAt.toISOString(),
     editedAt: row.editedAt?.toISOString() ?? null,

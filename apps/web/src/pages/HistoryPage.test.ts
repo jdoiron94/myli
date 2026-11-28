@@ -24,7 +24,7 @@ describe('a recipe’s history', () => {
     answerRecipe(sampleRecipe({ revision: 3 }));
     answerRevisions([
       sampleRevision(3, {
-        author: { id: testUsers.admin.id, name: testUsers.admin.name },
+        author: { id: testUsers.admin.id, name: testUsers.admin.name, avatar: null },
         message: 'Restored from revision #1',
       }),
       sampleRevision(2, { message: 'Less salt' }),

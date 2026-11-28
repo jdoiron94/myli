@@ -9,7 +9,7 @@ const trashed = (overrides: Partial<TrashedRecipe> = {}): TrashedRecipe => ({
   id: 'recipe-bread',
   title: 'Weeknight Bread',
   visibility: 'shared',
-  owner: { id: testUsers.editor.id, name: testUsers.editor.name },
+  owner: { id: testUsers.editor.id, name: testUsers.editor.name, avatar: null },
   deletedAt: '2026-11-16T10:00:00.000Z',
   purgeAt: '2026-12-16T10:00:00.000Z',
   version: 3,

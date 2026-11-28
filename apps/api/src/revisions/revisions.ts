@@ -6,6 +6,7 @@ import {
   restoredMessage,
 } from '@myli/shared';
 import { and, desc, eq, inArray, notExists } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { image, recipe, recipeRevision, tag, user } from '../db/schema.ts';
@@ -63,31 +64,38 @@ export function backfillRevisions(db: Db): number {
 /** The recipe's history, newest first: the published revision comes first. */
 export function listRevisions(db: Db, recipeId: string): RecipeRevisionSummary[] {
   return db
-    .select({ row: recipeRevision, authorName: user.name })
+    .select(revisionColumns)
     .from(recipeRevision)
     .innerJoin(user, eq(user.id, recipeRevision.authorId))
     .where(eq(recipeRevision.recipeId, recipeId))
     .orderBy(desc(recipeRevision.number))
     .all()
-    .map(({ row, authorName }) => summaryOf(row, authorName));
+    .map(({ row, authorName, authorAvatar }) => summaryOf(row, authorName, authorAvatar));
 }
+
+const revisionColumns = {
+  row: recipeRevision,
+  authorName: user.name,
+  authorAvatar: avatarColumn(recipeRevision.authorId),
+};
 
 function summaryOf(
   row: typeof recipeRevision.$inferSelect,
   authorName: string,
+  authorAvatar: string | null,
 ): RecipeRevisionSummary {
   return {
     number: row.number,
-    author: { id: row.authorId, name: authorName },
+    author: { id: row.authorId, name: authorName, avatar: authorAvatar },
     message: row.message,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
-/** The stored revision `number` of the recipe, with its author's name, if there is one. */
+/** The stored revision `number` of the recipe, with its author, if there is one. */
 function findRevision(db: Db | Tx, recipeId: string, number: number) {
   return db
-    .select({ row: recipeRevision, authorName: user.name })
+    .select(revisionColumns)
     .from(recipeRevision)
     .innerJoin(user, eq(user.id, recipeRevision.authorId))
     .where(and(eq(recipeRevision.recipeId, recipeId), eq(recipeRevision.number, number)))
@@ -123,7 +131,7 @@ export function loadRevision(db: Db, recipeId: string, number: number): RecipeRe
   };
 
   return {
-    ...summaryOf(found.row, found.authorName),
+    ...summaryOf(found.row, found.authorName, found.authorAvatar),
     // Parsing leaves out the format's version.
     content: recipeRevisionContentSchema.parse({
       ...snapshot,

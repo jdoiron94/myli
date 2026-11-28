@@ -31,7 +31,7 @@ export const sampleImage = (id: string, alt = ''): Image => ({
 export function sampleRecipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
     id: 'recipe-bread',
-    owner: { id: testUsers.editor.id, name: testUsers.editor.name },
+    owner: { id: testUsers.editor.id, name: testUsers.editor.name, avatar: null },
     visibility: 'shared',
     title: 'Weeknight Bread',
     description: 'A *simple* loaf.',
@@ -102,7 +102,7 @@ export function sampleDraft(overrides: Partial<RecipeDraft> = {}): RecipeDraft {
   return {
     content: recipeContent(sampleRecipe()),
     photos: [],
-    author: { id: testUsers.admin.id, name: testUsers.admin.name },
+    author: { id: testUsers.admin.id, name: testUsers.admin.name, avatar: null },
     updatedAt: '2026-11-18T09:00:00.000Z',
     revision: 1,
     version: 2,
@@ -163,7 +163,7 @@ export function sampleRevision(
 ): RecipeRevision {
   return {
     number,
-    author: { id: testUsers.editor.id, name: testUsers.editor.name },
+    author: { id: testUsers.editor.id, name: testUsers.editor.name, avatar: null },
     message: null,
     createdAt: `2026-11-1${String(number)}T09:00:00.000Z`,
     content: revisionContent(sampleRecipe()),

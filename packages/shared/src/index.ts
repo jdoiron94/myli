@@ -330,6 +330,8 @@ export {
 export {
   changeRoleRequestSchema,
   emailSchema,
+  type Person,
+  personSchema,
   type User,
   userAccountListSchema,
   userAccountResultSchema,

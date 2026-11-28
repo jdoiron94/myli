@@ -118,6 +118,7 @@ function toUserAccount(row: UserAccountRow) {
     name: row.name,
     email: row.email,
     role: row.role,
+    avatar: row.avatar,
     deactivated: row.banned,
     createdAt: row.createdAt.toISOString(),
   };
