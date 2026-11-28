@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { personSchema } from './user.ts';
 
 /**
  * Every kind of audit event: the whole list in spec §3.1, including the ones later increments
@@ -48,8 +49,7 @@ export const auditEventSchema = z
   .object({
     id: z.int().positive(),
     action: z.enum(AUDIT_ACTIONS),
-    actor: z
-      .object({ id: z.string(), name: z.string() })
+    actor: personSchema
       .nullable()
       .describe('Who did it. `null` when nobody was signed in, as for a failed sign-in.'),
     target: z

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { personSchema } from './user.ts';
 import { VISIBILITIES } from './visibility.ts';
 
 /** A recipe in the trash (spec §3.2), as its list shows it to someone who may restore it. */
@@ -7,7 +8,7 @@ export const trashedRecipeSchema = z
     id: z.string(),
     title: z.string(),
     visibility: z.enum(VISIBILITIES),
-    owner: z.object({ id: z.string(), name: z.string() }),
+    owner: personSchema,
     deletedAt: z.iso.datetime(),
     purgeAt: z.iso
       .datetime()

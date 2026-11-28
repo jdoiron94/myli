@@ -69,7 +69,7 @@ describe('POST /recipes', () => {
     const created = await recipeFrom(res);
     expect(res.headers.get('location')).toBe(`/api/v1/recipes/${created.id}`);
     expect(created).toMatchObject({
-      owner: { id: user.id, name: user.name },
+      owner: { id: user.id, name: user.name, avatar: null },
       visibility: 'shared',
       title: 'Weeknight Bread',
       description: 'A *simple* loaf.',
@@ -89,7 +89,7 @@ describe('POST /recipes', () => {
       ...request,
       tagIds: undefined,
       id: expect.any(String),
-      owner: { id: user.id, name: user.name },
+      owner: { id: user.id, name: user.name, avatar: null },
       ingredientGroups: request.ingredientGroups.map((group) => ({
         ...group,
         ingredients: group.ingredients.map((line) => ({

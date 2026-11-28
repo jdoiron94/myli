@@ -150,7 +150,11 @@ describe('the history of a recipe', () => {
     const list = recipeRevisionListSchema.parse(
       await (await read(t, `/recipes/${id}/revisions`, owner.cookie)).json(),
     );
-    const by = ({ id: userId, name }: { id: string; name: string }) => ({ id: userId, name });
+    const by = ({ id: userId, name }: { id: string; name: string }) => ({
+      id: userId,
+      name,
+      avatar: null,
+    });
     expect(list.revisions).toEqual([
       { number: 2, author: by(other.user), message: 'Slower', createdAt: expect.any(String) },
       { number: 1, author: by(owner.user), message: null, createdAt: expect.any(String) },

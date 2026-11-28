@@ -84,7 +84,7 @@ describe('what a reader can do with a recipe', () => {
   it('offers what the policy allows: an editor may edit someone else’s shared recipe, nothing more', async () => {
     storeRecipe(
       sampleRecipe({
-        owner: { id: testUsers.admin.id, name: testUsers.admin.name },
+        owner: { id: testUsers.admin.id, name: testUsers.admin.name, avatar: null },
         visibility: 'shared',
       }),
     );

@@ -8,7 +8,7 @@ import { answerRecipe, sampleRecipe } from './testing.ts';
 
 const comment = (id: string, author: Role, body: string): Comment => ({
   id,
-  author: { id: testUsers[author].id, name: testUsers[author].name },
+  author: { id: testUsers[author].id, name: testUsers[author].name, avatar: null },
   body,
   createdAt: '2026-11-20T18:30:00.000Z',
   editedAt: null,

@@ -1,5 +1,6 @@
 import { can, type PolicyUser, type TrashedRecipe } from '@myli/shared';
 import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db } from '../db/database.ts';
 import { recipe, user } from '../db/schema.ts';
@@ -32,6 +33,7 @@ export function listTrash(db: Db, reader: PolicyUser, retentionDays: number): Tr
       visibility: recipe.visibility,
       ownerId: recipe.ownerId,
       ownerName: user.name,
+      ownerAvatar: avatarColumn(recipe.ownerId),
       deletedAt: recipe.deletedAt,
       version: recipe.version,
     })
@@ -47,7 +49,7 @@ export function listTrash(db: Db, reader: PolicyUser, retentionDays: number): Tr
               id: row.id,
               title: row.title,
               visibility: row.visibility,
-              owner: { id: row.ownerId, name: row.ownerName },
+              owner: { id: row.ownerId, name: row.ownerName, avatar: row.ownerAvatar },
               deletedAt: row.deletedAt.toISOString(),
               purgeAt: purgeDate(row.deletedAt, retentionDays).toISOString(),
               version: row.version,

@@ -13,6 +13,23 @@ export const userSchema = z
 
 export type User = z.infer<typeof userSchema>;
 
+/** Someone the API names, with what shows beside their name: their profile photo, or initials. */
+export const personSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    avatar: z
+      .string()
+      .nullable()
+      .describe(
+        'Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only ' +
+          'signed-in users ever see it.',
+      ),
+  })
+  .meta({ id: 'Person' });
+
+export type Person = z.infer<typeof personSchema>;
+
 /** A person's display name. */
 export const userNameSchema = z.string().trim().min(1, 'Enter a name.').max(100);
 
@@ -22,6 +39,7 @@ export const emailSchema = z.email('Enter a valid email address.').max(254).toLo
 /** A user as admins manage them. */
 export const userAccountSchema = userSchema
   .extend({
+    avatar: personSchema.shape.avatar,
     deactivated: z
       .boolean()
       .describe("Deactivated users can't sign in. Deactivating them ended their sessions."),

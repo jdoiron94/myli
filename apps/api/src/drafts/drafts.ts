@@ -1,5 +1,6 @@
 import type { RecipeContent, RecipeDraft } from '@myli/shared';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { image, recipe, recipeDraft, user } from '../db/schema.ts';
 import { toImage } from '../images/images.ts';
@@ -23,14 +24,19 @@ import { latestRevision } from '../revisions/snapshot.ts';
 /** The recipe's draft, with what showing it takes, or `null` if it has none. */
 export function loadDraft(db: Db | Tx, recipeId: string): RecipeDraft | null {
   const found = db
-    .select({ draft: recipeDraft, authorName: user.name, version: recipe.version })
+    .select({
+      draft: recipeDraft,
+      authorName: user.name,
+      authorAvatar: avatarColumn(recipeDraft.authorId),
+      version: recipe.version,
+    })
     .from(recipeDraft)
     .innerJoin(user, eq(user.id, recipeDraft.authorId))
     .innerJoin(recipe, eq(recipe.id, recipeDraft.recipeId))
     .where(eq(recipeDraft.recipeId, recipeId))
     .get();
   if (!found) return null;
-  const { draft, authorName, version } = found;
+  const { draft, authorName, authorAvatar, version } = found;
 
   const ids = photoUses(draft.content).map(({ id }) => id);
   // Only the recipe's own: a draft can't show another recipe's photo, whatever it holds.
@@ -46,7 +52,7 @@ export function loadDraft(db: Db | Tx, recipeId: string): RecipeDraft | null {
   return {
     content: draft.content,
     photos: ids.flatMap((id) => byId.get(id) ?? []),
-    author: { id: draft.authorId, name: authorName },
+    author: { id: draft.authorId, name: authorName, avatar: authorAvatar },
     updatedAt: draft.updatedAt.toISOString(),
     revision: draft.revision,
     version,

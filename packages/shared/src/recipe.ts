@@ -3,6 +3,7 @@ import { imageSchema, optionalImageSchema } from './image.ts';
 import { problemDetailsSchema } from './problem.ts';
 import { tagSchema } from './tags.ts';
 import { findUnit } from './units.ts';
+import { personSchema } from './user.ts';
 import { visibilitySchema } from './visibility.ts';
 
 /** How hard a recipe is (spec §3.2). Optional on each recipe. */
@@ -327,7 +328,7 @@ export const ingredientLineSchema = z
 export const recipeSchema = z
   .object({
     id: z.string(),
-    owner: z.object({ id: z.string(), name: z.string() }),
+    owner: personSchema,
     visibility: visibilitySchema,
     title: z.string(),
     description: z.string(),
@@ -409,7 +410,7 @@ export const recipeDraftSchema = z
     photos: z
       .array(imageSchema)
       .describe('Each photo `content` names, for showing it. Their alt text is in `content`.'),
-    author: z.object({ id: z.string(), name: z.string() }).describe('Who saved it last.'),
+    author: personSchema.describe('Who saved it last.'),
     updatedAt: z.iso.datetime(),
     revision: z
       .int()

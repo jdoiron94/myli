@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { personSchema } from './user.ts';
 
 /** The longest a comment may be, in characters. */
 export const COMMENT_MAX_LENGTH = 5_000;
@@ -21,7 +22,7 @@ export type CommentRequest = z.infer<typeof commentRequestSchema>;
 export const commentSchema = z
   .object({
     id: z.string(),
-    author: z.object({ id: z.string(), name: z.string() }),
+    author: personSchema,
     body: z.string().describe('Markdown (ADR 0006).'),
     createdAt: z.iso.datetime(),
     editedAt: z.iso

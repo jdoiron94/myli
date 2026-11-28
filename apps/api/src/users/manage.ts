@@ -1,5 +1,6 @@
 import { can, type Role } from '@myli/shared';
 import { asc, eq } from 'drizzle-orm';
+import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
 import type { Db, Tx } from '../db/database.ts';
 import { session, user } from '../db/schema.ts';
@@ -17,12 +18,13 @@ const ACCOUNT_COLUMNS = {
   role: user.role,
   banned: user.banned,
   createdAt: user.createdAt,
+  avatar: avatarColumn(user.id),
 };
 
 export type UserAccountRow = Pick<
   typeof user.$inferSelect,
   'id' | 'name' | 'email' | 'role' | 'banned' | 'createdAt'
->;
+> & { avatar: string | null };
 
 /** The admin making the change, and where the request came from. */
 export type AdminOrigin = AuditOrigin & { actorId: string };

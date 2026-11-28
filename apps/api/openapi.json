@@ -271,11 +271,19 @@
               },
               "name": {
                 "type": "string"
+              },
+              "avatar": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it."
               }
             },
             "required": [
               "id",
-              "name"
+              "name",
+              "avatar"
             ],
             "description": "Who did it. `null` when nobody was signed in, as for a failed sign-in."
           },
@@ -368,6 +376,13 @@
           "role": {
             "$ref": "#/components/schemas/Role"
           },
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it."
+          },
           "deactivated": {
             "type": "boolean",
             "description": "Deactivated users can't sign in. Deactivating them ended their sessions."
@@ -382,6 +397,7 @@
           "name",
           "email",
           "role",
+          "avatar",
           "deactivated",
           "createdAt"
         ]
@@ -906,19 +922,7 @@
             "type": "string"
           },
           "owner": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ]
+            "$ref": "#/components/schemas/Person"
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility"
@@ -1178,6 +1182,29 @@
           "version",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "Person": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "avatar"
         ]
       },
       "Visibility": {
@@ -1658,19 +1685,7 @@
                 "type": "string"
               },
               "owner": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "id",
-                  "name"
-                ]
+                "$ref": "#/components/schemas/Person"
               },
               "visibility": {
                 "$ref": "#/components/schemas/Visibility"
@@ -2195,11 +2210,19 @@
               },
               "name": {
                 "type": "string"
+              },
+              "avatar": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it."
               }
             },
             "required": [
               "id",
-              "name"
+              "name",
+              "avatar"
             ],
             "description": "Who saved it last."
           },
@@ -2459,19 +2482,7 @@
             "description": "Its place in the history, from 1."
           },
           "author": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ]
+            "$ref": "#/components/schemas/Person"
           },
           "message": {
             "type": [
@@ -2511,19 +2522,7 @@
             "description": "Its place in the history, from 1."
           },
           "author": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ]
+            "$ref": "#/components/schemas/Person"
           },
           "message": {
             "type": [
@@ -3077,19 +3076,7 @@
             ]
           },
           "owner": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ]
+            "$ref": "#/components/schemas/Person"
           },
           "deletedAt": {
             "type": "string",
@@ -3334,19 +3321,7 @@
             "type": "string"
           },
           "author": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ]
+            "$ref": "#/components/schemas/Person"
           },
           "body": {
             "type": "string",

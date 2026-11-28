@@ -105,11 +105,13 @@ describe('GET /api/v1/users', () => {
     expect(users).toEqual([
       {
         ...admin.user,
+        avatar: null,
         deactivated: false,
         createdAt: userRow(t, admin.user.id)?.createdAt.toISOString(),
       },
       {
         ...member.user,
+        avatar: null,
         deactivated: true,
         createdAt: userRow(t, member.user.id)?.createdAt.toISOString(),
       },

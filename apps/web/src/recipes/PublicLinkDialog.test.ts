@@ -82,7 +82,7 @@ describe('a recipe’s public link', () => {
     // The API refuses them, and a refusal makes the app check the session again.
     const sent = storePublicLink();
     await openRecipe(
-      sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name } }),
+      sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name, avatar: null } }),
     );
     expect(screen.queryByRole('button', { name: 'Public link' })).toBeNull();
     expect(sent).toEqual([]);

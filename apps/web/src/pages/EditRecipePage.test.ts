@@ -57,7 +57,7 @@ function storeRecipe(
       storedDraft = {
         content,
         photos: [],
-        author: { id: testUsers.editor.id, name: testUsers.editor.name },
+        author: { id: testUsers.editor.id, name: testUsers.editor.name, avatar: null },
         updatedAt: '2026-11-17T09:00:00.000Z',
         revision: storedDraft?.revision ?? stored.revision,
         version: stored.version,
@@ -406,7 +406,9 @@ describe('the edit recipe page', () => {
   });
 
   it("lets editors edit someone else's shared recipe", async () => {
-    storeRecipe(sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name } }));
+    storeRecipe(
+      sampleRecipe({ owner: { id: testUsers.admin.id, name: testUsers.admin.name, avatar: null } }),
+    );
     await openEditor();
 
     expect(saveButton()).toBeDefined();

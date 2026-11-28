@@ -5511,6 +5511,8 @@ export interface components {
             actor: {
                 id: string;
                 name: string;
+                /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
+                avatar: string | null;
             } | null;
             /** @description What it was done to, if anything. */
             target: {
@@ -5537,6 +5539,8 @@ export interface components {
             /** Format: email */
             email: string;
             role: components["schemas"]["Role"];
+            /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
+            avatar: string | null;
             /** @description Deactivated users can't sign in. Deactivating them ended their sessions. */
             deactivated: boolean;
             /** Format: date-time */
@@ -5652,10 +5656,7 @@ export interface components {
         };
         Recipe: {
             id: string;
-            owner: {
-                id: string;
-                name: string;
-            };
+            owner: components["schemas"]["Person"];
             visibility: components["schemas"]["Visibility"];
             title: string;
             description: string;
@@ -5706,6 +5707,12 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        Person: {
+            id: string;
+            name: string;
+            /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
+            avatar: string | null;
         };
         /** @enum {string} */
         Visibility: "private" | "shared";
@@ -5815,10 +5822,7 @@ export interface components {
             /** @description The recipe as it is now, with its current `version`. */
             recipe: {
                 id: string;
-                owner: {
-                    id: string;
-                    name: string;
-                };
+                owner: components["schemas"]["Person"];
                 visibility: components["schemas"]["Visibility"];
                 title: string;
                 description: string;
@@ -5928,6 +5932,8 @@ export interface components {
             author: {
                 id: string;
                 name: string;
+                /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
+                avatar: string | null;
             };
             /** Format: date-time */
             updatedAt: string;
@@ -5986,10 +5992,7 @@ export interface components {
         RecipeRevisionSummary: {
             /** @description Its place in the history, from 1. */
             number: number;
-            author: {
-                id: string;
-                name: string;
-            };
+            author: components["schemas"]["Person"];
             message: string | null;
             /** Format: date-time */
             createdAt: string;
@@ -6000,10 +6003,7 @@ export interface components {
         RecipeRevision: {
             /** @description Its place in the history, from 1. */
             number: number;
-            author: {
-                id: string;
-                name: string;
-            };
+            author: components["schemas"]["Person"];
             message: string | null;
             /** Format: date-time */
             createdAt: string;
@@ -6119,10 +6119,7 @@ export interface components {
             title: string;
             /** @enum {string} */
             visibility: "private" | "shared";
-            owner: {
-                id: string;
-                name: string;
-            };
+            owner: components["schemas"]["Person"];
             /** Format: date-time */
             deletedAt: string;
             /**
@@ -6195,10 +6192,7 @@ export interface components {
         };
         Comment: {
             id: string;
-            author: {
-                id: string;
-                name: string;
-            };
+            author: components["schemas"]["Person"];
             /** @description Markdown (ADR 0006). */
             body: string;
             /** Format: date-time */

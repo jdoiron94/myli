@@ -225,7 +225,7 @@ describe('GET /api/v1/audit-events', () => {
     expect(listed[1]).toEqual({
       id: expect.any(Number) as unknown,
       action: 'invitation.created',
-      actor: { id: admin.user.id, name: admin.user.name },
+      actor: { id: admin.user.id, name: admin.user.name, avatar: null },
       target: { type: 'invitation', id: invitation.id },
       metadata: { email: 'grace@example.com', role: 'editor' },
       ip: '203.0.113.7',
