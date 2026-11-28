@@ -15,7 +15,8 @@ const SCRIPT = fileURLToPath(new URL('reset-password.ts', import.meta.url));
 const LINK = /^https:\/\/myli\.example\/reset-password#([\w-]{43})$/;
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
-it('prints a reset link for any active account, and refuses any other', () => {
+// It runs Node five times, which takes longer than the default 5 seconds while the whole suite runs.
+it('prints a reset link for any active account, and refuses any other', { timeout: 30_000 }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'myli-reset-'));
   const databasePath = join(dir, 'myli.db');
   const db = openDatabase(databasePath);
