@@ -5512,11 +5512,7 @@ export interface components {
                 id: string;
                 name: string;
                 /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
-                avatar: {
-                    id: string;
-                    /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
-                    width: number;
-                } | null;
+                avatar: components["schemas"]["Avatar"] | null;
             } | null;
             /** @description What it was done to, if anything. */
             target: {
@@ -5533,6 +5529,11 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        Avatar: {
+            id: string;
+            /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
+            width: number;
+        };
         UserAccountList: {
             /** @description Every user, oldest first. */
             users: components["schemas"]["UserAccount"][];
@@ -5544,11 +5545,7 @@ export interface components {
             email: string;
             role: components["schemas"]["Role"];
             /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
-            avatar: {
-                id: string;
-                /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
-                width: number;
-            } | null;
+            avatar: components["schemas"]["Avatar"] | null;
             /** @description Deactivated users can't sign in. Deactivating them ended their sessions. */
             deactivated: boolean;
             /** Format: date-time */
@@ -5720,11 +5717,7 @@ export interface components {
             id: string;
             name: string;
             /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
-            avatar: {
-                id: string;
-                /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
-                width: number;
-            } | null;
+            avatar: components["schemas"]["Avatar"] | null;
         };
         /** @enum {string} */
         Visibility: "private" | "shared";
@@ -5945,11 +5938,7 @@ export interface components {
                 id: string;
                 name: string;
                 /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
-                avatar: {
-                    id: string;
-                    /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
-                    width: number;
-                } | null;
+                avatar: components["schemas"]["Avatar"] | null;
             };
             /** Format: date-time */
             updatedAt: string;
@@ -6421,11 +6410,7 @@ export interface components {
         };
         AvatarResult: {
             /** @description `null` when there is none: people see your initials instead. */
-            avatar: {
-                id: string;
-                /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
-                width: number;
-            } | null;
+            avatar: components["schemas"]["Avatar"] | null;
         };
         SetAvatarRequest: {
             /** @description A photo the reader uploaded with `POST /images` that is in no recipe. */
