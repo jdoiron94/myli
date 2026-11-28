@@ -6,6 +6,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiProblem } from '@/api/problem.ts';
 import { allOf, useRetry } from '@/api/retry.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { recipeQuery, recipeRevisionsQuery } from '@/recipes/recipe.ts';
@@ -174,11 +175,14 @@ const SELECT_CLASS =
             Compare with revision {{ revision.number - 1 }}
           </RouterLink>
         </p>
-        <p class="text-sm text-muted-foreground">
-          {{ revision.author.name }},
-          <time :datetime="revision.createdAt">{{
-            savedFormat.format(new Date(revision.createdAt))
-          }}</time>
+        <p class="flex items-center gap-2 text-sm text-muted-foreground">
+          <UserAvatar :person="revision.author" />
+          <span>
+            {{ revision.author.name }},
+            <time :datetime="revision.createdAt">{{
+              savedFormat.format(new Date(revision.createdAt))
+            }}</time>
+          </span>
         </p>
       </li>
     </ol>

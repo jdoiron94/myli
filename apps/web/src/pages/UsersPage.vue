@@ -14,6 +14,7 @@ import { useRetry } from '@/api/retry.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
 import RoleChoice from '@/components/RoleChoice.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -183,6 +184,10 @@ async function reactivateUser(user: UserAccount) {
           :key="user.id"
         >
           <TableCell>
+            <UserAvatar
+              class="mr-2 inline-flex align-middle"
+              :person="user"
+            />
             {{ user.name }}
             <Badge
               v-if="user.id === me?.id"
