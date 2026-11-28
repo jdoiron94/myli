@@ -7,6 +7,7 @@ import { preferencesQuery } from '@/account/preferences.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import RecipeActions from '@/recipes/RecipeActions.vue';
 import RecipeBody from '@/recipes/RecipeBody.vue';
 import RecipeComments from '@/recipes/RecipeComments.vue';
@@ -65,7 +66,11 @@ const updatedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }
           v-if="recipe"
           class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground"
         >
-          <span>Added by {{ recipe.owner.name }}</span>
+          <span class="inline-flex items-center gap-1.5">
+            Added by
+            <UserAvatar :person="recipe.owner" />
+            {{ recipe.owner.name }}
+          </span>
           <span aria-hidden="true">·</span>
           <span>Updated {{ updatedFormat.format(new Date(recipe.updatedAt)) }}</span>
           <span aria-hidden="true">·</span>

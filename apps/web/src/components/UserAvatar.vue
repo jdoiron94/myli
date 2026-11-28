@@ -8,7 +8,8 @@ import { imageUrl } from '@/recipes/photos.ts';
 
 /**
  * Someone's profile photo, or without one, their initials in a circle of their own color. It only
- * ever shows beside their name, which says who it is, so screen readers skip it.
+ * ever shows beside their name, which says who it is, so screen readers skip it. Not printed: the
+ * circle's color wouldn't be, leaving white initials on white.
  */
 const { person, size = 'sm' } = defineProps<{ person: Person; size?: 'sm' | 'md' | 'lg' }>();
 
@@ -41,7 +42,7 @@ watch(
     v-if="person.avatar && !failed"
     :src="imageUrl(person.avatar.id, person.avatar.width)"
     alt=""
-    :class="cn('shrink-0 rounded-full object-cover', SIZES[size])"
+    :class="cn('shrink-0 rounded-full object-cover print:hidden', SIZES[size])"
     @error="failed = true"
   >
   <span
@@ -50,7 +51,7 @@ watch(
     :data-initials="letters || undefined"
     :class="
       cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-medium text-white select-none before:content-[attr(data-initials)]',
+        'inline-flex shrink-0 items-center justify-center rounded-full font-medium text-white select-none before:content-[attr(data-initials)] print:hidden',
         SIZES[size],
       )
     "

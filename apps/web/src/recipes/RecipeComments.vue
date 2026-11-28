@@ -7,6 +7,7 @@ import { useRetry } from '@/api/retry.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import MarkdownContent from '@/components/MarkdownContent.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,8 +151,13 @@ async function deleteComment(id: string) {
       >
         <p
           :id="bylineId(comment)"
-          class="text-sm text-muted-foreground"
+          class="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground"
         >
+          <UserAvatar
+            class="mr-0.5"
+            size="md"
+            :person="comment.author"
+          />
           <span class="font-medium text-foreground">{{ comment.author.name }}</span>
           ·
           <time :datetime="comment.createdAt">{{ written(comment) }}</time>

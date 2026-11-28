@@ -108,7 +108,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 - email + password login
 - **Passwords:** 15 to 128 characters, with at least one lowercase letter, one uppercase letter, one number and one special character. A special character is anything but a letter or a number, and a space counts. Letters and numbers from any script count. The same rules apply everywhere a password is set: setup, invitations, changing it and resetting it.
 - **The Account page** shows the reader's name and address, whether the address is verified, and lets them change their password and their profile photo. Everyone has one, viewers included.
-- **Profile photos:** anyone may upload a photo for their account, viewers included, and remove it. It shows beside their name wherever names show, to people signed in; public links never show it. Without one, their initials show in a circle, colored from their account, out of a fixed set of colors that meet WCAG AA contrast.
+- **Profile photos:** anyone may upload a photo for their account, viewers included, and remove it. It shows beside their name to people signed in: on their comments, in a recipe's history, beside the owner of a recipe and of each recipe in the trash, on the Users page, and in the header for themselves. Public links never show it, and it isn't printed. Without one, their initials show in a circle, colored from their account, out of a fixed set of colors that meet WCAG AA contrast.
   - Replacing or removing it deletes the one before.
   - Nobody can change anyone else's, admins included, and changing one isn't recorded in the audit log.
   - Its file goes through the same checks as a recipe's photos: turned upright, stripped of its metadata and resized.

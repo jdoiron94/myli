@@ -6,6 +6,7 @@ import { failureMessage } from '@/api/failure.ts';
 import { ApiProblem } from '@/api/problem.ts';
 import { useRetry } from '@/api/retry.ts';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -143,7 +144,12 @@ async function restoreRecipe(recipe: TrashedRecipe) {
           <TableCell class="font-medium">
             {{ recipe.title }}
           </TableCell>
-          <TableCell>{{ recipe.owner.name }}</TableCell>
+          <TableCell>
+            <span class="inline-flex items-center gap-2">
+              <UserAvatar :person="recipe.owner" />
+              {{ recipe.owner.name }}
+            </span>
+          </TableCell>
           <TableCell>
             <time :datetime="recipe.deletedAt">{{
               deletedFormat.format(new Date(recipe.deletedAt))
