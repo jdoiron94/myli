@@ -54,10 +54,12 @@ const postImage = createRoute({
   tags: ['Images'],
   summary: 'Upload a photo',
   description:
-    'Editors and admins. The body is the file itself, with its type as `Content-Type`: a JPEG, ' +
-    'PNG or WebP image of up to 10 MB, checked by its first bytes. It is turned upright, ' +
-    'stripped of its metadata and resized. Until a recipe is saved with it, only its uploader can ' +
-    'see it or use it, and it is deleted after a day.',
+    'Any signed-in user: editors and admins for recipes, and everyone for their own profile ' +
+    'photo (`PUT /me/avatar`). The body is the file itself, with its type as `Content-Type`: a ' +
+    'JPEG, PNG or WebP image of up to 10 MB, checked by its first bytes. It is turned upright, ' +
+    'stripped of its metadata and resized. Until a recipe is saved with it, or it becomes its ' +
+    "uploader's profile photo, only its uploader can see it or use it, and it is deleted after a " +
+    'day.',
   middleware: [requirePermission('image.upload'), uploadLimit] as const,
   request: {
     body: {
@@ -77,14 +79,15 @@ const postImage = createRoute({
 });
 
 /**
- * What decides who may see an image, under `recipe.read`: the recipe it belongs to, or until a
- * recipe is saved with it, its uploader alone, as for a private recipe of theirs. `undefined` when
- * its recipe was deleted.
+ * What decides who may see an image, under `recipe.read`: the recipe it belongs to; for a profile
+ * photo, every signed-in user, as for a shared recipe; or until a recipe is saved with it, its
+ * uploader alone, as for a private recipe of theirs. `undefined` when its recipe was deleted.
  */
 function imageAccess(
   db: Db,
-  row: { recipeId: string | null; uploaderId: string },
+  row: { recipeId: string | null; uploaderId: string; avatarOf: string | null },
 ): PolicyRecipe | undefined {
+  if (row.avatarOf !== null) return { ownerId: row.uploaderId, visibility: 'shared' };
   if (row.recipeId === null) return { ownerId: row.uploaderId, visibility: 'private' };
   return findRecipeAccess(db, row.recipeId);
 }
@@ -98,8 +101,9 @@ const getImageFile = createRoute({
   tags: ['Images'],
   summary: 'Get a photo at one of its sizes',
   description:
-    'Any signed-in user who may see the recipe it belongs to; until a recipe is saved with it, ' +
-    'only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one ' +
+    'Any signed-in user who may see the recipe it belongs to, and any signed-in user for a ' +
+    'profile photo; until a recipe is saved with it, only its uploader. Anyone else gets 404, as ' +
+    'for a photo that doesn’t exist. `width` is one ' +
     'of the widths in its `variants`. What an address serves never changes, so it can be cached ' +
     'for good.',
   middleware: [requireSession] as const,

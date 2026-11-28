@@ -155,7 +155,12 @@ function unusablePhotos(
   if (uses.length === 0) return [];
   const rows = new Map(
     tx
-      .select({ id: image.id, recipeId: image.recipeId, uploaderId: image.uploaderId })
+      .select({
+        id: image.id,
+        recipeId: image.recipeId,
+        uploaderId: image.uploaderId,
+        avatarOf: image.avatarOf,
+      })
       .from(image)
       .where(
         inArray(
@@ -170,6 +175,8 @@ function unusablePhotos(
     .filter(({ id }) => {
       const row = rows.get(id);
       if (!row) return true;
+      // A profile photo is no upload of theirs to use, even their own.
+      if (row.avatarOf !== null) return true;
       return row.recipeId === null ? row.uploaderId !== editorId : row.recipeId !== recipeId;
     })
     .map(({ path }) => path);

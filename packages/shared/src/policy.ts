@@ -8,7 +8,10 @@ import type { Visibility } from './visibility.ts';
 /** Actions that depend only on the user's role. */
 export const ROLE_ACTIONS = [
   'recipe.create',
-  /** Upload photos, for recipes they write or edit. */
+  /**
+   * Upload photos: for recipes they write or edit, or as their own profile photo. Only the second
+   * is open to viewers, since putting a photo in a recipe takes `recipe.create` or `recipe.edit`.
+   */
   'image.upload',
   'tag.create',
   /** Rename, merge or delete tags. */
@@ -69,7 +72,8 @@ export interface PolicyComment {
 
 const ROLE_RULES = {
   'recipe.create': ['admin', 'editor'],
-  'image.upload': ['admin', 'editor'],
+  // Everyone, for their own profile photo: their account, like their password (spec §2).
+  'image.upload': ['admin', 'editor', 'viewer'],
   'tag.create': ['admin', 'editor'],
   'tag.manage': ['admin'],
   'personal.write': ['admin', 'editor'],
@@ -82,7 +86,10 @@ const ROLE_RULES = {
   'search.reindex': ['admin'],
 } as const satisfies Record<RoleAction, readonly Role[]>;
 
-/** Viewers are strictly read-only: every rule that changes anything requires this. */
+/**
+ * Viewers are strictly read-only: every rule that changes anything requires this. Their own account
+ * is theirs to change (spec §2), which only `image.upload` among these covers.
+ */
 const canWrite = (user: PolicyUser) => user.role !== 'viewer';
 const isAdmin = (user: PolicyUser) => user.role === 'admin';
 const owns = (user: PolicyUser, recipe: PolicyRecipe) => user.id === recipe.ownerId;

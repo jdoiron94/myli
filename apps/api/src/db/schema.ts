@@ -513,6 +513,12 @@ export const image = sqliteTable(
     uploaderId: text('uploader_id')
       .notNull()
       .references(() => user.id),
+    /**
+     * Set while it's this user's profile photo, which every signed-in user may see: only ever their
+     * own upload, and never a recipe's photo too (`setAvatar()`). Not a CHECK constraint, which
+     * would rebuild the table, and that fails on a database whose recipes refer to their photos.
+     */
+    avatarOf: text('avatar_of').references(() => user.id),
     /** What was uploaded, by its first bytes. What's served is always WebP. */
     mime: text('mime', { enum: IMAGE_UPLOAD_TYPES }).notNull(),
     /** Of the upload, turned upright. */
@@ -525,6 +531,7 @@ export const image = sqliteTable(
   (table) => [
     check('image_mime_check', sql`${table.mime} in ${sqlList(IMAGE_UPLOAD_TYPES)}`),
     index('image_recipe_idx').on(table.recipeId),
+    uniqueIndex('image_avatar_of_idx').on(table.avatarOf),
   ],
 );
 

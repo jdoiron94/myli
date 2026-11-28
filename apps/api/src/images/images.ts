@@ -22,9 +22,9 @@ export const deleteBlobsJob = defineJob({
 });
 
 /**
- * Deletes an upload no recipe was saved with, a day after it was uploaded. The row goes in the
- * same transaction that checks it's still unsaved, so a save can't take it meanwhile; its blobs
- * go in a job of their own.
+ * Deletes an upload no recipe was saved with, and that isn't someone's profile photo, a day after
+ * it was uploaded. The row goes in the same transaction that checks it's still unsaved, so a save
+ * can't take it meanwhile; its blobs go in a job of their own.
  */
 export const discardUnsavedImageJob = defineJob({
   type: 'images.discard-unsaved',
@@ -33,7 +33,7 @@ export const discardUnsavedImageJob = defineJob({
     services.db.transaction((tx) => {
       const discarded = tx
         .delete(image)
-        .where(and(eq(image.id, imageId), isNull(image.recipeId)))
+        .where(and(eq(image.id, imageId), isNull(image.recipeId), isNull(image.avatarOf)))
         .returning({ variants: image.variants })
         .get();
       if (discarded) {

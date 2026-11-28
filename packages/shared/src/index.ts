@@ -8,6 +8,7 @@ export const API_BASE_PATH = '/api/v1';
 export const AUTH_BASE_PATH = '/api/auth';
 
 export {
+  avatarSchema,
   confirmEmailVerificationRequestSchema,
   confirmPasswordResetRequestSchema,
   EMAIL_VERIFICATION_PATH,
@@ -17,6 +18,7 @@ export {
   passwordResetAvailabilitySchema,
   passwordResetRequestSchema,
   passwordResetSchema,
+  setAvatarRequestSchema,
 } from './account.ts';
 export {
   AUDIT_ACTIONS,
