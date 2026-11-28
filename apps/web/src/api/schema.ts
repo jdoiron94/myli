@@ -4953,7 +4953,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Avatar"];
+                        "application/json": components["schemas"]["AvatarResult"];
                     };
                 };
                 /** @description The request failed validation. */
@@ -4999,7 +4999,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Avatar"];
+                        "application/json": components["schemas"]["AvatarResult"];
                     };
                 };
                 /** @description The request failed validation. */
@@ -5511,8 +5511,12 @@ export interface components {
             actor: {
                 id: string;
                 name: string;
-                /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
-                avatar: string | null;
+                /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
+                avatar: {
+                    id: string;
+                    /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
+                    width: number;
+                } | null;
             } | null;
             /** @description What it was done to, if anything. */
             target: {
@@ -5539,8 +5543,12 @@ export interface components {
             /** Format: email */
             email: string;
             role: components["schemas"]["Role"];
-            /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
-            avatar: string | null;
+            /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
+            avatar: {
+                id: string;
+                /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
+                width: number;
+            } | null;
             /** @description Deactivated users can't sign in. Deactivating them ended their sessions. */
             deactivated: boolean;
             /** Format: date-time */
@@ -5711,8 +5719,12 @@ export interface components {
         Person: {
             id: string;
             name: string;
-            /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
-            avatar: string | null;
+            /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
+            avatar: {
+                id: string;
+                /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
+                width: number;
+            } | null;
         };
         /** @enum {string} */
         Visibility: "private" | "shared";
@@ -5932,8 +5944,12 @@ export interface components {
             author: {
                 id: string;
                 name: string;
-                /** @description Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only signed-in users ever see it. */
-                avatar: string | null;
+                /** @description Their profile photo, or `null` for their initials. Only signed-in users ever see it. */
+                avatar: {
+                    id: string;
+                    /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
+                    width: number;
+                } | null;
             };
             /** Format: date-time */
             updatedAt: string;
@@ -6403,9 +6419,13 @@ export interface components {
             name: string;
             password: components["schemas"]["Password"];
         };
-        Avatar: {
-            /** @description The photo, at `/images/{imageId}/{width}`, or `null` when there is none. */
-            imageId: string | null;
+        AvatarResult: {
+            /** @description `null` when there is none: people see your initials instead. */
+            avatar: {
+                id: string;
+                /** @description Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide. */
+                width: number;
+            } | null;
         };
         SetAvatarRequest: {
             /** @description A photo the reader uploaded with `POST /images` that is in no recipe. */

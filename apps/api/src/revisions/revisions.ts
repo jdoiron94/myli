@@ -1,4 +1,5 @@
 import {
+  type Avatar,
   type RecipeRevision,
   type RecipeRevisionSummary,
   recipeContentSchema,
@@ -82,7 +83,7 @@ const revisionColumns = {
 function summaryOf(
   row: typeof recipeRevision.$inferSelect,
   authorName: string,
-  authorAvatar: string | null,
+  authorAvatar: Avatar | null,
 ): RecipeRevisionSummary {
   return {
     number: row.number,

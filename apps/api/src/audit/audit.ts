@@ -1,4 +1,4 @@
-import type { AuditAction, AuditTargetType } from '@myli/shared';
+import type { AuditAction, AuditTargetType, Avatar } from '@myli/shared';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { avatarColumn } from '../account/avatar.ts';
 import type { Db, Tx } from '../db/database.ts';
@@ -78,7 +78,7 @@ export function recordAuditEventAfterwards(
 
 export type AuditEventRow = typeof auditEvent.$inferSelect & {
   actorName: string | null;
-  actorAvatar: string | null;
+  actorAvatar: Avatar | null;
 };
 
 /** A page of events, newest first, and the `before` value for the next page. */

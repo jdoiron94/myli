@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { passwordSchema } from './password.ts';
-import { emailSchema } from './user.ts';
+import { avatarSchema, emailSchema } from './user.ts';
 
 /**
  * The web app's page that a verification link opens. Like an invitation's, the link is
@@ -58,15 +58,14 @@ export const passwordResetSchema = z
   .object({ email: z.email().describe('The address of the account whose password was reset.') })
   .meta({ id: 'PasswordReset' });
 
-/** The reader's profile photo: an image, served as every image is, or `null` for their initials. */
-export const avatarSchema = z
+/** The reader's profile photo. */
+export const avatarResultSchema = z
   .object({
-    imageId: z
-      .string()
+    avatar: avatarSchema
       .nullable()
-      .describe('The photo, at `/images/{imageId}/{width}`, or `null` when there is none.'),
+      .describe('`null` when there is none: people see your initials instead.'),
   })
-  .meta({ id: 'Avatar' });
+  .meta({ id: 'AvatarResult' });
 
 export const setAvatarRequestSchema = z
   .object({
