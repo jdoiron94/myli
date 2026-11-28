@@ -1,4 +1,4 @@
-import type { Comment, PolicyComment } from '@myli/shared';
+import type { Avatar, Comment, PolicyComment } from '@myli/shared';
 import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
@@ -24,7 +24,7 @@ function toComment(row: {
   id: string;
   authorId: string;
   authorName: string;
-  authorAvatar: string | null;
+  authorAvatar: Avatar | null;
   bodyMd: string;
   createdAt: Date;
   editedAt: Date | null;

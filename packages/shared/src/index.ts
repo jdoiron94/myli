@@ -8,7 +8,7 @@ export const API_BASE_PATH = '/api/v1';
 export const AUTH_BASE_PATH = '/api/auth';
 
 export {
-  avatarSchema,
+  avatarResultSchema,
   confirmEmailVerificationRequestSchema,
   confirmPasswordResetRequestSchema,
   EMAIL_VERIFICATION_PATH,
@@ -328,6 +328,8 @@ export {
   unitSystemSchema,
 } from './units.ts';
 export {
+  type Avatar,
+  avatarSchema,
   changeRoleRequestSchema,
   emailSchema,
   type Person,

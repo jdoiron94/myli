@@ -1,30 +1,38 @@
+import type { Avatar } from '@myli/shared';
 import { eq, getTableName, type SQL, sql } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db, Tx } from '../db/database.ts';
-import { image } from '../db/schema.ts';
+import { image, user } from '../db/schema.ts';
 import { deleteBlobsJob } from '../images/images.ts';
 import { enqueueJob } from '../jobs/queue.ts';
 
 /**
- * The profile photo of the user `userId` refers to, as a column to select beside them: its image's
- * ID, or `null`. One query names everyone it shows with what goes beside their name.
+ * The profile photo of the user `userId` refers to, as a column to select beside them, or `null`.
+ * One query names everyone it shows with what goes beside their name.
  */
-export function avatarColumn(userId: SQLiteColumn): SQL<string | null> {
+export function avatarColumn(userId: SQLiteColumn): SQL<Avatar | null> {
   // Every name spelled out with its table: in a query on one table, drizzle writes its columns
   // without one, and in here `id` would then mean the photo's own.
   const name = (table: string, column: SQLiteColumn) =>
     sql`${sql.identifier(table)}.${sql.identifier(column.name)}`;
   const owner = name(getTableName(userId.table), userId);
-  return sql<
-    string | null
-  >`(select ${name('avatar', image.id)} from ${image} as ${sql.identifier('avatar')} where ${name('avatar', image.avatarOf)} = ${owner})`;
+  const avatar = sql.identifier('avatar');
+  const narrowest = sql`(select min(json_extract(value, '$.width')) from json_each(${name('avatar', image.variants)}))`;
+  const photo = sql`json_object('id', ${name('avatar', image.id)}, 'width', ${narrowest})`;
+  // drizzle passes null by without decoding it.
+  return sql`(select ${photo} from ${image} as ${avatar} where ${name('avatar', image.avatarOf)} = ${owner})`.mapWith(
+    (value: string): Avatar | null => JSON.parse(value) as Avatar,
+  );
 }
 
-/** The user's profile photo: its image's ID, or `null` when they have none. */
-export function avatarOf(db: Db, userId: string): string | null {
-  return (
-    db.select({ id: image.id }).from(image).where(eq(image.avatarOf, userId)).get()?.id ?? null
-  );
+/** The user's profile photo, or `null` when they have none. */
+export function avatarOf(db: Db, userId: string): Avatar | null {
+  const found = db
+    .select({ avatar: avatarColumn(user.id) })
+    .from(user)
+    .where(eq(user.id, userId))
+    .get();
+  return found?.avatar ?? null;
 }
 
 /** Deletes the user's profile photo, if they have one: its row now, its blobs in a job. */

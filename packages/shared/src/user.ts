@@ -13,17 +13,28 @@ export const userSchema = z
 
 export type User = z.infer<typeof userSchema>;
 
+/** A profile photo, which shows small: its image, and the one size of it to ask for. */
+export const avatarSchema = z
+  .object({
+    id: z.string(),
+    width: z
+      .int()
+      .positive()
+      .describe('Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide.'),
+  })
+  .meta({ id: 'Avatar' });
+
+export type Avatar = z.infer<typeof avatarSchema>;
+
 /** Someone the API names, with what shows beside their name: their profile photo, or initials. */
 export const personSchema = z
   .object({
     id: z.string(),
     name: z.string(),
-    avatar: z
-      .string()
+    avatar: avatarSchema
       .nullable()
       .describe(
-        'Their profile photo, at `/images/{avatar}/{width}`, or `null` for their initials. Only ' +
-          'signed-in users ever see it.',
+        'Their profile photo, or `null` for their initials. Only signed-in users ever see it.',
       ),
   })
   .meta({ id: 'Person' });

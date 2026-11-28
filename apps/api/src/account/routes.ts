@@ -1,6 +1,6 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import {
-  avatarSchema,
+  avatarResultSchema,
   confirmEmailVerificationRequestSchema,
   confirmPasswordResetRequestSchema,
   emailVerificationStatusSchema,
@@ -196,7 +196,7 @@ const getAvatar = createRoute({
   responses: {
     200: {
       description: 'Your profile photo, or `null`.',
-      content: { 'application/json': { schema: avatarSchema } },
+      content: { 'application/json': { schema: avatarResultSchema } },
     },
     ...errorResponses,
   },
@@ -218,7 +218,7 @@ const putAvatar = createRoute({
   responses: {
     200: {
       description: 'Your new profile photo.',
-      content: { 'application/json': { schema: avatarSchema } },
+      content: { 'application/json': { schema: avatarResultSchema } },
     },
     ...errorResponses,
   },
@@ -240,7 +240,7 @@ const deleteAvatar = createRoute({
 });
 
 export function registerAccountRoutes(v1: OpenAPIHono<AppEnv>, deps: AccountDeps) {
-  v1.openapi(getAvatar, (c) => c.json({ imageId: avatarOf(deps.db, c.var.user.id) }, 200));
+  v1.openapi(getAvatar, (c) => c.json({ avatar: avatarOf(deps.db, c.var.user.id) }, 200));
 
   v1.openapi(putAvatar, (c) => {
     const { imageId } = c.req.valid('json');
@@ -248,7 +248,7 @@ export function registerAccountRoutes(v1: OpenAPIHono<AppEnv>, deps: AccountDeps
       throw new InvalidFields([{ path: ['imageId'], detail: UNUSABLE_AVATAR }]);
     }
     c.var.logger.info({ imageId }, 'profile photo set');
-    return c.json({ imageId }, 200);
+    return c.json({ avatar: avatarOf(deps.db, c.var.user.id) }, 200);
   });
 
   v1.openapi(deleteAvatar, (c) => {

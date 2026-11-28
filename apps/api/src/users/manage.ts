@@ -1,4 +1,4 @@
-import { can, type Role } from '@myli/shared';
+import { type Avatar, can, type Role } from '@myli/shared';
 import { asc, eq } from 'drizzle-orm';
 import { avatarColumn } from '../account/avatar.ts';
 import { type AuditOrigin, recordAuditEvent } from '../audit/audit.ts';
@@ -24,7 +24,7 @@ const ACCOUNT_COLUMNS = {
 export type UserAccountRow = Pick<
   typeof user.$inferSelect,
   'id' | 'name' | 'email' | 'role' | 'banned' | 'createdAt'
-> & { avatar: string | null };
+> & { avatar: Avatar | null };
 
 /** The admin making the change, and where the request came from. */
 export type AdminOrigin = AuditOrigin & { actorId: string };

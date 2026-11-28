@@ -60,16 +60,17 @@ describe('profile photos', () => {
     const t = createTestApp();
     const viewer = await signedInAs(t, 'viewer');
     const editor = await signedInAs(t, 'editor');
-    const uploaded = await uploadImage(t, viewer.cookie);
-    const photo = { id: uploaded.id, width: uploaded.variants[0]?.width ?? 0 };
+    const { id } = await uploadImage(t, viewer.cookie);
+    // 320 pixels wide, its only size: smaller than any the API makes.
+    const photo = { id, width: 320 };
     // An upload is its uploader's alone until it's used.
     expect(await photoFor(t, photo, editor.cookie)).toBe(404);
 
-    const res = await setAvatar(t, viewer.cookie, photo.id);
+    const res = await setAvatar(t, viewer.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ imageId: photo.id });
-    expect(await avatarOf(t, viewer.cookie)).toEqual({ imageId: photo.id });
+    expect(await res.json()).toEqual({ avatar: photo });
+    expect(await avatarOf(t, viewer.cookie)).toEqual({ avatar: photo });
     expect({
       'its owner': await photoFor(t, photo, viewer.cookie),
       'someone else': await photoFor(t, photo, editor.cookie),
@@ -90,7 +91,7 @@ describe('profile photos', () => {
     expect(blobDeletions(t)).toEqual([{ keys: firstKeys }]);
 
     expect((await send(t, 'DELETE', '/me/avatar', editor.cookie)).status).toBe(204);
-    expect(await avatarOf(t, editor.cookie)).toEqual({ imageId: null });
+    expect(await avatarOf(t, editor.cookie)).toEqual({ avatar: null });
     expect(blobDeletions(t)).toEqual([{ keys: firstKeys }, { keys: secondKeys }]);
     // With none left, there's nothing to do.
     expect((await send(t, 'DELETE', '/me/avatar', editor.cookie)).status).toBe(204);
@@ -149,7 +150,7 @@ describe('profile photos', () => {
     expect(await res.json()).toMatchObject({
       errors: expect.arrayContaining([expect.objectContaining({ pointer: '#/images/0/id' })]),
     });
-    expect(await avatarOf(t, editor.cookie)).toEqual({ imageId: photo.id });
+    expect(await avatarOf(t, editor.cookie)).toEqual({ avatar: { id: photo.id, width: 320 } });
   });
 
   it('goes beside its owner’s name wherever the API names them', async () => {
@@ -162,7 +163,7 @@ describe('profile photos', () => {
     interface Named {
       id: string;
       name: string;
-      avatar: string | null;
+      avatar: { id: string; width: number } | null;
     }
     const json = async <T>(res: Response | Promise<Response>) => (await (await res).json()) as T;
     const read = <T>(path: string, cookie = editor.cookie) => json<T>(send(t, 'GET', path, cookie));
@@ -205,7 +206,11 @@ describe('profile photos', () => {
     const actors = new Map(
       events.flatMap(({ actor }) => (actor ? [[actor.id, named(actor)]] : [])),
     );
-    const withPhoto = { id: editor.user.id, name: editor.user.name, avatar: photo.id };
+    const withPhoto = {
+      id: editor.user.id,
+      name: editor.user.name,
+      avatar: { id: photo.id, width: 320 },
+    };
     const without = { id: admin.user.id, name: admin.user.name, avatar: null };
     expect({
       'recipe owner': recipe.owner,
