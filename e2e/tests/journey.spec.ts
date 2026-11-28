@@ -1025,6 +1025,23 @@ test('someone looks after their own account', async ({ page }) => {
     await checkPage(page);
   });
 
+  await test.step('they choose a profile photo, which shows beside their name', async () => {
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Upload photo' }).click();
+    await (await chooser).setFiles({
+      name: 'me.png',
+      mimeType: 'image/png',
+      buffer: solidPng(400, 400, [70, 110, 160]),
+    });
+
+    await expect(page.getByRole('status').filter({ hasText: 'photo is changed' })).toHaveText(
+      'Your profile photo is changed.',
+    );
+    await loaded(page.getByRole('region', { name: 'Profile photo' }).locator('img'));
+    await loaded(page.getByRole('button', { name: `Account: ${ADMIN.name}` }).locator('img'));
+    await checkPage(page);
+  });
+
   await test.step('they change their password, and sign in with the new one', async () => {
     const newPassword = 'A fresh 3 battery horse!';
     await page.getByLabel('Current password').fill(ADMIN.password);

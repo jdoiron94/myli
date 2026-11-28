@@ -32,12 +32,15 @@ describe('a collection’s page', () => {
     expect(titles()).toEqual(['Bread', 'Curry', 'Tacos']);
 
     await user.click(screen.getByRole('button', { name: 'Move later: Bread' }));
+    // The list first: focus is on that button from the click, before the list has moved.
+    await waitFor(() => {
+      expect(titles()).toEqual(['Curry', 'Bread', 'Tacos']);
+    });
     await waitFor(() => {
       expect(document.activeElement).toBe(
         screen.getByRole('button', { name: 'Move later: Bread' }),
       );
     });
-    expect(titles()).toEqual(['Curry', 'Bread', 'Tacos']);
     // Already first: nothing to send, and focus stays.
     const first = screen.getByRole('button', { name: 'Move earlier: Curry' });
     await user.click(first);

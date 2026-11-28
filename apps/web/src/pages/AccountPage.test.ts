@@ -1,9 +1,17 @@
-import { AUTH_BASE_PATH } from '@myli/shared';
-import { screen, waitFor } from '@testing-library/vue';
+import { AUTH_BASE_PATH, IMAGE_MAX_BYTES, TOO_LARGE_DETAIL } from '@myli/shared';
+import { screen, waitFor, within } from '@testing-library/vue';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { emailVerificationQuery } from '@/account/email-verification.ts';
-import { apiServer, describedBy, problemResponse, renderApp, testUsers } from '@/testing.ts';
+import { answerUploads, photoFile } from '@/recipes/testing.ts';
+import {
+  answerAvatar,
+  apiServer,
+  describedBy,
+  problemResponse,
+  renderApp,
+  testUsers,
+} from '@/testing.ts';
 
 const { email } = testUsers.editor;
 const SENT = `We sent a link to ${email}. Open it to verify your address.`;
@@ -12,6 +20,19 @@ const sendButton = () => screen.queryByRole('button', { name: 'Send verification
 // Password inputs have no role.
 const currentPassword = () => screen.getByLabelText('Current password');
 const newPassword = () => screen.getByLabelText('New password', { exact: true });
+const photoSection = () => screen.getByRole('region', { name: 'Profile photo' });
+const accountButton = () =>
+  screen.getByRole('button', { name: `Account: ${testUsers.editor.name}` });
+/** The address of the photo in `element`, or `null` when it shows none. */
+const photoIn = (element: HTMLElement) => element.querySelector('img')?.getAttribute('src') ?? null;
+
+/** The photo section's file input, once it knows whether there's a photo. */
+async function photoInput() {
+  await within(photoSection()).findByRole('button', { name: /^(Upload|Change) photo$/ });
+  const input = photoSection().querySelector<HTMLInputElement>('input[type="file"]');
+  if (!input) throw new Error('no file input');
+  return input;
+}
 
 function answerVerification(answer: { verified: boolean; emailEnabled: boolean }) {
   apiServer.use(
@@ -116,5 +137,69 @@ describe('AccountPage', () => {
     });
     expect(describedBy(currentPassword())).toEqual(["That isn't your current password."]);
     expect(screen.queryByText(CHANGED)).toBeNull();
+  });
+
+  it('uploads a photo, which then shows here and in the header', async () => {
+    answerVerification({ verified: true, emailEnabled: true });
+    answerUploads();
+    const chosen: unknown[] = [];
+    apiServer.use(
+      http.put('/api/v1/me/avatar', async ({ request }) => {
+        chosen.push(await request.json());
+        return HttpResponse.json({ avatar: { id: 'upload-1', width: 320 } });
+      }),
+    );
+    const { user } = await renderApp('/account');
+
+    await user.upload(await photoInput(), photoFile('me.jpg'));
+
+    const changed = await screen.findByText('Your profile photo is changed.');
+    expect(changed.getAttribute('role')).toBe('status');
+    expect(chosen).toEqual([{ imageId: 'upload-1' }]);
+    expect({ page: photoIn(photoSection()), header: photoIn(accountButton()) }).toEqual({
+      page: '/api/v1/images/upload-1/320',
+      header: '/api/v1/images/upload-1/320',
+    });
+    expect(within(photoSection()).getByRole('button', { name: 'Change photo' })).toBeDefined();
+  });
+
+  it('refuses a photo the API would, without sending it', async () => {
+    answerVerification({ verified: true, emailEnabled: true });
+    const sent = answerUploads();
+    const { user } = await renderApp('/account');
+
+    await user.upload(await photoInput(), photoFile('huge.jpg', 'image/jpeg', IMAGE_MAX_BYTES + 1));
+
+    expect((await screen.findByRole('alert')).textContent.trim()).toBe(TOO_LARGE_DETAIL);
+    expect(sent).toEqual([]);
+  });
+
+  it('removes the photo, leaving the initials, with focus on the picker', async () => {
+    answerVerification({ verified: true, emailEnabled: true });
+    answerAvatar({ id: 'photo-1', width: 640 });
+    let removed = 0;
+    apiServer.use(
+      http.delete('/api/v1/me/avatar', () => {
+        removed += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp('/account');
+
+    await user.click(await within(photoSection()).findByRole('button', { name: 'Remove photo' }));
+
+    await screen.findByText('Your profile photo is removed. Your initials show instead.');
+    expect(removed).toBe(1);
+    expect(document.activeElement).toBe(
+      within(photoSection()).getByRole('button', { name: 'Upload photo' }),
+    );
+    expect({ page: photoIn(photoSection()), header: photoIn(accountButton()) }).toEqual({
+      page: null,
+      header: null,
+    });
+    // Ada Lovelace's, drawn by CSS.
+    expect(photoSection().querySelector('[data-initials]')?.getAttribute('data-initials')).toBe(
+      'AL',
+    );
   });
 });

@@ -1,26 +1,31 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query';
 import { useForm } from 'vee-validate';
-import { ref, useId, useTemplateRef } from 'vue';
+import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
 import { z } from 'zod';
+import { myAvatarQuery, useRemoveAvatar, useSetAvatar } from '@/account/avatar.ts';
 import { emailVerificationQuery, useSendVerificationLink } from '@/account/email-verification.ts';
 import { useChangePassword } from '@/account/password.ts';
 import { failureMessage } from '@/api/failure.ts';
-import { useRetry } from '@/api/retry.ts';
+import { allOf, useRetry } from '@/api/retry.ts';
 import { AuthProblem } from '@/auth/client.ts';
 import { sessionQuery } from '@/auth/session.ts';
 import FormTextField from '@/components/FormTextField.vue';
 import PasswordField from '@/components/PasswordField.vue';
 import RetryableFailure from '@/components/RetryableFailure.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { focusFirstInvalidField, formSchema, newPasswordSchema } from '@/lib/forms.ts';
+import PhotoPicker from '@/recipes/PhotoPicker.vue';
+import { photoFileProblem } from '@/recipes/photos.ts';
 
 // The router waits for the session before showing a page that needs one.
 const { data: user } = useQuery(sessionQuery);
 const verification = useQuery(emailVerificationQuery);
-const { failure, retrying, stillFailing, retry } = useRetry(verification);
+const avatar = useQuery(myAvatarQuery);
+const { failure, retrying, stillFailing, retry } = useRetry(allOf(verification, avatar));
 
 const sendLink = useSendVerificationLink();
 /** Where the last link went, once it's on its way. */
@@ -37,6 +42,44 @@ async function send(email: string) {
   } catch (error) {
     sendFailure.value = failureMessage(error);
   }
+}
+
+const setAvatar = useSetAvatar();
+const removeAvatar = useRemoveAvatar();
+const photoBusy = computed(() => setAvatar.isPending.value || removeAvatar.isPending.value);
+/** What the last change to the photo did, once it's done. */
+const photoChanged = ref<'set' | 'removed'>();
+const photoFailure = ref<string>();
+const pickerId = useId();
+
+async function pickPhoto([file]: File[]) {
+  if (!file || photoBusy.value) return;
+  photoChanged.value = undefined;
+  // Refused here as the API would, without sending it.
+  photoFailure.value = photoFileProblem(file);
+  if (photoFailure.value) return;
+  try {
+    await setAvatar.mutateAsync(file);
+    photoChanged.value = 'set';
+  } catch (error) {
+    photoFailure.value = failureMessage(error);
+  }
+}
+
+async function removePhoto() {
+  if (photoBusy.value) return;
+  photoChanged.value = undefined;
+  photoFailure.value = undefined;
+  try {
+    await removeAvatar.mutateAsync();
+  } catch (error) {
+    photoFailure.value = failureMessage(error);
+    return;
+  }
+  photoChanged.value = 'removed';
+  // Its button is gone with the photo: the picker is what's left.
+  await nextTick();
+  document.getElementById(pickerId)?.focus();
 }
 
 const { handleSubmit, isSubmitting, resetForm, setErrors } = useForm({
@@ -84,6 +127,7 @@ function submit(event: Event) {
   if (!isSubmitting.value) void changeOnSubmit(event);
 }
 
+const photoHeadingId = useId();
 const passwordHeadingId = useId();
 </script>
 
@@ -92,7 +136,7 @@ const passwordHeadingId = useId();
     Account
   </h1>
   <p class="mt-2 text-muted-foreground">
-    Your name and email address, and your password.
+    Your name, email address and profile photo, and your password.
   </p>
   <dl
     v-if="user"
@@ -161,6 +205,73 @@ const passwordHeadingId = useId();
   >
     {{ sendFailure }}
   </p>
+
+  <section
+    class="mt-10"
+    :aria-labelledby="photoHeadingId"
+  >
+    <h2
+      :id="photoHeadingId"
+      class="text-lg font-semibold"
+    >
+      Profile photo
+    </h2>
+    <p class="mt-1 text-sm text-muted-foreground">
+      It shows beside your name to everyone signed in, but never on public links. Without one, your
+      initials show.
+    </p>
+    <div
+      v-if="user && avatar.data.value !== undefined"
+      class="mt-4 flex flex-wrap items-center gap-4"
+    >
+      <UserAvatar
+        size="lg"
+        :person="{ id: user.id, name: user.name, avatar: avatar.data.value }"
+      />
+      <div class="flex flex-wrap gap-2">
+        <PhotoPicker
+          :id="pickerId"
+          :unavailable="photoBusy"
+          @picked="pickPhoto"
+        >
+          {{ avatar.data.value ? 'Change photo' : 'Upload photo' }}
+        </PhotoPicker>
+        <Button
+          v-if="avatar.data.value"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="aria-disabled:opacity-50"
+          :aria-disabled="photoBusy ? true : undefined"
+          @click="removePhoto"
+        >
+          Remove photo
+        </Button>
+      </div>
+    </div>
+    <!-- Always there, so screen readers announce what it says as it changes. -->
+    <p
+      role="status"
+      class="mt-4 text-sm"
+    >
+      <template v-if="setAvatar.isPending.value">
+        Uploading your photo…
+      </template>
+      <template v-else-if="photoChanged === 'set'">
+        Your profile photo is changed.
+      </template>
+      <template v-else-if="photoChanged === 'removed'">
+        Your profile photo is removed. Your initials show instead.
+      </template>
+    </p>
+    <p
+      v-if="photoFailure"
+      role="alert"
+      class="mt-2 text-sm text-destructive"
+    >
+      {{ photoFailure }}
+    </p>
+  </section>
 
   <section
     class="mt-10"
