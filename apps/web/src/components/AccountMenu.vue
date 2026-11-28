@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { LogOutIcon, UserRoundIcon } from '@lucide/vue';
+import { LogOutIcon } from '@lucide/vue';
 import type { User } from '@myli/shared';
+import { useQuery } from '@tanstack/vue-query';
 import type { Component } from 'vue';
 import { type RouteLocationResolved, RouterLink } from 'vue-router';
+import { myAvatarQuery } from '@/account/avatar.ts';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,6 +22,8 @@ import { ROLE_LABELS } from '@/lib/roles.ts';
 defineProps<{ user: User; pages: { icon: Component; route: RouteLocationResolved }[] }>();
 const emit = defineEmits<{ signOut: [] }>();
 const { selected, closeAutoFocus } = useMenuNavigation();
+// Their initials until it's loaded, or if it can't be.
+const { data: avatar } = useQuery(myAvatarQuery);
 </script>
 
 <template>
@@ -30,7 +35,7 @@ const { selected, closeAutoFocus } = useMenuNavigation();
         class="max-w-48 min-w-0 shrink"
         :aria-label="`Account: ${user.name}`"
       >
-        <UserRoundIcon aria-hidden="true" />
+        <UserAvatar :person="{ id: user.id, name: user.name, avatar: avatar ?? null }" />
         <span class="truncate">{{ user.name }}</span>
       </Button>
     </DropdownMenuTrigger>

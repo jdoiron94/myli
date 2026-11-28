@@ -168,6 +168,13 @@ export function answerDraft(draft: components['schemas']['RecipeDraft'] | null =
   apiServer.use(http.get(DRAFT_PATH, () => HttpResponse.json({ draft })));
 }
 
+const AVATAR_PATH = `${API_BASE_PATH}/me/avatar`;
+
+/** Answers the reader's profile photo with `avatar`: none, unless given. */
+export function answerAvatar(avatar: components['schemas']['Avatar'] | null = null) {
+  apiServer.use(http.get(AVATAR_PATH, () => HttpResponse.json({ avatar })));
+}
+
 /** Whether the current test already answers `method path` itself. */
 function answered(method: string, path: string) {
   return apiServer
@@ -192,8 +199,8 @@ export interface RenderAppOptions {
  * while the router is still making its first navigation, which waits for the session and, when no
  * one is signed in, for whether setup is needed. It answers both from the options, the recipe
  * list and search with no recipes, and every recipe as unrated and uncommented, no favorite, with
- * no note of the reader's, in none of their collections (they have none) and no draft, unless the
- * test already answers them itself. Queries retry without waiting in between.
+ * no note of the reader's, in none of their collections (they have none) and no draft, and the
+ * reader with no profile photo, unless the test already answers them itself. Queries retry without waiting in between.
  */
 export async function renderApp(
   path: string,
@@ -213,6 +220,8 @@ export async function renderApp(
   if (!answered('GET', COLLECTIONS_PATH)) answerCollections();
   if (!answered('GET', DRAFT_PATH)) answerDraft();
   if (!answered('GET', PUBLIC_LINK_PATH)) answerPublicLink();
+  // The header's account menu shows the reader's profile photo.
+  if (!answered('GET', AVATAR_PATH)) answerAvatar();
   // As index.html does: jsdom's blank document has no language.
   document.documentElement.lang = 'en';
   const history = createMemoryHistory();

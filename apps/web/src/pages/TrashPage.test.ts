@@ -75,8 +75,12 @@ describe('the trash', () => {
       expect(titles()).toEqual(['Tomato Soup']);
     });
     expect(restores).toEqual([{ id: 'recipe-bread', ifMatch: '"3"' }]);
-    const [status] = screen.getAllByRole('status').filter((element) => element.textContent.trim());
-    if (!status) throw new Error('no status says it was restored');
+    // Said once the trash is fetched again, which may be after the list shows it gone.
+    const status = await waitFor(() => {
+      const [said] = screen.getAllByRole('status').filter((element) => element.textContent.trim());
+      if (!said) throw new Error('no status says it was restored');
+      return said;
+    });
     expect(status.textContent.replace(/\s+/g, ' ').trim()).toBe(
       'Restored “Weeknight Bread”. Go to the recipe',
     );
