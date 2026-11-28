@@ -189,7 +189,7 @@ There are three roles: **admin**, **editor** and **viewer**.
   - Only email-and-password sign-ins whose credentials were checked are recorded. Requests refused for coming from another origin, being malformed or being rate limited are not.
   - A failed sign-in has no actor. It keeps the email that was tried and the reason (wrong email or password, or a deactivated account), and targets the account when that email has one.
   - A sign-out is recorded only when it ended a session.
-  - Every failed sign-in is recorded and kept (open question 5). Rate limiting bounds how fast they accumulate. Pruning old ones can come with the scheduled purge job in Phase 2.
+  - Every failed sign-in is recorded and kept for good, never pruned (open question 5). myli runs inside the household's own network, where there are few, and rate limiting bounds how fast they accumulate.
 - An event and the change it records are saved together, in one transaction. Setup, sign-ins, sign-outs and accepted invitations are the exception, because Better Auth makes those changes itself: their events are written right after, and if that write fails, the error is logged and the request still succeeds.
 - **IP address:** the address the connection came from. Behind a reverse proxy such as Caddy, it's read from `X-Forwarded-For`, trusted only from the proxies listed in `TRUSTED_PROXIES`. Sessions and sign-in rate limiting use the same address.
 - The audit log is separate from revision history (§3.3), which records recipe content.
@@ -641,4 +641,4 @@ These need decisions before or during the phase that uses them:
 2. ~~**Bayesian rating parameters** (Phase 2).~~ Decided: a fixed prior of 3 stars, weighted as 3 ratings. Unlike the instance-wide mean, a fixed prior means a rating changes only its own recipe's score.
 3. ~~**Image limits** (Phase 1).~~ Decided: uploads up to 10 MB. Variants are served as WebP, at sizes chosen from the layouts images appear in, so they look good where they're shown: 640, 1280 and 2048 pixels wide.
 4. ~~**Revision retention** (Phase 2).~~ Decided: keep every revision while its recipe exists; snapshots are small.
-5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided in Phase 0: record every one and keep them. Revisit pruning when the Phase 2 purge job exists.
+5. ~~**Failed-login audit events** may be noisy (Phase 0).~~ Decided: record every one and keep them for good. Revisited once the daily jobs existed, and still not pruned, since myli runs inside the household's own network.
