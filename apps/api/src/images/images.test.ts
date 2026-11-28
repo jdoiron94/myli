@@ -65,19 +65,23 @@ describe('discardUnsavedImageJob', () => {
     ]);
   });
 
-  it('leaves an upload a recipe was saved with', async () => {
+  it('leaves an upload a recipe was saved with, or that became its uploader’s profile photo', async () => {
     const { db, blobs, worker, upload, laterBy } = setUp();
-    const uploaded = await upload();
+    const saved = await upload();
     const recipeId = insertRecipe(db, 'uploader');
-    db.update(image).set({ recipeId }).where(eq(image.id, uploaded.id)).run();
-    // Only the discard job is under test: not the search update saving the recipe queued.
+    db.update(image).set({ recipeId }).where(eq(image.id, saved.id)).run();
+    const avatar = await upload();
+    db.update(image).set({ avatarOf: 'uploader' }).where(eq(image.id, avatar.id)).run();
+    // Only the discard jobs are under test: not the search update saving the recipe queued.
     db.delete(job).where(eq(job.type, 'search.index-recipe')).run();
 
     laterBy(UNSAVED_IMAGE_TTL_MS);
     expect(await worker.runOnce()).toBe(true);
+    expect(await worker.runOnce()).toBe(true);
 
-    expect(db.select({ id: image.id }).from(image).all()).toEqual([{ id: uploaded.id }]);
-    expect(blobs.keys()).toHaveLength(3);
+    const kept = db.select({ id: image.id }).from(image).all();
+    expect(kept.map(({ id }) => id).sort()).toEqual([saved.id, avatar.id].sort());
+    expect(blobs.keys()).toHaveLength(6);
     expect(await worker.runOnce()).toBe(false);
   });
 });

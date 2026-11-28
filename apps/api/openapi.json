@@ -4016,6 +4016,35 @@
           "password"
         ]
       },
+      "Avatar": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The photo, at `/images/{imageId}/{width}`, or `null` when there is none."
+          }
+        },
+        "required": [
+          "imageId"
+        ]
+      },
+      "SetAvatarRequest": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "A photo the reader uploaded with `POST /images` that is in no recipe."
+          }
+        },
+        "required": [
+          "imageId"
+        ]
+      },
       "EmailVerificationStatus": {
         "type": "object",
         "properties": {
@@ -5998,7 +6027,7 @@
           "Images"
         ],
         "summary": "Upload a photo",
-        "description": "Editors and admins. The body is the file itself, with its type as `Content-Type`: a JPEG, PNG or WebP image of up to 10 MB, checked by its first bytes. It is turned upright, stripped of its metadata and resized. Until a recipe is saved with it, only its uploader can see it or use it, and it is deleted after a day.",
+        "description": "Any signed-in user: editors and admins for recipes, and everyone for their own profile photo (`PUT /me/avatar`). The body is the file itself, with its type as `Content-Type`: a JPEG, PNG or WebP image of up to 10 MB, checked by its first bytes. It is turned upright, stripped of its metadata and resized. Until a recipe is saved with it, or it becomes its uploader's profile photo, only its uploader can see it or use it, and it is deleted after a day.",
         "requestBody": {
           "required": true,
           "content": {
@@ -6082,7 +6111,7 @@
           "Images"
         ],
         "summary": "Get a photo at one of its sizes",
-        "description": "Any signed-in user who may see the recipe it belongs to; until a recipe is saved with it, only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one of the widths in its `variants`. What an address serves never changes, so it can be cached for good.",
+        "description": "Any signed-in user who may see the recipe it belongs to, and any signed-in user for a profile photo; until a recipe is saved with it, only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one of the widths in its `variants`. What an address serves never changes, so it can be cached for good.",
         "parameters": [
           {
             "schema": {
@@ -9370,6 +9399,128 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/avatar": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Your profile photo",
+        "description": "Any signed-in user’s own. Without one, people see their initials.",
+        "responses": {
+          "200": {
+            "description": "Your profile photo, or `null`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Avatar"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Set your profile photo",
+        "description": "Any signed-in user, viewers included, for themselves only. Upload the photo with `POST /images` first. Every signed-in user can then see it, beside your name; public links never show it. The photo before is deleted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAvatarRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Your new profile photo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Avatar"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request failed validation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as RFC 9457 problem details.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Remove your profile photo",
+        "description": "Deletes it, so people see your initials. Nothing to do when there is none. Send `Content-Type: application/json` even though there is no body.",
+        "responses": {
+          "204": {
+            "description": "You have no profile photo now."
           },
           "422": {
             "description": "The request failed validation.",

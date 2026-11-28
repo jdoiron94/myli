@@ -83,7 +83,7 @@ export function saveDraft(
     if (named.length > 0) {
       tx.update(image)
         .set({ recipeId })
-        .where(and(inArray(image.id, named), isNull(image.recipeId)))
+        .where(and(inArray(image.id, named), isNull(image.recipeId), isNull(image.avatarOf)))
         .run();
     }
     tx.insert(recipeDraft)

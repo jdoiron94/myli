@@ -130,9 +130,12 @@ describe('invariants, checked against every action and resource', () => {
     expect(ALL_CASES.filter(({ check }) => check(null))).toEqual([]);
   });
 
-  it('viewers are strictly read-only', () => {
+  it('viewers are strictly read-only, but for their own profile photo', () => {
     const viewer = userWith('viewer');
-    const writes = ALL_CASES.filter(({ action }) => action !== 'recipe.read');
+    // An upload of a viewer's can only become their profile photo: a recipe takes the rest.
+    const writes = ALL_CASES.filter(
+      ({ action }) => action !== 'recipe.read' && action !== 'image.upload',
+    );
     expect(
       writes.filter(({ check }) => check(viewer)).map(({ action, on }) => `${action} ${on}`),
     ).toEqual([]);

@@ -24,7 +24,7 @@ import {
   recipe as recipeTable,
   type UserTokenPurpose,
 } from './db/schema.ts';
-import { insertRecipeImage, testImage } from './images/testing.ts';
+import { insertRecipeImage, testImage, uploadImage } from './images/testing.ts';
 import { createInvitation } from './invitations/invitations.ts';
 import { createPublicLink } from './public-links/public-links.ts';
 import {
@@ -126,6 +126,11 @@ function request(
 async function ownCollection(t: TestApp, cookie: string | undefined): Promise<string> {
   const res = await request(t, 'POST', '/collections', cookie, { name: 'Weeknight' });
   return res.status === 201 ? ((await res.json()) as { id: string }).id : randomUUID();
+}
+
+/** A photo the caller uploaded through the API, for their profile: its ID. Anyone else, one none has. */
+async function ownUpload(t: TestApp, cookie: string | undefined): Promise<string> {
+  return cookie === undefined ? randomUUID() : (await uploadImage(t, cookie)).id;
 }
 
 /** A new, open invitation, made by a new admin directly in the database: its ID and token. */
@@ -766,6 +771,26 @@ export const ENDPOINTS: readonly EndpointCase[] = [
       request(t, 'POST', '/email-verification/confirm', cookie, {
         token: await linkToken(t, 'verify_email'),
       }),
+  },
+  {
+    method: 'get',
+    path: '/me/avatar',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'GET', '/me/avatar', cookie),
+  },
+  {
+    // Viewers included: a profile photo is their own account (spec §2).
+    method: 'put',
+    path: '/me/avatar',
+    access: 'signed-in',
+    send: async (t, cookie) =>
+      request(t, 'PUT', '/me/avatar', cookie, { imageId: await ownUpload(t, cookie) }),
+  },
+  {
+    method: 'delete',
+    path: '/me/avatar',
+    access: 'signed-in',
+    send: (t, cookie) => request(t, 'DELETE', '/me/avatar', cookie),
   },
   {
     // Someone who forgot their password isn't signed in.

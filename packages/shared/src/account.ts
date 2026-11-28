@@ -57,3 +57,23 @@ export const confirmPasswordResetRequestSchema = z
 export const passwordResetSchema = z
   .object({ email: z.email().describe('The address of the account whose password was reset.') })
   .meta({ id: 'PasswordReset' });
+
+/** The reader's profile photo: an image, served as every image is, or `null` for their initials. */
+export const avatarSchema = z
+  .object({
+    imageId: z
+      .string()
+      .nullable()
+      .describe('The photo, at `/images/{imageId}/{width}`, or `null` when there is none.'),
+  })
+  .meta({ id: 'Avatar' });
+
+export const setAvatarRequestSchema = z
+  .object({
+    imageId: z
+      .string()
+      .min(1)
+      .max(100)
+      .describe('A photo the reader uploaded with `POST /images` that is in no recipe.'),
+  })
+  .meta({ id: 'SetAvatarRequest' });

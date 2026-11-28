@@ -238,8 +238,8 @@ describe('changing the password', () => {
   });
 });
 
-describe('Better Auth’s own verification, reset and email change', () => {
-  it('answer 404, signed in or not: myli makes its own links (ADR 0019)', async () => {
+describe('Better Auth’s own verification, reset, email change and profile', () => {
+  it('answer 404, signed in or not: myli makes its own links (ADR 0019) and photos', async () => {
     const t = createTestApp();
     await userWithRole(t, 'viewer');
     const { cookie } = sessionCookie(await signIn(t, ADA.email, ADA.password));
@@ -250,6 +250,7 @@ describe('Better Auth’s own verification, reset and email change', () => {
       ['GET', '/reset-password/some-token?callbackURL=/'],
       ['POST', '/reset-password', { newPassword: 'A new passphrase here 1', token: 'some-token' }],
       ['POST', '/change-email', { newEmail: 'ada@elsewhere.example' }],
+      ['POST', '/update-user', { name: 'Someone Else', image: 'https://elsewhere.example/a.png' }],
     ];
 
     const answers = async (headers: Record<string, string>) =>

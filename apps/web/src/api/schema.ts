@@ -1755,7 +1755,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a photo
-         * @description Editors and admins. The body is the file itself, with its type as `Content-Type`: a JPEG, PNG or WebP image of up to 10 MB, checked by its first bytes. It is turned upright, stripped of its metadata and resized. Until a recipe is saved with it, only its uploader can see it or use it, and it is deleted after a day.
+         * @description Any signed-in user: editors and admins for recipes, and everyone for their own profile photo (`PUT /me/avatar`). The body is the file itself, with its type as `Content-Type`: a JPEG, PNG or WebP image of up to 10 MB, checked by its first bytes. It is turned upright, stripped of its metadata and resized. Until a recipe is saved with it, or it becomes its uploader's profile photo, only its uploader can see it or use it, and it is deleted after a day.
          */
         post: {
             parameters: {
@@ -1834,7 +1834,7 @@ export interface paths {
         };
         /**
          * Get a photo at one of its sizes
-         * @description Any signed-in user who may see the recipe it belongs to; until a recipe is saved with it, only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one of the widths in its `variants`. What an address serves never changes, so it can be cached for good.
+         * @description Any signed-in user who may see the recipe it belongs to, and any signed-in user for a profile photo; until a recipe is saved with it, only its uploader. Anyone else gets 404, as for a photo that doesn’t exist. `width` is one of the widths in its `variants`. What an address serves never changes, so it can be cached for good.
          */
         get: {
             parameters: {
@@ -4927,6 +4927,147 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your profile photo
+         * @description Any signed-in user’s own. Without one, people see their initials.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Your profile photo, or `null`. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Avatar"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        /**
+         * Set your profile photo
+         * @description Any signed-in user, viewers included, for themselves only. Upload the photo with `POST /images` first. Every signed-in user can then see it, beside your name; public links never show it. The photo before is deleted.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetAvatarRequest"];
+                };
+            };
+            responses: {
+                /** @description Your new profile photo. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Avatar"];
+                    };
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Remove your profile photo
+         * @description Deletes it, so people see your initials. Nothing to do when there is none. Send `Content-Type: application/json` even though there is no body.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description You have no profile photo now. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The request failed validation. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblem"];
+                    };
+                };
+                /** @description Any other error, as RFC 9457 problem details. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/email-verification": {
         parameters: {
             query?: never;
@@ -6267,6 +6408,14 @@ export interface components {
             token: string;
             name: string;
             password: components["schemas"]["Password"];
+        };
+        Avatar: {
+            /** @description The photo, at `/images/{imageId}/{width}`, or `null` when there is none. */
+            imageId: string | null;
+        };
+        SetAvatarRequest: {
+            /** @description A photo the reader uploaded with `POST /images` that is in no recipe. */
+            imageId: string;
         };
         EmailVerificationStatus: {
             /** Format: email */

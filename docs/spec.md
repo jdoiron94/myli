@@ -21,7 +21,7 @@ myli is a self-hosted recipe manager for one household, run with Docker Compose.
 
 There are three roles: **admin**, **editor** and **viewer**.
 
-- **Viewers** are strictly read-only.
+- **Viewers** are strictly read-only, but for their own account: their password, preferences and profile photo.
 - **Editors** can edit any shared recipe, whoever created it.
 - Only a recipe's owner or an admin can delete it.
 - Only a recipe's owner can change its visibility.
@@ -30,7 +30,7 @@ There are three roles: **admin**, **editor** and **viewer**.
 |---|---|---|---|
 | View shared recipes, search, cook mode, print/download | ✓ | ✓ | ✓ |
 | Create recipes (private or shared) | ✓ | ✓ | – |
-| Upload photos | ✓ | ✓ | – |
+| Upload photos | ✓ | ✓ | profile photo² |
 | Edit or publish shared recipes (any author) | ✓ | ✓ | – |
 | View private recipes | own | own | own¹ |
 | Edit private recipes | own | own | – |
@@ -48,6 +48,8 @@ There are three roles: **admin**, **editor** and **viewer**.
 | Rebuild the search index | ✓ | – | – |
 
 ¹ Viewers can't create recipes. This covers the private recipes of an editor who was demoted to viewer: they can still read them, but no longer change them.
+
+² A viewer may upload a photo only to make it their own profile photo: putting one in a recipe takes creating or editing it.
 
 **Enforcement**
 
@@ -105,7 +107,11 @@ There are three roles: **admin**, **editor** and **viewer**.
 **Account basics**
 - email + password login
 - **Passwords:** 15 to 128 characters, with at least one lowercase letter, one uppercase letter, one number and one special character. A special character is anything but a letter or a number, and a space counts. Letters and numbers from any script count. The same rules apply everywhere a password is set: setup, invitations, changing it and resetting it.
-- **The Account page** shows the reader's name and address, whether the address is verified, and lets them change their password. Everyone has one, viewers included.
+- **The Account page** shows the reader's name and address, whether the address is verified, and lets them change their password and their profile photo. Everyone has one, viewers included.
+- **Profile photos:** anyone may upload a photo for their account, viewers included, and remove it. It shows beside their name wherever names show, to people signed in; public links never show it. Without one, their initials show in a circle, colored from their account, out of a fixed set of colors that meet WCAG AA contrast.
+  - Replacing or removing it deletes the one before.
+  - Nobody can change anyone else's, admins included, and changing one isn't recorded in the audit log.
+  - Its file goes through the same checks as a recipe's photos: turned upright, stripped of its metadata and resized.
 - **Email verification** (ADR 0019): an address is verified once myli has proven it reaches its owner. That's when the account came from an invitation that was emailed, or when its owner opened a verification link.
   - Accounts made at first-run setup, or from an invitation link the admin copied, start unverified. So do accounts from before verification existed, since every one was marked verified without proof.
   - Signing in never needs a verified address. Only password reset by email does.
@@ -531,7 +537,7 @@ The schema is defined in Drizzle and is authoritative. This section is a sketch.
 | `recipe_draft` | `recipe_id` (one per recipe), `content` (JSON, as the API took it), `revision` (the one it started from), `author_id` (who saved it last), `updated_at` |
 | `recipe_revision` | `recipe_id`, `number` (from 1, per recipe; the latest is the one published), `snapshot` (JSON, with its format's `schemaVersion`), `author_id`, `message`, `created_at` |
 | `tag`, `recipe_tag` | `tag.type`, `tag.name`, `tag.name_key` (the name without case or extra spaces; unique per type). The allergen tags are seeded by a migration. |
-| `image` | `recipe_id` (null until a recipe is saved with it), `position` (among the recipe's images; null for a step's), `alt_text` (empty for none), `uploader_id`, `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
+| `image` | `recipe_id` (null until a recipe is saved with it), `position` (among the recipe's images; null for a step's), `alt_text` (empty for none), `uploader_id`, `avatar_of` (the user whose profile photo it is, only ever its uploader, and never with `recipe_id`; one per user), `mime`, `width`, `height`, `variants` (JSON, each with its blob key) |
 | `favorite`, `rating`, `comment`, `user_note` | Per user, per recipe |
 | `collection`, `collection_item` | Per user; items are ordered |
 | `user_preference` | `user_id`, `unit_system`. No row means the defaults. The theme isn't here: it's chosen per browser (§6). |
