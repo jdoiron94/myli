@@ -4,7 +4,7 @@
 
 A self-hosted recipe manager for your household, run with Docker Compose.
 
-> **Status: Phase 5 (accounts) under way: the Account page, email verification, and changing and resetting passwords done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, and nightly backups with a restore command all work, and [Running myli](docs/operating.md) covers running it.
+> **Status: every phase of the [roadmap](#roadmap) is done.** Recipes, search, scaling, favorites, collections and their grocery lists, notes, cook mode, revisions, the trash, comments, ratings, public links, importing from a link, exports, keeping photos in S3, nightly backups with a restore command, and accounts with verified addresses, password resets and profile photos all work, and [Running myli](docs/operating.md) covers running it.
 
 ## Features
 
@@ -25,7 +25,7 @@ What myli does:
 - **Grocery lists:** a collection's recipes added up into one list to tick off or print, with quantities scaled, units converted and duplicates merged.
 - **Cook mode:** a large-type view of the whole recipe that keeps your screen awake.
 - **Access control:** invite-only accounts with admin, editor and viewer roles. Recipes can be private, shared with everyone on the instance, or shared through a read-only public link. Admins get an audit log.
-- **Accounts:** an Account page to verify your address and change your password. A forgotten password is reset with an emailed link, or, without email, one whoever runs the server makes.
+- **Accounts:** an Account page to verify your address, change your password and choose a profile photo, which shows beside your name, with your initials until you do. A forgotten password is reset with an emailed link, or, without email, one whoever runs the server makes.
 - **Your data:** recipe export as JSON or schema.org JSON-LD, full-instance export, and nightly backups of the database and the photos on the server's disk, restored with one command. Photos are kept on the server's disk, or in any bucket that speaks S3, such as Garage, which Compose can run.
 
 The full specification is in [`docs/spec.md`](docs/spec.md).
@@ -128,7 +128,7 @@ Each significant decision is recorded as an [Architecture Decision Record](docs/
 | 2. Collaboration | Drafts and revisions, protection against overwritten edits, comments, ratings, collections, notes, public links, trash | Done |
 | 3. Grocery lists | A collection's ingredients added up, with servings per recipe, unit conversion and duplicates merged; check-off and printing | Done |
 | 4. Polish | URL import, exports, S3 storage for photos, backup and restore tooling, an operator guide | Done |
-| 5. Accounts | An Account page, email verification, changing and resetting passwords, profile photos | In progress: the Account page, verification, and changing and resetting passwords done |
+| 5. Accounts | An Account page, email verification, changing and resetting passwords, profile photos | Done |
 
 ## License
 
