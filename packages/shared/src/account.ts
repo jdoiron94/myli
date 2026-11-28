@@ -61,8 +61,8 @@ export const passwordResetSchema = z
 /** The reader's profile photo. */
 export const avatarResultSchema = z
   .object({
-    avatar: avatarSchema
-      .nullable()
+    avatar: z
+      .union([avatarSchema, z.null()])
       .describe('`null` when there is none: people see your initials instead.'),
   })
   .meta({ id: 'AvatarResult' });

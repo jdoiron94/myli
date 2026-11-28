@@ -31,8 +31,9 @@ export const personSchema = z
   .object({
     id: z.string(),
     name: z.string(),
-    avatar: avatarSchema
-      .nullable()
+    // A union rather than `.nullable()`, which would inline the photo instead of naming it.
+    avatar: z
+      .union([avatarSchema, z.null()])
       .describe(
         'Their profile photo, or `null` for their initials. Only signed-in users ever see it.',
       ),

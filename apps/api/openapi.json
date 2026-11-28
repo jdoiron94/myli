@@ -273,23 +273,13 @@
                 "type": "string"
               },
               "avatar": {
-                "type": [
-                  "object",
-                  "null"
-                ],
-                "properties": {
-                  "id": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Avatar"
                   },
-                  "width": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0,
-                    "description": "Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide."
+                  {
+                    "type": "null"
                   }
-                },
-                "required": [
-                  "id",
-                  "width"
                 ],
                 "description": "Their profile photo, or `null` for their initials. Only signed-in users ever see it."
               }
@@ -359,6 +349,23 @@
           "createdAt"
         ]
       },
+      "Avatar": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide."
+          }
+        },
+        "required": [
+          "id",
+          "width"
+        ]
+      },
       "UserAccountList": {
         "type": "object",
         "properties": {
@@ -391,23 +398,13 @@
             "$ref": "#/components/schemas/Role"
           },
           "avatar": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Avatar"
               },
-              "width": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "description": "Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide."
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "id",
-              "width"
             ],
             "description": "Their profile photo, or `null` for their initials. Only signed-in users ever see it."
           },
@@ -1222,23 +1219,13 @@
             "type": "string"
           },
           "avatar": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Avatar"
               },
-              "width": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "description": "Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide."
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "id",
-              "width"
             ],
             "description": "Their profile photo, or `null` for their initials. Only signed-in users ever see it."
           }
@@ -2254,23 +2241,13 @@
                 "type": "string"
               },
               "avatar": {
-                "type": [
-                  "object",
-                  "null"
-                ],
-                "properties": {
-                  "id": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Avatar"
                   },
-                  "width": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0,
-                    "description": "Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide."
+                  {
+                    "type": "null"
                   }
-                },
-                "required": [
-                  "id",
-                  "width"
                 ],
                 "description": "Their profile photo, or `null` for their initials. Only signed-in users ever see it."
               }
@@ -4051,23 +4028,13 @@
         "type": "object",
         "properties": {
           "avatar": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Avatar"
               },
-              "width": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "description": "Its narrowest size, at `/images/{id}/{width}`: at most 640 pixels wide."
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "id",
-              "width"
             ],
             "description": "`null` when there is none: people see your initials instead."
           }
