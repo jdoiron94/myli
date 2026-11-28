@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.20.0](https://github.com/jdoiron94/myli/compare/v0.19.0...v0.20.0) (2026-11-28)
+
+
+### Features
+
+* **api:** give each profile photo with the size to show it at ([c755204](https://github.com/jdoiron94/myli/commit/c7552047d9acbab129d890f3f2242e51b5b92ead))
+* **api:** name everyone with their profile photo ([70dbc14](https://github.com/jdoiron94/myli/commit/70dbc142979810d557828e2e85526133054ddb9c))
+* **api:** profile photos, set by everyone for themselves ([0a381c2](https://github.com/jdoiron94/myli/commit/0a381c297ffde985b908896ba1426b5e06ca7fda))
+* **web:** profile photos beside people's names ([81b7d25](https://github.com/jdoiron94/myli/commit/81b7d25200728818dcc0e0d2eb57d266aec11d4c))
+* **web:** profile photos on the Account page and in the header ([e060235](https://github.com/jdoiron94/myli/commit/e060235933b625892fa67cab6b98e666f465e2af))
+
 ## [0.19.0](https://github.com/jdoiron94/myli/compare/v0.18.0...v0.19.0) (2026-11-27)
 
 
